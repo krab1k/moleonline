@@ -1,0 +1,42 @@
+{
+  "Input": {
+    "SpecificChains": "",
+    "ReadAllModels": false
+  },
+  "Cavity": {
+    "IgnoreHETAtoms": false,
+    "IgnoreHydrogens": false,
+    "InteriorThreshold": 1.25,
+    "ProbeRadius": 9.0
+  },
+  "Tunnel": {
+    "WeightFunction": "VoronoiScale",
+    "BottleneckRadius": 1.25,
+    "BottleneckTolerance": 3.0,
+    "MaxTunnelSimilarity": 0.7,
+    "OriginRadius": 5.0,
+    "SurfaceCoverRadius": 10.0,
+    "UseCustomExitsOnly": false
+  },
+  "NonActiveResidues": null,
+  "QueryFilter": null,
+  "Origin": null,
+  "CustomExits": {
+    "Points": [
+      {
+        "X": 66.336,
+        "Y": 61.734,
+        "Z": 145.804
+      },
+      {
+        "X": 62.975,
+        "Y": 62.083,
+        "Z": 18.608
+      }
+    ],
+    "QueryExpresion": null,
+    "Residues": null
+  },
+  "PoresMerged": false,
+  "PoresAuto": false
+}
