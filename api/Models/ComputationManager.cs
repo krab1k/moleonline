@@ -240,7 +240,7 @@ namespace Mole.API.Models
         {
             computation.ChangeStatus(ComputationStatus.Running);
 
-            var input = Path.Combine(computation.SubmitDirectory(0), "input.json");
+            var input = Path.Combine(computation.SubmitDirectory(0), MoleApiFiles.PoreParams);
 
             var json = computation.DbModePores ?
                 new PoresParameters
@@ -290,7 +290,7 @@ namespace Mole.API.Models
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            RunProcess(computation, info);
+            RunComputation(computation, info);
             //TODO
         }
 
@@ -320,13 +320,13 @@ namespace Mole.API.Models
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            RunProcess(c, info);
+            RunComputation(c, info);
 
         }
 
 
 
-        private void RunProcess(Computation c, ProcessStartInfo info)
+        private void RunComputation(Computation c, ProcessStartInfo info)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -367,6 +367,8 @@ namespace Mole.API.Models
             var cpt = LoadComputation(id);
             if (cpt.ComputationId != null)
             {
+                KillComputation(cpt);
+
                 cpt.ChangeStatus(ComputationStatus.Deleted);
 
                 var report = cpt.GetComputationReport();
@@ -435,7 +437,7 @@ namespace Mole.API.Models
                     return (bytes, $"mole_channels_{computationId}_{submitId}.zip");
                 case "molecule":
                     var molecule = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, computationId)).First(x => Path.GetExtension(x) != ".json");
-                    return (File.ReadAllBytes(molecule), $"mole_channels_{computationId}_{submitId}{Path.GetExtension(molecule)}");
+                    return (File.ReadAllBytes(molecule), Path.GetFileName(molecule));
                 case "pymol":
                     bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pymol", MoleApiFiles.PythonScript));
                     return (bytes, $"mole_channels_{computationId}_{submitId}_pymol.py");
@@ -562,7 +564,7 @@ namespace Mole.API.Models
             if (o == null) return new XElement("Origins", new XAttribute("Auto", "1"));
 
             var element = new XElement($"{key}s");
-            if (!o.IsEmpty())
+            if (o.IsEmpty())
                 return new XElement($"{key}s", new XAttribute("Auto", "1"));
 
             if (!o.Points.IsNullOrEmpty()) element.Add(o.Points.Select(x => new XElement($"{key}s", new XElement("Point", new XAttribute("X", x.X), new XAttribute("Y", x.Y), new XAttribute("Z", x.Z)))));

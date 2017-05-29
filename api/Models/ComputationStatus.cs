@@ -10,7 +10,6 @@ namespace Mole.API.Models
         public const string Running = "Running";
         public const string Finished = "Finished";
         public const string Error = "Error";
-        public const string Failed = "Failed";
         public const string Deleted = "Deleted";
         public const string FailedInitialization = "FailedInitialization";
     }

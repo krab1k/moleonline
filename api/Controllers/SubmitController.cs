@@ -31,7 +31,7 @@ namespace Mole.API.Controllers
         [HttpPost("Mole/{computationId}")]
         public string Post(string computationId, [FromBody] ComputationParameters param)
         {
-            Task.Run(() => LogIp());
+            Task.Run(() => LogIp($"Mole|{computationId}"));
 
             var cpt = manager.LoadComputation(computationId);
             if (cpt == null) return Computation.NotExists(computationId).ToJson();
@@ -64,7 +64,7 @@ namespace Mole.API.Controllers
         [HttpGet("Pores/{computationId}")]
         public string Get(string computationId, bool isBetaStructure, bool inMembraneMode, string chains)
         {
-            Task.Run(() => LogIp());
+            Task.Run(() => LogIp($"Pores|{computationId}"));
 
             var cpt = manager.LoadComputation(computationId);
             if (cpt == null) return Computation.NotExists(computationId).ToJson();
@@ -92,7 +92,7 @@ namespace Mole.API.Controllers
         }
 
 
-        public void LogIp()
+        public void LogIp(string s)
         {
             System.IO.File.AppendAllText("Mole_api_IP_log.csv", $"{DateTime.Now} {Request.HttpContext.Connection.RemoteIpAddress.ToString()}\n");
         }
