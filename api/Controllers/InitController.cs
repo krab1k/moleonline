@@ -14,7 +14,6 @@ namespace Mole.API.Controllers
     {
         private readonly Config config;
         private ComputationManager manager;
-        private string[] supportedExtensions = new string[] { ".pdb", ".cif", ".gz", ".pdbX" };
 
         public InitController(IOptions<Config> optionsAccessor)
         {

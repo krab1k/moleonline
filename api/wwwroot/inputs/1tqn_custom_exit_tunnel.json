@@ -32,11 +32,12 @@
     "Residues": null
   },
   "CustomExits": {
-    "Points":[
-      {"X": -23.0,
-       "Y": -7.4,
-       "Z": 2.5
-       }
+    "Points": [
+      {
+        "X": -23.0,
+        "Y": -7.4,
+        "Z": 2.5
+      }
     ]
   },
   "PoresMerged": false,

@@ -214,7 +214,7 @@ namespace Mole.API.Models
         internal dynamic ComputationInfos(string computationId)
         {
             var cpt = LoadComputation(computationId);
-            if (cpt == null) return new object();
+            if (cpt == null) return Computation.NotExists(computationId);
 
             var directories = Directory.GetDirectories(Path.Combine(Config.WorkingDirectory, computationId));
 
