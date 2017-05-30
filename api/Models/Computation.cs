@@ -38,6 +38,10 @@ namespace Mole.API.Models
         }
     }
 
+
+    /// <summary>
+    /// Report of the current computation status returned to the user
+    /// </summary>
     public class ComputationReport
     {
         public string ComputationId { get; set; }
@@ -72,16 +76,19 @@ namespace Mole.API.Models
         public string PdbId { get; set; }
         public string AssemblyId { get; set; }
         public bool DbModePores { get; set; }
-
-
-
-
         public List<ComputationUnit> ComputationUnits { get; set; }
 
-        public Computation()
-        {
-        }
 
+
+        public Computation() { }
+
+
+        /// <summary>
+        /// Initialize new computation. Status Initializing, submission Id = 1.
+        /// </summary>
+        /// <param name="baseDir">Working directory of the API</param>
+        /// <param name="pdbId">PDB id to be downloaded</param>
+        /// <param name="bioUnit">Optional biological assembly to be downloaded</param>
         public Computation(string baseDir, string pdbId = "", string bioUnit = "")
         {
             ComputationId = Regex.Replace(Convert.ToBase64String(Guid.NewGuid().ToByteArray()), "[/+=]", "");
@@ -96,19 +103,20 @@ namespace Mole.API.Models
         }
 
 
+        
+
+
+
+
         /// <summary>
-        /// Saves current state of the computation to the ComputationStatus file
+        /// Given submit Id a computation report specifying computation status is retrieved. If no id is provided, than the last submission is retrieved
         /// </summary>
-        /// <param name="baseDir"></param>
-        public void SaveStatus() =>
-            File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
-
-
+        /// <param name="i">id of submission</param>
+        /// <returns>Computation report of given submission Id</returns>
         internal ComputationReport GetComputationReport(int i = 0)
         {
-            var a = i;
-            if (i == 0) a = this.ComputationUnits.Count;
-            var unit = ComputationUnits.FirstOrDefault(x => x.SubmitId == a);
+            if (i == 0) i = this.ComputationUnits.Count;
+            var unit = ComputationUnits.FirstOrDefault(x => x.SubmitId == i);
 
             if (unit == null)
             {
@@ -124,20 +132,16 @@ namespace Mole.API.Models
             {
                 return new ComputationReport(this.ComputationId, unit);
             }
-        }
+        }        
+
+
 
 
         /// <summary>
-        /// Returns Path to the ComputationStatus file
+        /// Change status of present computation to a given value as long as it is not deleted.
         /// </summary>
-        /// <param name="baseDir"></param>
-        /// <returns></returns>
-        private string StatusPath() => Path.Combine(BaseDir, ComputationId, MoleApiFiles.ComputationStatus);
-
-
-
-
-
+        /// <param name="status"></param>
+        /// <param name="error"></param>
         public void ChangeStatus(string status, string error = "")
         {
             if (ComputationUnits.Last().Status == ComputationStatus.Deleted) return;
@@ -147,7 +151,12 @@ namespace Mole.API.Models
         }
 
 
-
+        /// <summary>
+        /// Adds a new submission to the existing computation. That includes:
+        ///    - create new submission directory
+        ///    - increment submission id.
+        ///    
+        /// </summary>
         public void AddCalculation()
         {
             if (this.ComputationUnits.Last().Status != ComputationStatus.Initialized)
@@ -167,7 +176,11 @@ namespace Mole.API.Models
 
 
 
-
+        /// <summary>
+        /// Shorthand for creating a non existing computation with given Id.
+        /// </summary>
+        /// <param name="computationId"></param>
+        /// <returns>Empty computation</returns>
         public static ComputationReport NotExists(string computationId)
         {
             return new ComputationReport()
@@ -183,7 +196,7 @@ namespace Mole.API.Models
 
 
         /// <summary>
-        /// Downloads Protein Data Bank file from Coordinate Server
+        /// Downloads Protein Data Bank file from Coordinate Server https://coords.litemol.org
         /// </summary>
         /// <param name="url">Url to fetch the file</param>
         /// <param name="id">PDB if of this file</param>
@@ -249,7 +262,11 @@ namespace Mole.API.Models
 
 
 
-
+        /// <summary>
+        /// Checks if downloaded structure is correct or an error message has been retrieved
+        /// </summary>
+        /// <param name="path">Path with the downloaded protein structure</param>
+        /// <returns>Error message of the query, string.empty otherwise()</returns>
         private string CheckDownloadedStructure(string path)
         {
             var errorLine = File.ReadAllLines(path).FirstOrDefault(x => x.StartsWith("_coordinate_server_error.message"));
@@ -264,8 +281,29 @@ namespace Mole.API.Models
 
 
 
-
+        /// <summary>
+        /// Shorthand for SubmitDirectoryPath
+        /// </summary>
+        /// <param name="submitId"></param>
+        /// <returns>Complete path to the submit directory folder</returns>
         public string SubmitDirectory(int submitId = 0) => Path.Combine(BaseDir, ComputationId, submitId == 0 ? this.ComputationUnits.Last().SubmitId.ToString() : submitId.ToString());
+
+
+
+        /// <summary>
+        /// Returns path to the ComputationStatus file
+        /// </summary>
+        /// <param name="baseDir"></param>
+        /// <returns></returns>
+        private string StatusPath() => Path.Combine(BaseDir, ComputationId, MoleApiFiles.ComputationStatus);
+
+
+        /// <summary>
+        /// Saves current state of the computation to the ComputationStatus file
+        /// </summary>
+        /// <param name="baseDir"></param>
+        public void SaveStatus() =>
+            File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
     }
 
 

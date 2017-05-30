@@ -134,8 +134,9 @@ namespace Mole.API.Models
         /// FOR USER INFORMATION ONLY!!
         /// Loads existing computation
         /// </summary>
-        /// <param name="computationId">Computation id</param>
-        /// <returns>Computation object</returns>
+        /// <param name="computationId">Id of computation</param>
+        /// <param name="submitId">Id of submission</param>
+        /// <returns>Computation report</returns>
         internal ComputationReport GetComputationReport(string computationId, int submitId = 0)
         {
             var cpt = LoadComputation(computationId);

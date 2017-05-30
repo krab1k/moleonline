@@ -23,18 +23,19 @@ namespace Mole.API.Controllers
         }
 
         [HttpGet("{computationId}")]
-        public ActionResult Get(string computationId, int submitId, string format)
+        public ActionResult Get(string computationId, int submitId = 0, string format = "json")
         {
 
             var c = manager.GetComputationReport(computationId);
 
             if (c.ComputationId == null) return StatusCode(404);
             if (submitId < 0 || submitId > c.SubmitId) return StatusCode(404);
-
             if (c.Status == ComputationStatus.Deleted) return StatusCode(404);
+            
 
             try
             {
+                submitId = submitId == 0 ? c.SubmitId : submitId;
                 (byte[], string) data = manager.QueryFile(computationId, submitId, format);
 
                 if (System.IO.Path.GetExtension(data.Item2) == ".json") return File(data.Item1, "application/json", data.Item2);

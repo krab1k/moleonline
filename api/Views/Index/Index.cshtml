@@ -154,7 +154,8 @@
 
                 .publications-list dd p:hover {
                     border-left: 4px solid #08C;
-                }
+                }
+
     </style>
 </head>
 <body>
@@ -172,11 +173,16 @@
                 We present a RESTful web service providing a programatic access to the advanced software tool entitled MOLE 2.5, which has been designed to analyze molecular channels and pores.
                 Benchmark tests against other available software tools showed that MOLE 2.5 is by comparison quicker, more robust and more versatile. As a new feature, MOLE 2.5 provides an automatic mode for transmembrane channel identification.
             </p>
+            <p><span style="font-weight:bold">How to read the documentation:</span> Individual parameters are marked with '&lt;' and '&gt;' symbols 
+            (e.g. <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">&lt;computationId&gt;</span>).
+            In case these parameters are optional, a question mark is introduced  (e.g. <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">?&lt;Pores&gt;</span>). 
+            Parameters are appended to the source URL using <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">'?'</span> symbol and multiple parameters are appended to the URL using <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">&amp;</span> symbol.</p>
+            <p>Questions: TODO contacts</p>
         </div>
 
         <div class="cs-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-init-body", event)'>
-                Initialize <span>/Init/&lt;Pores?&gt;/&lt;pdbId&gt;?&lt;optional parameters&gt;</span><br>
+                Initialize <span>/Init/?&lt;Pores&gt;/&lt;pdbId&gt;?&lt;optional parameters&gt;</span><br>
                 <small>Initialize MOLE computation with a user structure or a PDB Id.</small>
             </h2>
             <div id="moleapi-documentation-init-body" style="display:none; margin: 24px 24px 0 24px">
@@ -507,7 +513,7 @@
             <div id="moleapi-documentation-data-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
                 <a href="/MoleAPI/Data/OaUmDZj0Kk2ZBgJLLxVUA" class="cs-docs-template-link" target="_blank" rel="nofollow">/Data/OaUmDZj0Kk2ZBgJLLxVUA</a><br>
-                <a href="/MoleAPI/Data/OaUmDZj0Kk2ZBgJLLxVUA?submitId=1&?format=pymol" class="cs-docs-template-link" target="_blank" rel="nofollow">/Data/OaUmDZj0Kk2ZBgJLLxVUA?submitId=1&?format=pymol</a><br>
+                <a href="/MoleAPI/Data/OaUmDZj0Kk2ZBgJLLxVUA?submitId=1&format=pymol" class="cs-docs-template-link" target="_blank" rel="nofollow">/Data/OaUmDZj0Kk2ZBgJLLxVUA?submitId=1&format=pymol</a><br>
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
