@@ -30,7 +30,7 @@ namespace Mole.API.Controllers
 
             if (c.ComputationId == null) return StatusCode(404);
             if (submitId < 0 || submitId > c.SubmitId) return StatusCode(404);
-            if (c.Status == ComputationStatus.Deleted) return StatusCode(404);
+            if (c.Status == ComputationStatus.Deleted) return StatusCode(410);
             
 
             try

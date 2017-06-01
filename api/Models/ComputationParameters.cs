@@ -1,25 +1,50 @@
 ﻿using System;
 using System.Collections.Generic;
 using Mole.API.Utils;
+using Newtonsoft.Json;
 
 namespace Mole.API.Models
 {
     #region MOLE
     public class ComputationParameters
     {
+        [JsonProperty]
         public Input Input { get; set; }
+        [JsonProperty]
         public Cavity Cavity { get; set; }
+        [JsonProperty]
         public Tunnel Tunnel { get; set; }
-
+        [JsonProperty]
         public Residue[] NonActiveResidues { get; set; }
+        [JsonProperty]
         public string QueryFilter { get; set; }
-
+        [JsonProperty]
         public Origin Origin { get; set; }
-
+        [JsonProperty]
         public Origin CustomExits { get; set; }
-
+        [JsonProperty]
         public bool PoresMerged { get; set; } = false;
+        [JsonProperty]
         public bool PoresAuto { get; set; } = false;
+
+
+        public ComputationParameters() { }
+
+        [JsonConstructor]
+        public ComputationParameters(Input input, Cavity cavity, Tunnel tunnel, Residue[] nonActiveResidue, string queryFilter, Origin origin, Origin customExits, bool poresMerged, bool poresAuto)
+        {
+            Input = input == null ? new Input() : input;
+            Cavity = cavity == null ? new Cavity() : cavity;
+            Tunnel = tunnel == null ? new Tunnel() : tunnel;
+            NonActiveResidues = nonActiveResidue == null ? new Residue[0] : nonActiveResidue;
+            QueryFilter = queryFilter == null ? string.Empty : queryFilter;
+            Origin = origin == null ? new Origin() : origin;
+            CustomExits = customExits == null ? new Origin() : customExits;
+            PoresMerged = poresMerged;
+            PoresAuto = poresAuto;
+
+
+        }
     }
 
 
@@ -40,6 +65,7 @@ namespace Mole.API.Models
         public double ProbeRadius { get; set; } = 5.0;
 
     }
+
 
 
     public class Tunnel
@@ -102,7 +128,7 @@ namespace Mole.API.Models
             return new
             {
                 InMembrane = InMembrane,
-                IsBetaBarel = IsBetaBarel,                
+                IsBetaBarel = IsBetaBarel,
                 Chains = Chains,
             };
         }

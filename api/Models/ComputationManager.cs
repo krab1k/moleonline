@@ -298,15 +298,22 @@ namespace Mole.API.Models
 
 
         internal ComputationReport PrepareAndRunMole(Computation c, ComputationParameters param)
-        {            
-            c.ChangeStatus(ComputationStatus.Running);
+        {
+            try
+            {
+                c.ChangeStatus(ComputationStatus.Running);
 
-            var xmlPath = BuildXML(c, param);
-            File.WriteAllText(Path.Combine(c.SubmitDirectory(c.ComputationUnits.Count), MoleApiFiles.MoleParams), JsonConvert.SerializeObject(param, Formatting.Indented));
+                var xmlPath = BuildXML(c, param);
+                File.WriteAllText(Path.Combine(c.SubmitDirectory(c.ComputationUnits.Count), MoleApiFiles.MoleParams), JsonConvert.SerializeObject(param, Formatting.Indented));
 
-            Task.Run(() => RunMole(c, param, xmlPath));
+                Task.Run(() => RunMole(c, param, xmlPath));
 
-            return c.GetComputationReport();
+                return c.GetComputationReport();
+            }
+            catch (Exception e) {
+                c.ChangeStatus(ComputationStatus.Error, e.Message);
+                return c.GetComputationReport();
+            }
         }
 
 
