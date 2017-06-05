@@ -49,8 +49,18 @@ namespace Mole.API.Models
         public string Status { get; set; }
         public string ErrorMsg { get; set; }
 
-        public ComputationReport()
-        { }
+        public ComputationReport() { }
+
+
+        public ComputationReport(string computationId, int id, string status, string errorMsg)
+        {
+            ComputationId = computationId;
+            SubmitId = id;
+            Status = status;
+            ErrorMsg = errorMsg;
+        }
+
+
 
         public ComputationReport(string computationId, ComputationUnit unit)
         {
@@ -103,7 +113,7 @@ namespace Mole.API.Models
         }
 
 
-        
+
 
 
 
@@ -119,20 +129,10 @@ namespace Mole.API.Models
             var unit = ComputationUnits.FirstOrDefault(x => x.SubmitId == i);
 
             if (unit == null)
-            {
-                return new ComputationReport()
-                {
-                    ComputationId = ComputationId,
-                    SubmitId = i,
-                    Status = ComputationStatus.Error,
-                    ErrorMsg = $"SubmitId {i} not found."
-                };
-            }
+                return new ComputationReport(ComputationId, i, ComputationStatus.Error, $"SubmitId {i} not found.");
             else
-            {
                 return new ComputationReport(this.ComputationId, unit);
-            }
-        }        
+        }
 
 
 
@@ -181,18 +181,15 @@ namespace Mole.API.Models
         /// </summary>
         /// <param name="computationId"></param>
         /// <returns>Empty computation</returns>
-        public static ComputationReport NotExists(string computationId)
+        public static ComputationReport NotExists(string computationId) =>
+             new ComputationReport(computationId, 0, ComputationStatus.Error, $"ComputationId [{computationId}] does not exists.");
+
+
+        public void DownloadBioStructure()
         {
-            return new ComputationReport()
-            {
-                ComputationId = computationId,
-                SubmitId = 0,
-                Status = ComputationStatus.Error,
-                ErrorMsg = $"ComputationId [{computationId}] does not exists."
-            };
+            AssemblyId = GetBioAssemblyId();
+            DownloadStructure();
         }
-
-
 
 
         /// <summary>
@@ -208,35 +205,22 @@ namespace Mole.API.Models
             using (WebClient cl = new WebClient())
             {
                 try
-                {
-                    cl.DownloadStringCompleted += (s, e) => // parse assembly id to check if it is compatible with DB mode of pore package
-                    {
-                        var id = XDocument.Parse(e.Result).Root.Elements("assembly").First(x => x.Attribute("prefered").Value.Equals("True")).Attribute("id").Value;
-                        if (id == AssemblyId)
-                        {
-                            this.DbModePores = true;
-                        }
-                        SaveStatus();
-                    };
+                {                    
                     cl.DownloadFileCompleted += (s, e) =>
                     {
                         if (e.Error != null)
                         {
-                            ComputationUnits.First().Status = ComputationStatus.FailedInitialization;
-                            ComputationUnits.First().ErrorMsg = $"Error downloading PDB structure [{PdbId}]: {e.Error.Message}";
-                            SaveStatus();
+                            ChangeStatus(ComputationStatus.FailedInitialization, $"[{PdbId}] is unlikelly to exist: {e.Error.Message}");
+                            return;
                         }
+
                         var error = CheckDownloadedStructure(file);
+                        DbModePores = AssemblyId == GetBioAssemblyId();
 
-                        if (String.IsNullOrEmpty(error)) ComputationUnits.First().Status = ComputationStatus.Initialized;
+                        if (String.IsNullOrEmpty(error)) ChangeStatus(ComputationStatus.Initialized);
                         else
-                        {
-                            ComputationUnits.First().Status = ComputationStatus.FailedInitialization;
-                            ComputationUnits.First().ErrorMsg = error;
-                        }
-
-                        ((WebClient)s).DownloadStringAsync(new Uri($"http://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml"));
-                        SaveStatus();
+                            ChangeStatus(ComputationStatus.FailedInitialization, error);
+                        
                     };
 
                     cl.DownloadFileAsync(new Uri(url), file);
@@ -259,52 +243,66 @@ namespace Mole.API.Models
             }
         }
 
-
-
-
-        /// <summary>
-        /// Checks if downloaded structure is correct or an error message has been retrieved
-        /// </summary>
-        /// <param name="path">Path with the downloaded protein structure</param>
-        /// <returns>Error message of the query, string.empty otherwise()</returns>
-        private string CheckDownloadedStructure(string path)
+        public string GetBioAssemblyId()
         {
-            var errorLine = File.ReadAllLines(path).FirstOrDefault(x => x.StartsWith("_coordinate_server_error.message"));
-
-            if (errorLine == null) return string.Empty;
-            else
+            try
             {
-                var temp = errorLine.Substring(36).Trim();
-                return temp.Substring(1, temp.Length - 2);
+                using (WebClient cl = new WebClient())
+                {
+                    var xml = cl.DownloadString(new Uri($"http://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml"));
+                    return XDocument.Parse(xml).Root.Elements("assembly").First(x => x.Attribute("prefered").Value.Equals("True")).Attribute("id").Value;
+                }
             }
+            catch (Exception)
+            { return null; }
         }
 
 
 
-        /// <summary>
-        /// Shorthand for SubmitDirectoryPath
-        /// </summary>
-        /// <param name="submitId"></param>
-        /// <returns>Complete path to the submit directory folder</returns>
-        public string SubmitDirectory(int submitId = 0) => Path.Combine(BaseDir, ComputationId, submitId == 0 ? this.ComputationUnits.Last().SubmitId.ToString() : submitId.ToString());
+            /// <summary>
+            /// Checks if downloaded structure is correct or an error message has been retrieved
+            /// </summary>
+            /// <param name="path">Path with the downloaded protein structure</param>
+            /// <returns>Error message of the query, string.empty otherwise()</returns>
+            private string CheckDownloadedStructure(string path)
+            {
+                var errorLine = File.ReadAllLines(path).FirstOrDefault(x => x.StartsWith("_coordinate_server_error.message"));
+
+                if (errorLine == null) return string.Empty;
+                else
+                {
+                    var temp = errorLine.Substring(36).Trim();
+                    return temp.Substring(1, temp.Length - 2);
+                }
+            }
 
 
 
-        /// <summary>
-        /// Returns path to the ComputationStatus file
-        /// </summary>
-        /// <param name="baseDir"></param>
-        /// <returns></returns>
-        private string StatusPath() => Path.Combine(BaseDir, ComputationId, MoleApiFiles.ComputationStatus);
+            /// <summary>
+            /// Shorthand for SubmitDirectoryPath
+            /// </summary>
+            /// <param name="submitId"></param>
+            /// <returns>Complete path to the submit directory folder</returns>
+            public string SubmitDirectory(int submitId = 0) => Path.Combine(BaseDir, ComputationId, submitId == 0 ? this.ComputationUnits.Last().SubmitId.ToString() : submitId.ToString());
 
 
-        /// <summary>
-        /// Saves current state of the computation to the ComputationStatus file
-        /// </summary>
-        /// <param name="baseDir"></param>
-        public void SaveStatus() =>
-            File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
+
+            /// <summary>
+            /// Returns path to the ComputationStatus file
+            /// </summary>
+            /// <param name="baseDir"></param>
+            /// <returns></returns>
+            private string StatusPath() => Path.Combine(BaseDir, ComputationId, MoleApiFiles.ComputationStatus);
+
+
+            /// <summary>
+            /// Saves current state of the computation to the ComputationStatus file
+            /// </summary>
+            /// <param name="baseDir"></param>
+            public void SaveStatus() =>
+                File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
+
+        }
+
+
     }
-
-
-}

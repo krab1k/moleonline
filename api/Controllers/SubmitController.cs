@@ -43,9 +43,9 @@ namespace Mole.API.Controllers
             }.ToJson();
 
 
-            var canRun = manager.CanRun(cpt);
+            var canRunMsg = manager.CanRun(cpt);
 
-            if (!canRun.Item1)
+            if (!String.IsNullOrEmpty(canRunMsg))
             {
                 return
                     new ComputationReport()
@@ -53,7 +53,7 @@ namespace Mole.API.Controllers
                         ComputationId = computationId,
                         SubmitId = 0,
                         Status = ComputationStatus.Error,
-                        ErrorMsg = canRun.Item2
+                        ErrorMsg = canRunMsg
                     }.ToJson();
             }
 
@@ -76,9 +76,9 @@ namespace Mole.API.Controllers
             var cpt = manager.LoadComputation(computationId);
             if (cpt == null) return Computation.NotExists(computationId).ToJson();
 
-            var canRun = manager.CanRun(cpt);
+            var canRunMsg = manager.CanRun(cpt);
 
-            if (!canRun.Item1)
+            if (!String.IsNullOrEmpty(canRunMsg))
             {
                 return
                     new ComputationReport()
@@ -86,7 +86,7 @@ namespace Mole.API.Controllers
                         ComputationId = computationId,
                         SubmitId = 0,
                         Status = ComputationStatus.Error,
-                        ErrorMsg = canRun.Item2
+                        ErrorMsg = canRunMsg
                     }.ToJson();
             }
 
@@ -102,12 +102,6 @@ namespace Mole.API.Controllers
         public void LogIp(string s)
         {
             System.IO.File.AppendAllText("Mole_api_IP_log.csv", $"{DateTime.Now} {Request.HttpContext.Connection.RemoteIpAddress.ToString()}\n");
-        }
-
-
-        private void CheckValidity()
-        {
-
         }
     }
 }

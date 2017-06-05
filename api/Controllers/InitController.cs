@@ -30,19 +30,28 @@ namespace Mole.API.Controllers
         }
 
 
+        [HttpGet("Pores/{id}")]
+        public string Get(string id)
+        {
+            var result = manager.CreatePoreComputation(id);
+            return result.ToJson();
+        }
+
+
+
         [HttpPost]
         [Consumes("multipart/form-data")]
         public string Post(IFormFile file)
         {
             if (!Regex.Match(file.FileName.ToLower(), "(\\.pdb|\\.cif|\\.gz|\\.pdb[0-9]+)$").Success)
             {
-                return JsonConvert.SerializeObject(new ComputationReport()
+                return new ComputationReport()
                 {
                     ComputationId = null,
                     ErrorMsg = "Unsupported file type. Supported extensions are *.pdb, *.cif, *.pdbX (e.g. *.pdb1) and *.gz",
                     Status = ComputationStatus.Error,
                     SubmitId = 0
-                }, Formatting.Indented);
+                }.ToJson();
             }
             var result = manager.CreateUserComputation(file);
 
@@ -52,12 +61,7 @@ namespace Mole.API.Controllers
 
 
 
-        [HttpGet("Pores/{id}")]
-        public string Get(string id)
-        {
-            var result = manager.CreatePoreComputation(id);
-            return result.ToJson();
-        }
+
 
     }
 }

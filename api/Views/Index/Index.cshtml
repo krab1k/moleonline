@@ -85,28 +85,34 @@
             margin: 0 0 10px 0
         }
 
-        .cs-docs-query-wrap {
+        .mole-api-mail {
+            border-bottom: 0.5px, dashed #08C ;
+            font-weight: 100;
+            color: #08C;
+        }
+
+        .mole-api-docs-query-wrap {
             padding: 24px 0;
             border-bottom: 1px solid #eee
         }
 
-            .cs-docs-query-wrap > h2 {
+            .mole-api-docs-query-wrap > h2 {
                 margin: 0;
                 color: black;
                 cursor: pointer
             }
 
-                .cs-docs-query-wrap > h2 > span {
+                .mole-api-docs-query-wrap > h2 > span {
                     color: #DE4D4E;
                     font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
                     font-size: 90%
                 }
 
-                .cs-docs-query-wrap > h2:hover, .cs-docs-query-wrap > h2:hover > small, .cs-docs-query-wrap > h2:hover > span {
+                .mole-api-docs-query-wrap > h2:hover, .mole-api-docs-query-wrap > h2:hover > small, .mole-api-docs-query-wrap > h2:hover > span {
                     color: #DE4D4E;
                 }
 
-        .cs-docs-param-name, .cs-docs-template-link {
+        .mole-api-docs-param-name, .cs-docs-template-link {
             color: #DE4D4E;
             font-family: Menlo,Monaco,Consolas,"Courier New",monospace
         }
@@ -134,6 +140,7 @@
         tr:nth-child(even) {
             background: #f9f9f9
         }
+
         .publications-list dt {
             margin-bottom: 5px;
             border-bottom: 1px solid #ddd;
@@ -155,7 +162,6 @@
                 .publications-list dd p:hover {
                     border-left: 4px solid #08C;
                 }
-
     </style>
 </head>
 <body>
@@ -173,17 +179,25 @@
                 We present a RESTful web service providing a programatic access to the advanced software tool entitled MOLE 2.5, which has been designed to analyze molecular channels and pores.
                 Benchmark tests against other available software tools showed that MOLE 2.5 is by comparison quicker, more robust and more versatile. As a new feature, MOLE 2.5 provides an automatic mode for transmembrane channel identification.
             </p>
-            <p><span style="font-weight:bold">How to read the documentation:</span> Individual parameters are marked with '&lt;' and '&gt;' symbols 
-            (e.g. <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">&lt;computationId&gt;</span>).
-            In case these parameters are optional, a question mark is introduced  (e.g. <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">?&lt;Pores&gt;</span>). 
-            Parameters are appended to the source URL using <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">'?'</span> symbol and multiple parameters are appended to the URL using <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">&amp;</span> symbol.</p>
-            <p>Questions: TODO contacts</p>
+            <p>
+                <span style="font-weight:bold">How to read the documentation:</span> Individual parameters are marked with '&lt;' and '&gt;' symbols
+                (e.g. <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">&lt;computationId&gt;</span>).
+                In case these parameters are optional, a question mark is introduced  (e.g. <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">?&lt;Pores&gt;</span>).
+                Parameters are appended to the source URL using <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">'?'</span> symbol and multiple parameters are appended to the URL using <span style="font-family: Menlo,Monaco,Consolas,monospace; font-weight:100;">&amp;</span> symbol.
+            </p>
+            <p>
+                <dl>
+                    <dt style="font-weight:bold">Support</dt>
+                    <dd>Technical questions: <span class="mole-api-mail">webchemistryhelp@gmail.com</span></dd>
+                    <dd>General questions: <span class="mole-api-mail">mole@upol.cz</span> or <span class="mole-api-mail">webchemistryhelp@gmail.com</span></dd>
+                </dl>
+            </p>
         </div>
 
-        <div class="cs-docs-query-wrap">
+        <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-init-body", event)'>
                 Initialize <span>/Init/?&lt;Pores&gt;/&lt;pdbId&gt;?&lt;optional parameters&gt;</span><br>
-                <small>Initialize MOLE computation with a user structure or a PDB Id.</small>
+                <small>Initialize a new MOLE computation with a user structure or a PDB Id.</small>
             </h2>
             <div id="moleapi-documentation-init-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
@@ -196,27 +210,27 @@
                         <tr><th style='width: 100px'>Http Request</th><th>Name</th><th>Description</th></tr>
                         <tr>
                             <td style="font-weight: bold">GET</td>
-                            <td class="cs-docs-param-name">Pores</td>
+                            <td class="mole-api-docs-param-name">Pores</td>
                             <td>Initialize computation for transmembrane pore identification (assumed biological unit is downloaded).</td>
                         </tr>
                         <tr>
                             <td style="font-weight: bold">GET</td>
-                            <td class="cs-docs-param-name">assemblyId</td>
-                            <td>Optional assembly ID of a PDB entry in a string format (e.g. 1,2, PAU...).</td>
+                            <td class="mole-api-docs-param-name">assemblyId</td>
+                            <td>Optional assembly Id of a PDB entry in a string format (e.g. 1,2, PAU...).</td>
                         </tr>
                         <tr>
                             <td style="font-weight: bold">POST</td>
-                            <td class="cs-docs-param-name">file</td>
+                            <td class="mole-api-docs-param-name">file</td>
                             <td>User file to be processed by /Init. Presently, <span class="id">PDB (*.pdb, *.pdb1, ...)</span> and <span class="id">mmCIF (*.cif)</span> file formats are supported. Optionally, they can be gzipped (*.gz)</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
-        <div class="cs-docs-query-wrap">
+        <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-submit-body", event)'>
                 Submit <span>/Submit/&lt;Mode&gt;/&lt;computationId&gt;</span><br>
-                <small>Submit the new computation as long as the server is not under heavy load and previous computation has been finished.</small>
+                <small>Submit a new computation as long as the server is not under heavy load and previous computation has been finished.</small>
             </h2>
             <div id="moleapi-documentation-submit-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
@@ -232,28 +246,28 @@
                         <tbody>
                             <tr><th>Http Request</th><th>Mode</th><th>Description</th></tr>
                             <tr>
-                                <td class="cs-docs-param-name">POST</td>
+                                <td class="mole-api-docs-param-name">POST</td>
                                 <td>Mole</td>
                                 <td>Submit a new MOLE computation with a parameters provided in the POST body. List of the allowed parameters is provided below.</td>
                             </tr>
                             <tr>
-                                <td class="cs-docs-param-name">GET</td>
+                                <td class="mole-api-docs-param-name">GET</td>
                                 <td>Pores</td>
                                 <td>Submits a new pore computation</td>
                             </tr>
                             <tr><td style="font-weight:bold">Name <span style="font-size:small; font-weight:100">[Pore mode]</span></td><td style="font-weight:bold">Type</td><td style="font-weight:bold">Description</td></tr>
                             <tr>
-                                <td class="cs-docs-param-name">isBetaStructure</td>
+                                <td class="mole-api-docs-param-name">isBetaStructure</td>
                                 <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
                                 <td>Determine if submitted structure is formed by &beta;-sheets in its transmembrane part.</td>
                             </tr>
                             <tr>
-                                <td class="cs-docs-param-name">inMembrane</td>
+                                <td class="mole-api-docs-param-name">inMembrane</td>
                                 <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
                                 <td>Compute pore only in the transmembrane region.</td>
                             </tr>
                             <tr>
-                                <td class="cs-docs-param-name">chains</td>
+                                <td class="mole-api-docs-param-name">chains</td>
                                 <td><span style="font-weight: 100; font-style:italic ">String[]</span></td>
                                 <td>Optional comma delimited list of chains for pore determination (e.g. 'A,B,C').</td>
                             </tr>
@@ -268,12 +282,12 @@
                             <tbody>
                                 <tr><th>Name</th><th>Type</th><th>Description</th></tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">SpecificChains</td>
+                                    <td class="mole-api-docs-param-name">SpecificChains</td>
                                     <td><span style="font-weight: 100; font-style:italic ">String</span></td>
                                     <td>One or more characters that specify which chains should participate in the computation. If empty or not present, all chains are loaded. Case sensitive!</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">ReadAllModels</td>
+                                    <td class="mole-api-docs-param-name">ReadAllModels</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
                                     <td>Determines whether to read all models from the PDB file. All models are read automatically for PDB assemblies (*.pdb0).</td>
                                 </tr>
@@ -287,32 +301,32 @@
                             <tbody>
                                 <tr><th style='width: 120px'>Name</th><th style="width: 60px">Type</th><th>Description</th></tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">IgnoreHETAtoms</td>
+                                    <td class="mole-api-docs-param-name">IgnoreHETAtoms</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
                                     <td>Allows to exclude the HET atoms from the computation.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">IgnoreHydrogens</td>
+                                    <td class="mole-api-docs-param-name">IgnoreHydrogens</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
                                     <td>Allows to exclude the hydrogen atoms from the computation.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">InteriorThreshold</td>
+                                    <td class="mole-api-docs-param-name">InteriorThreshold</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                     <td>Minimum radius of void inside the protein structure. Approximation of minimal channel radius.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">ProbeRadius</td>
+                                    <td class="mole-api-docs-param-name">ProbeRadius</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                     <td>Regulates level of detail of the molecular surface. Approximation of maximal channel radius.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">NonActiveResidues</td>
+                                    <td class="mole-api-docs-param-name">NonActiveResidues</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Residue[]</span></td>
                                     <td>List of residues to be excluded from the computation.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">QueryFilter</td>
+                                    <td class="mole-api-docs-param-name">QueryFilter</td>
                                     <td><span style="font-weight: 100; font-style:italic ">String</span></td>
                                     <td>
                                         Select atoms/residues to be discarded prior to the channel computation using
@@ -330,37 +344,37 @@
                             <tbody>
                                 <tr><th style='width: 120px'>Name</th><th style="width: 60px">Type</th><th>Description</th></tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">WeightFunction</td>
+                                    <td class="mole-api-docs-param-name">WeightFunction</td>
                                     <td><span style="font-weight: 100; font-style:italic ">String</span></td>
                                     <td>One of <span style="font-style:initial">VoronoiScale</span>, <span style="font-style:italic">LengthAndRadius</span>, <span style="font-style:italic">Length</span>, <span style="font-style:italic">Constant</span>.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">BottleneckRadius</td>
+                                    <td class="mole-api-docs-param-name">BottleneckRadius</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                     <td>Determines weight function used to compute channels. For most of the globular proteins <span style="font-style:italic">VoronoiScale</span> works the best, while pores are typically identified with <span style="font-style:italic">Length</span>.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">BottleneckTolerance</td>
+                                    <td class="mole-api-docs-param-name">BottleneckTolerance</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                     <td>Maximum length of a valid channel for which the radius is less than <span style="font-style:italic">BottleneckRadius</span>.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">MaxTunnelSimilarity</td>
+                                    <td class="mole-api-docs-param-name">MaxTunnelSimilarity</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                     <td>Maximum degree of similarity between two tunnels before the longer channel is discarded...</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">OriginRadius</td>
+                                    <td class="mole-api-docs-param-name">OriginRadius</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                     <td>If the user defined a channel start point, expand the search for channel start points to a sphere of given radius.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">SurfaceCoverRadius</td>
+                                    <td class="mole-api-docs-param-name">SurfaceCoverRadius</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                     <td>Regulates the density of exit points tested at eeach outer boudary. Higher SurfaceCoverRadius produces a lower density of exit points.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">UseCustomExitsOnly</td>
+                                    <td class="mole-api-docs-param-name">UseCustomExitsOnly</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
                                     <td>Only user defined exits are used for the channel computation.</td>
                                 </tr>
@@ -373,17 +387,17 @@
                             <tbody>
                                 <tr><th style='width: 120px'>Name</th><th style="width: 60px">Type</th><th>Description</th></tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">Origins</td>
+                                    <td class="mole-api-docs-param-name">Origins</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Origin[]</span></td>
                                     <td>Origin - Start point of a channel identification. Single origin can be formed of by <span style="font-weight: bold">Point3D, ResidueOrigin</span> or <span style="font-weight:bold"> QueryOrigin</span>.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">CustomExits</td>
+                                    <td class="mole-api-docs-param-name">CustomExits</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Origin[]</span></td>
                                     <td>Custom channel end points. These can be used for automatic identification of channels from Origin, or pairwise detection of pores. The format of input is the same as with Origin <span style="font-weight: bold">Point3D, ResidueOrigin</span> or <span style="font-weight:bold"> QueryOrigin</span>.</td>
                                 </tr>
                                 <tr>
-                                    <td class="cs-docs-param-name">QueryOrigin</td>
+                                    <td class="mole-api-docs-param-name">QueryOrigin</td>
                                     <td><span style="font-weight: 100; font-style:italic ">String</span></td>
                                     <td>
                                         Origin is composed out of individual selections made by
@@ -398,17 +412,17 @@
                                 <tbody>
                                     <tr><th style="width:60px">Property</th><th style="width:60px">Type</th><th>Description</th></tr>
                                     <tr>
-                                        <td class="cs-docs-param-name">X</td>
+                                        <td class="mole-api-docs-param-name">X</td>
                                         <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                         <td>X-coordinate</td>
                                     </tr>
                                     <tr>
-                                        <td class="cs-docs-param-name">Y</td>
+                                        <td class="mole-api-docs-param-name">Y</td>
                                         <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                         <td>Y-coordinate</td>
                                     </tr>
                                     <tr>
-                                        <td class="cs-docs-param-name">Z</td>
+                                        <td class="mole-api-docs-param-name">Z</td>
                                         <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
                                         <td>Z-coordinate</td>
                                     </tr>
@@ -422,12 +436,12 @@
                                 <tbody>
                                     <tr><th style="width:60px">Property</th><th style="width: 60px">Type</th><th>Description</th></tr>
                                     <tr>
-                                        <td class="cs-docs-param-name">SequenceNumber</td>
+                                        <td class="mole-api-docs-param-name">SequenceNumber</td>
                                         <td><span style="font-weight: 100; font-style:italic ">Int</span></td>
                                         <td>Residue identifier.</td>
                                     </tr>
                                     <tr>
-                                        <td class="cs-docs-param-name">Chain</td>
+                                        <td class="mole-api-docs-param-name">Chain</td>
                                         <td><span style="font-weight: 100; font-style:italic ">String</span></td>
                                         <td>Chain identification corresponds to the '_atom_site.auth_asym_id' field.</td>
                                     </tr>
@@ -440,7 +454,7 @@
                 </div>
             </div>
         </div>
-        <div class="cs-docs-query-wrap">
+        <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-status-body", event)'>
                 Check computation status <span>/Status/&lt;computationId&gt;?&lt;submitId&gt;</span><br>
                 <small>Check status of the computation with given computation Id. Just a single running computation is allowed per computation Id.</small>
@@ -454,12 +468,12 @@
                     <tbody>
                         <tr><th>Name</th><th>Type</th><th>Description</th></tr>
                         <tr>
-                            <td class="cs-docs-param-name">computationId</td>
+                            <td class="mole-api-docs-param-name">computationId</td>
                             <td><span style="font-weight: 100; font-style:italic ">String</span></td>
                             <td>Computation Id retrieved from the /Init query.</td>
                         </tr>
                         <tr>
-                            <td class="cs-docs-param-name">submitId</td>
+                            <td class="mole-api-docs-param-name">submitId</td>
                             <td><span style="font-weight: 100; font-style:italic ">String</span></td>
                             <td>Submit Id of the given computation.</td>
                         </tr>
@@ -505,7 +519,7 @@
                 </table>
             </div>
         </div>
-        <div class="cs-docs-query-wrap">
+        <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-data-body", event)'>
                 Download results <span>/Data/&lt;computationId&gt;?&lt;submitId&gt;?&lt;format&gt;</span><br>
                 <small>Download results of the computation in various formats as well as the input structure. If no additional parameters are provided json results of the last computation are retrieved.</small>
@@ -520,19 +534,19 @@
                         <tr><th>Http Request</th><th>Name</th><th>Type</th><th>Description</th></tr>
                         <tr>
                             <td style="font-weight: bold">GET</td>
-                            <td class="cs-docs-param-name">computationId</td>
+                            <td class="mole-api-docs-param-name">computationId</td>
                             <td><span style="font-weight: 100; font-style:italic ">String</span></td>
                             <td>Computation Id retrieved from the /Init query.</td>
                         </tr>
                         <tr>
                             <td style="font-weight: bold">GET</td>
-                            <td class="cs-docs-param-name">submitId</td>
+                            <td class="mole-api-docs-param-name">submitId</td>
                             <td><span style="font-weight: 100; font-style:italic ">String</span></td>
                             <td>Submit Id retrieved from the /Submit query.</td>
                         </tr>
                         <tr>
                             <td style="font-weight: bold">GET</td>
-                            <td class="cs-docs-param-name">format</td>
+                            <td class="mole-api-docs-param-name">format</td>
                             <td><span style="font-weight: 100; font-style:italic ">Enum</span></td>
                             <td>Download results in a numerous formats.</td>
                         </tr>
@@ -544,56 +558,56 @@
                     <tbody>
                         <tr><th>Name</th><th>Description</th></tr>
                         <tr>
-                            <td class="cs-docs-param-name">molecule</td>
+                            <td class="mole-api-docs-param-name">molecule</td>
                             <td>Download input structure used for channel computation.</td>
                         </tr>
 
                         <tr>
-                            <td class="cs-docs-param-name">pymol</td>
+                            <td class="mole-api-docs-param-name">pymol</td>
                             <td>Download channels as a <a href="http://www.pymol.org" target="_blank">PyMol</a> script.</td>
                         </tr>
                         <tr>
-                            <td class="cs-docs-param-name">vmd</td>
+                            <td class="mole-api-docs-param-name">vmd</td>
                             <td>Download channels as a <a href="http://www.ks.uiuc.edu/Research/vmd/">VMD</a> script.</td>
                         </tr>
                         <tr>
-                            <td class="cs-docs-param-name">pdb</td>
+                            <td class="mole-api-docs-param-name">pdb</td>
                             <td>Download channels in the plain old <a href="https://www.wwpdb.org/documentation/file-format-content/format33/v3.3.html">Protein Data Bank</a> format in a <span style="font-style:italic">*.zip</span> archive.</td>
                         </tr>
                         <tr>
-                            <td class="cs-docs-param-name">chimera</td>
+                            <td class="mole-api-docs-param-name">chimera</td>
                             <td>Download channels as a <a href="https://www.cgl.ucsf.edu/chimera/">Chimera</a> script.</td>
                         </tr>
                         <tr>
-                            <td class="cs-docs-param-name">report</td>
+                            <td class="mole-api-docs-param-name">report</td>
                             <td>Download all results in a <span style="font-style:italic">*.zip</span> archive.</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
-        <div class="cs-docs-query-wrap">
+        <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-compinfo-body", event)'>
                 Retrieve parameters <span>/CompInfo/&lt;computationId&gt;</span><br>
                 <small>Retrieves parameters of all submissions.</small>
             </h2>
             <div id="moleapi-documentation-compinfo-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="/MoleAPI/CompInfo/OaUmDZj0Kk2ZBgJLLxVUA" class="cs-docs-template-link" target="_blank" rel="nofollow">/CompInfo/OaUmDZj0Kk2ZBgJLLxVUA</a><br>
+                <a href="/MoleAPI/CompInfo/ERxDI28Ckm9sm6mhYk4Ng" class="cs-docs-template-link" target="_blank" rel="nofollow">/CompInfo/ERxDI28Ckm9sm6mhYk4Ng</a><br>
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
                         <tr><th>Http Request</th><th>Name</th><th>Description</th></tr>
                         <tr>
                             <td style="font-weight: bold">GET</td>
-                            <td class="cs-docs-param-name">computationId</td>
+                            <td class="mole-api-docs-param-name">computationId</td>
                             <td>Retrieve parameters for all submitted jobs.</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
-        <div class="cs-docs-query-wrap">
+        <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-ebi-body", event)'>
                 EBI calls <span>/EBI/&lt;pdbId&gt;?&lt;ignoreHet&gt;</span><br>
                 <small>Endpoint for backward compatibility with EBI environment.</small>
@@ -608,13 +622,13 @@
                         <tr>
                             <td style="font-weight: bold">ignoreHet</td>
                             <td><span style="font-weight: 100; font-style:italic">bool</span></td>
-                            <td>Determine if HET atoms will be neglected in channel computation.</td>
+                            <td>Determine if HET atoms will be neglected in a channel computation.</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
-        <div class="cs-docs-query-wrap">
+        <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-delete-body", event)'>
                 Delete computation <span>/Delete/&lt;computationId&gt;</span><br>
                 <small>Delete entire computation folder from our server.</small>
@@ -628,14 +642,14 @@
                         <tr><th>Http Request</th><th>Name</th><th>Description</th></tr>
                         <tr>
                             <td style="font-weight: bold">GET</td>
-                            <td class="cs-docs-param-name">computationId</td>
+                            <td class="mole-api-docs-param-name">computationId</td>
                             <td>Deletes entire computation folder.</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
-        <div class="cs-docs-query-wrap">
+        <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-kill-body", event)'>
                 Kill submission <span>/Kill/&lt;computationId&gt;</span><br>
                 <small>Kill presently running submission.</small>
@@ -649,7 +663,7 @@
                         <tr><th>Http Request</th><th>Name</th><th>Description</th></tr>
                         <tr>
                             <td style="font-weight: bold">GET</td>
-                            <td class="cs-docs-param-name">computationId</td>
+                            <td class="mole-api-docs-param-name">computationId</td>
                             <td>Kills presently running computation for the given Computation Id.</td>
                         </tr>
                     </tbody>

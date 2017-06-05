@@ -56,41 +56,14 @@ namespace Mole.API.Models
 
 
 
-        internal ComputationReport CreatePoreComputation(string pdbId)
+        internal ComputationReport CreatePoreComputation(string id)
         {
-            using (WebClient cl = new WebClient())
-            {
-                Computation cpt = null;
-                try
-                {
-                    var xml = cl.DownloadString($@"http://www.ebi.ac.uk/pdbe/static/entry/download/{pdbId}-assembly.xml");
-                    var id = XDocument.Parse(xml).Root.Elements("assembly").First(x => x.Attribute("prefered").Value.Equals("True")).Attribute("id").Value;
+            var computation = new Computation(Config.WorkingDirectory, id);
 
-                    cpt = new Computation(Config.WorkingDirectory, pdbId, id);
-                    cpt.DbModePores = true;
-                    cpt.DownloadStructure();
-                }
-                catch (Exception)
-                {
-                    ComputationReport report = null;
+            Task.Run(() => computation.DownloadBioStructure());
 
-                    if (cpt == null)
-                    {
-                        report = new ComputationReport()
-                        {
-                            ComputationId = null,
-                            SubmitId = 0,
-                            Status = ComputationStatus.FailedInitialization,
-                            ErrorMsg = $"Structure [{pdbId}] is unlikely to exist or has been made obsolete."
-                        };
-                    }
-                    else
-                    {
-                        cpt.ChangeStatus(ComputationStatus.FailedInitialization, $"Structure [{pdbId}] is unlikely to exist or has been made obsolete.");
-                    }
-                }
-                return cpt.GetComputationReport();
-            }
+            return computation.GetComputationReport(1);
+
         }
 
 
@@ -150,23 +123,23 @@ namespace Mole.API.Models
 
 
 
-        internal (bool, string) CanRun(Computation c)
+        internal string CanRun(Computation c)
         {
             var cpt = c.GetComputationReport();
 
             if (string.Equals(cpt.Status, ComputationStatus.Running))
-                return (false, "Previous computation is still running. This one has not been started. Please, try again later.");
+                return "Previous computation is still running. This one has not been started. Please, try again later.";
 
 
             if (string.Equals(cpt.Status, ComputationStatus.Deleted) | string.Equals(cpt.Status, ComputationStatus.FailedInitialization))
-                return (false, $"{cpt.Status}... cannot proceed.");
+                return $"{cpt.Status}... cannot proceed.";
 
 
             if (RunningProcesses.Count >= Config.MaxConcurentComputations)
-                return (false, "Server is under heavy load, computation has not started. Please try again later");
+                return "Server is under heavy load, computation has not started. Please try again later";
 
 
-            return (true, string.Empty);
+            return string.Empty;
         }
 
 
@@ -174,7 +147,7 @@ namespace Mole.API.Models
         {
             var computation = new Computation(Config.WorkingDirectory, pdbId);
             computation.DownloadStructure();
-            
+
 
             Task.Run(() => RunEBIRoutine(computation, pars));
 
@@ -310,7 +283,8 @@ namespace Mole.API.Models
 
                 return c.GetComputationReport();
             }
-            catch (Exception e) {
+            catch (Exception e)
+            {
                 c.ChangeStatus(ComputationStatus.Error, e.Message);
                 return c.GetComputationReport();
             }
@@ -341,7 +315,7 @@ namespace Mole.API.Models
             Process p = new Process();
             p.StartInfo = info;
             p.EnableRaisingEvents = true;
-            p.ErrorDataReceived += (s, e) =>    
+            p.ErrorDataReceived += (s, e) =>
             {
                 if (e.Data != null) sb.AppendLine(e.Data);
             };
@@ -407,7 +381,7 @@ namespace Mole.API.Models
                         ComputationId = cpt.ComputationId,
                         SubmitId = cpt.ComputationUnits.Count,
                         Status = ComputationStatus.Finished,
-                        ErrorMsg = "Something went wrong during termination of the process."
+                        ErrorMsg = "Something went wrong during the process termination."
                     };
                 }
                 return cpt.GetComputationReport();

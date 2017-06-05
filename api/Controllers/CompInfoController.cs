@@ -20,7 +20,7 @@ namespace Mole.API.Controllers
 
         [HttpGet("{computationId}")]
         public string Get(string computationId) {
-            return JsonConvert.SerializeObject(manager.ComputationInfos(computationId), Formatting.Indented);
+            return manager.ComputationInfos(computationId).ToJson();
         }
     }
 }

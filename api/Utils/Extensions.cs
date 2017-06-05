@@ -81,6 +81,7 @@ namespace Mole.API.Utils
             return string.Empty;
         }
 
+
         public static void ReadStream(string fileName, Stream stream)
         {
             using (var outputStream = new FileStream(fileName, FileMode.Create))
