@@ -56,6 +56,8 @@ namespace Mole.API
                     name: "Index",
                     template: "{controller=Index}/{action=Index}");
             });
+
+            
         }
     }
 }

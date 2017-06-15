@@ -10,6 +10,9 @@ namespace Mole.API.Controllers
     {
         public IActionResult Index()
         {
+            ViewBag.PoresVersion = "1.4.4";
+            ViewBag.MoleVersion = "2.5.17.4.24";
+
             return View();
         }
     }

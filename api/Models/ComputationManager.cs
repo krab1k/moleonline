@@ -6,15 +6,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Text;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using System.Threading;
 using System;
-using System.ComponentModel;
-using System.Net;
 
 namespace Mole.API.Models
 {
+    /// <summary>
+    /// API logic
+    /// </summary>
     public class ComputationManager
     {
         private Config Config;
@@ -44,7 +44,7 @@ namespace Mole.API.Models
         /// </summary>
         /// <param name="id">PDB id</param>
         /// <param name="bioUnit">optionall biologicall assembly</param>
-        /// <returns>(true, computationalID) - in case the file is downloadable (false, ErrorMessage) - otherwise</returns>
+        /// <returns>Computation report </returns>
         public ComputationReport CreatePDBComputation(string id, string assemblyId)
         {
             var computation = new Computation(Config.WorkingDirectory, id, assemblyId);
@@ -143,6 +143,7 @@ namespace Mole.API.Models
         }
 
 
+
         internal ComputationReport InitAndRunEBI(string pdbId, ComputationParameters pars)
         {
             var computation = new Computation(Config.WorkingDirectory, pdbId);
@@ -153,6 +154,7 @@ namespace Mole.API.Models
 
             return computation.GetComputationReport();
         }
+
 
 
 
@@ -185,14 +187,14 @@ namespace Mole.API.Models
         /// </summary>
         /// <param name="computationId"></param>
         /// <returns></returns>
-        internal dynamic ComputationInfos(string computationId)
+        internal string ComputationInfos(string computationId)
         {
             var cpt = LoadComputation(computationId);
-            if (cpt == null) return Computation.NotExists(computationId);
+            if (cpt == null) return Computation.NotExists(computationId).ToJson();
 
             var directories = Directory.GetDirectories(Path.Combine(Config.WorkingDirectory, computationId));
 
-            return new
+            return JsonConvert.SerializeObject(new
             {
                 ComputationId = computationId,
                 UserStructure = cpt.UserStructure,
@@ -204,7 +206,7 @@ namespace Mole.API.Models
                     MoleConfig = File.Exists(Path.Combine(x, MoleApiFiles.MoleParams)) ? JsonConvert.DeserializeObject(File.ReadAllText(Path.Combine(x, MoleApiFiles.MoleParams))) : new object(),
                     PoresConfig = File.Exists(Path.Combine(x, MoleApiFiles.PoreParams)) ? JsonConvert.DeserializeObject<PoresParameters>(File.ReadAllText(Path.Combine(x, MoleApiFiles.PoreParams))).UserParameters() : new object()
                 })
-            };
+            }, Formatting.Indented);
         }
 
 
@@ -265,7 +267,6 @@ namespace Mole.API.Models
                 CreateNoWindow = true,
             };
             RunComputation(computation, info);
-            //TODO
         }
 
 
@@ -279,7 +280,7 @@ namespace Mole.API.Models
                 var xmlPath = BuildXML(c, param);
                 File.WriteAllText(Path.Combine(c.SubmitDirectory(c.ComputationUnits.Count), MoleApiFiles.MoleParams), JsonConvert.SerializeObject(param, Formatting.Indented));
 
-                Task.Run(() => RunMole(c, param, xmlPath));
+                Task.Run(() => RunMole(c, xmlPath));
 
                 return c.GetComputationReport();
             }
@@ -292,7 +293,7 @@ namespace Mole.API.Models
 
 
 
-        private void RunMole(Computation c, ComputationParameters param, string xmlPath)
+        private void RunMole(Computation c, string xmlPath)
         {
             ProcessStartInfo info = new ProcessStartInfo()
             {
@@ -335,7 +336,6 @@ namespace Mole.API.Models
                 Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
                 c.ChangeStatus(ComputationStatus.Finished);
             };
-
 
             p.Start();
             RunningProcesses.Add(c.ComputationId, p.Id);
@@ -447,8 +447,8 @@ namespace Mole.API.Models
         /// <summary>
         /// Builds input XML for complex MOLE computation
         /// </summary>
-        /// <param name="c">Parrent where the computation will be executed</param>
-        /// <param name="param">Parameters provided by the user.</param>
+        /// <param name="c">Parrent computation </param>
+        /// <param name="param">Parameters provided by the user for the specified job</param>
         /// <returns></returns>
         private string BuildXML(Computation c, ComputationParameters param)
         {

@@ -20,7 +20,7 @@ namespace Mole.API.Controllers
 
         [HttpGet("{computationId}")]
         public string Get(string computationId) {
-            return manager.ComputationInfos(computationId).ToJson();
+            return manager.ComputationInfos(computationId);
         }
     }
 }

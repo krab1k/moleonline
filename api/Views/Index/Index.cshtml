@@ -201,9 +201,9 @@
             </h2>
             <div id="moleapi-documentation-init-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="/MoleAPI/Init/1tqn" class="cs-docs-template-link" target="_blank" rel="nofollow">/Init/1tqn</a><br>
-                <a href="/MoleAPI/Init/2bfu?assemblyId=PAU" class="cs-docs-template-link" target="_blank" rel="nofollow">/Init/2bfu?assemblyId=PAU</a><br>
-                <a href="/MoleAPI/Init/Pores/1k4c" class="cs-docs-template-link" target="_blank" rel="nofollow">/Init/Pores/1k4c</a><br />
+                <a href="@Url.Action("1tqn", "Init")" class="cs-docs-template-link" target="_blank" rel="nofollow">/Init/1tqn</a><br>
+                <a href="@Url.Action("2bfu", "Init", new { assemblyId = "PAU"})" class="cs-docs-template-link" target="_blank" rel="nofollow">/Init/2bfu?assemblyId=PAU</a><br>
+                <a href="@Url.RouteUrl("Init/Pores", new {id = "1k4c" })" class="cs-docs-template-link" target="_blank" rel="nofollow">/Init/Pores/1k4c</a><br />
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
@@ -234,12 +234,12 @@
             </h2>
             <div id="moleapi-documentation-submit-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="/MoleAPI/Submit/OaUmDZj0Kk2ZBgJLLxVUA" class="cs-docs-template-link" target="_blank" rel="nofollow">[GET] /Submit/Pores/OaUmDZj0Kk2ZBgJLLxVUA?isBetaStructure=false&inMembrane=true</a><br>
-                <a href="/MoleAPI/Submit/4gXtPeHExECAqd9bnOb5Lw" class="cs-docs-template-link" target="_blank" rel="nofollow">[POST] /Submit/Mole/4gXtPeHExECAqd9bnOb5Lw | json in request body</a><br>
-                <a href="/MoleAPI/inputs/1tqn_residue_channels.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1tqn | Residue tunnels</a><br>
-                <a href="/MoleAPI/inputs/1tqn_point_channels.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1tqn | Point tunnels</a><br>
-                <a href="/MoleAPI/inputs/1tqn_custom_exit_tunnel.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1tqn | Custom tunnel</a><br>
-                <a href="/MoleAPI/inputs/2bg9_user_pore.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 2bg9 | User pores </a><br>
+                <a href="@Url.RouteUrl("Submit/Pores", new { computationId = "OaUmDZj0Kk2ZBgJLLxVUA", isBetaStructure = false, inMembrane = true })" class="cs-docs-template-link" target="_blank" rel="nofollow">[GET] /Submit/Pores/OaUmDZj0Kk2ZBgJLLxVUA?isBetaStructure=false&inMembrane=true</a><br>
+                <a href="@Url.RouteUrl("Submit/Mole", new { computationId = "4gXtPeHExECAqd9bnOb5Lw"})" class="cs-docs-template-link" target="_blank" rel="nofollow">[POST] /Submit/Mole/4gXtPeHExECAqd9bnOb5Lw | json in a HTTP request body</a><br>
+                <a href="/inputs/1tqn_residue_channels.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1tqn | Residue tunnels</a><br>
+                <a href="/inputs/1tqn_point_channels.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1tqn | Point tunnels</a><br>
+                <a href="/inputs/1tqn_custom_exit_tunnel.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1tqn | Custom tunnel</a><br>
+                <a href="/inputs/2bg9_user_pore.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 2bg9 | User pores </a><br>
                 <h4 onclick='javascript:toggle("moleapi-documentation-submit-mode-table", event)'>URL Parameters</h4>
                 <div id="moleapi-documentation-submit-mode-table">
                     <table cellpadding="0" cellspacing="0" style='width: 100%'>
@@ -269,7 +269,7 @@
                             <tr>
                                 <td class="mole-api-docs-param-name">chains</td>
                                 <td><span style="font-weight: 100; font-style:italic ">String[]</span></td>
-                                <td>Optional comma delimited list of chains for pore determination (e.g. 'A,B,C').</td>
+                                <td>Optional comma delimited list of chains for pore determination (e.g. 'A,B,C'). Usefull for structures containing multiple pores (e.g. aquaporine - 1ymg).</td>
                             </tr>
                         </tbody>
                     </table>
@@ -346,7 +346,7 @@
                                 <tr>
                                     <td class="mole-api-docs-param-name">WeightFunction</td>
                                     <td><span style="font-weight: 100; font-style:italic ">String</span></td>
-                                    <td>One of <span style="font-style:initial">VoronoiScale</span>, <span style="font-style:italic">LengthAndRadius</span>, <span style="font-style:italic">Length</span>, <span style="font-style:italic">Constant</span>.</td>
+                                    <td>One of <span style="font-style:italic">VoronoiScale</span>, <span style="font-style:italic">LengthAndRadius</span>, <span style="font-style:italic">Length</span>, <span style="font-style:italic">Constant</span>.</td>
                                 </tr>
                                 <tr>
                                     <td class="mole-api-docs-param-name">BottleneckRadius</td>
@@ -361,7 +361,7 @@
                                 <tr>
                                     <td class="mole-api-docs-param-name">MaxTunnelSimilarity</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double</span></td>
-                                    <td>Maximum degree of similarity between two tunnels before the longer channel is discarded...</td>
+                                    <td>Maximum degree of similarity between two tunnels before the longer channel is discarded.</td>
                                 </tr>
                                 <tr>
                                     <td class="mole-api-docs-param-name">OriginRadius</td>
@@ -438,12 +438,12 @@
                                     <tr>
                                         <td class="mole-api-docs-param-name">SequenceNumber</td>
                                         <td><span style="font-weight: 100; font-style:italic ">Int</span></td>
-                                        <td>Residue identifier.</td>
+                                        <td>Residue identifier, corresponds to the <span style="font-weight:100">'_atom_site.auth_seq_id'</span> field.</td>
                                     </tr>
                                     <tr>
                                         <td class="mole-api-docs-param-name">Chain</td>
                                         <td><span style="font-weight: 100; font-style:italic ">String</span></td>
-                                        <td>Chain identification corresponds to the '_atom_site.auth_asym_id' field.</td>
+                                        <td>Chain identifier, corresponds to the <span style="font-weight:100">'_atom_site.auth_asym_id'</span> field.</td>
                                     </tr>
 
                                 </tbody>
@@ -461,8 +461,8 @@
             </h2>
             <div id="moleapi-documentation-status-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="/MoleAPI/Status/jZrfNQsEEyVmBnHivNq8A" class="cs-docs-template-link" target="_blank" rel="nofollow">/Status/jZrfNQsEEyVmBnHivNq8A</a><br>
-                <a href="/MoleAPI/Status/jZrfNQsEEyVmBnHivNq8A?submitId=5" class="cs-docs-template-link" target="_blank" rel="nofollow">/Status/jZrfNQsEEyVmBnHivNq8A?submitId=5</a><br>
+                <a href="@Url.Action("jZrfNQsEEyVmBnHivNq8A", "Status")" class="cs-docs-template-link" target="_blank" rel="nofollow">/Status/jZrfNQsEEyVmBnHivNq8A</a><br>
+                <a href="@Url.Action("jZrfNQsEEyVmBnHivNq8A", "Status", new { submitId = 5 })" class="cs-docs-template-link" target="_blank" rel="nofollow">/Status/jZrfNQsEEyVmBnHivNq8A?submitId=5</a><br>
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
@@ -526,8 +526,8 @@
             </h2>
             <div id="moleapi-documentation-data-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="/MoleAPI/Data/OaUmDZj0Kk2ZBgJLLxVUA" class="cs-docs-template-link" target="_blank" rel="nofollow">/Data/OaUmDZj0Kk2ZBgJLLxVUA</a><br>
-                <a href="/MoleAPI/Data/OaUmDZj0Kk2ZBgJLLxVUA?submitId=1&format=pymol" class="cs-docs-template-link" target="_blank" rel="nofollow">/Data/OaUmDZj0Kk2ZBgJLLxVUA?submitId=1&format=pymol</a><br>
+                <a href="@Url.Action("OaUmDZj0Kk2ZBgJLLxVUA", "Data")" class="cs-docs-template-link" target="_blank" rel="nofollow">/Data/OaUmDZj0Kk2ZBgJLLxVUA</a><br>
+                <a href="@Url.Action("OaUmDZj0Kk2ZBgJLLxVUA", "Data", new { submitId = 1, format = "pymol" })" class="cs-docs-template-link" target="_blank" rel="nofollow">/Data/OaUmDZj0Kk2ZBgJLLxVUA?submitId=1&format=pymol</a><br>
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
@@ -568,15 +568,15 @@
                         </tr>
                         <tr>
                             <td class="mole-api-docs-param-name">vmd</td>
-                            <td>Download channels as a <a href="http://www.ks.uiuc.edu/Research/vmd/">VMD</a> script.</td>
+                            <td>Download channels as a <a href="http://www.ks.uiuc.edu/Research/vmd/" target="_blank">VMD</a> script.</td>
                         </tr>
                         <tr>
                             <td class="mole-api-docs-param-name">pdb</td>
-                            <td>Download channels in the plain old <a href="https://www.wwpdb.org/documentation/file-format-content/format33/v3.3.html">Protein Data Bank</a> format in a <span style="font-style:italic">*.zip</span> archive.</td>
+                            <td>Download channels in the plain old <a href="https://www.wwpdb.org/documentation/file-format-content/format33/v3.3.html" target="_blank">Protein Data Bank</a> format in a <span style="font-style:italic">*.zip</span> archive.</td>
                         </tr>
                         <tr>
                             <td class="mole-api-docs-param-name">chimera</td>
-                            <td>Download channels as a <a href="https://www.cgl.ucsf.edu/chimera/">Chimera</a> script.</td>
+                            <td>Download channels as a <a href="https://www.cgl.ucsf.edu/chimera/" target="_blank">Chimera</a> script.</td>
                         </tr>
                         <tr>
                             <td class="mole-api-docs-param-name">report</td>
@@ -593,7 +593,7 @@
             </h2>
             <div id="moleapi-documentation-compinfo-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="/MoleAPI/CompInfo/ERxDI28Ckm9sm6mhYk4Ng" class="cs-docs-template-link" target="_blank" rel="nofollow">/CompInfo/ERxDI28Ckm9sm6mhYk4Ng</a><br>
+                <a href="@Url.Action("ERxDI28Ckm9sm6mhYk4Ng", "CompInfo")" class="cs-docs-template-link" target="_blank" rel="nofollow">/CompInfo/ERxDI28Ckm9sm6mhYk4Ng</a><br>
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
@@ -614,7 +614,7 @@
             </h2>
             <div id="moleapi-documentation-ebi-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="/MoleAPI/EBI/1tqn?ignoreHet=true" class="cs-docs-template-link" target="_blank" rel="nofollow">/EBI/1tqn?ignoreHet=true</a><br>
+                <a href="@Url.Action("1tqn", "EBI", new { ignoreHet = true})" class="cs-docs-template-link" target="_blank" rel="nofollow">/EBI/1tqn?ignoreHet=true</a><br>
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
@@ -635,7 +635,7 @@
             </h2>
             <div id="moleapi-documentation-delete-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="/MoleAPI/Delete/jZrfNQsEEyVmBnHivNq8A" class="cs-docs-template-link" target="_blank" rel="nofollow">/Delete/jZrfNQsEEyVmBnHivNq8A</a><br>
+                <a href="@Url.Action("jZrfNQsEEyVmBnHivNq8A", "Delete")" class="cs-docs-template-link" target="_blank" rel="nofollow">/Delete/jZrfNQsEEyVmBnHivNq8A</a><br>
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
@@ -656,7 +656,7 @@
             </h2>
             <div id="moleapi-documentation-kill-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="/MoleAPI/Kill/OaUmDZj0Kk2ZBgJLLxVUA" class="cs-docs-template-link" target="_blank" rel="nofollow">/Kill/OaUmDZj0Kk2ZBgJLLxVUA</a><br>
+                <a href="@Url.Action("OaUmDZj0Kk2ZBgJLLxVUA", "Kill")" class="cs-docs-template-link" target="_blank" rel="nofollow">/Kill/OaUmDZj0Kk2ZBgJLLxVUA</a><br>
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
@@ -671,7 +671,10 @@
             </div>
         </div>
 
-        <div style="color: #999;font-size:smaller;margin: 20px 0; text-align: right">&copy; 2013 &ndash; now, CEITEC &amp; FCH UPOL | MOLE binary 2.5.17.4.24 | Pores mode 1.4.4</div>
+        <p style="color: #999;font-size:smaller;margin: 20px 0; text-align: left">
+            Software &ndash; MOLE binary @ViewBag.MoleVersion | Pores mode @ViewBag.PoresVersion
+            <span style="float: right">&copy; 2013 &ndash; now, CEITEC &amp; FCH UPOL</span>
+        </p>
     </div>
 </body>
 </html>

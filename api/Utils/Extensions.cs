@@ -11,14 +11,22 @@ namespace Mole.API.Utils
 {
     public static class Extensions
     {
+        /// <summary>
+        /// Determines if collection is null or empty
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="enumerable"></param>
+        /// <returns></returns>
         public static bool IsNullOrEmpty<T>(this IEnumerable<T> enumerable)
         {
             return enumerable == null || !enumerable.Any();
         }
 
-
-
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
         public static byte[] ZipDirectory(string path) {
             var temp = "temp.zip";
 
@@ -29,6 +37,11 @@ namespace Mole.API.Utils
             return bytes;
         }
 
+
+        /// <summary>
+        /// Compress entire direct to the 
+        /// </summary>
+        /// <param name="path"></param>
         public static void ZipDirectories(string path) {
             using (FileStream zipToOpen = new FileStream(Path.Combine(path, MoleApiFiles.Report), FileMode.Create))
             {
