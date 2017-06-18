@@ -462,7 +462,7 @@ namespace Mole.API.Models
                 new XAttribute("ReadAllModels", param.Input.ReadAllModels ? "1" : "0"), structure);
             var WD = new XElement("WorkingDirectory", Path.Combine(Path.GetDirectoryName(structure), c.GetComputationReport().SubmitId.ToString()));
 
-            var nonActive = new XElement("NonActiveResidues");
+            var nonActive = new XElement("NonActiveParts");
 
             if (!param.NonActiveResidues.IsNullOrEmpty())
             {
