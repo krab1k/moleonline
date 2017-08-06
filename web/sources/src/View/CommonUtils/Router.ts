@@ -1,4 +1,4 @@
-namespace CommonUtils.UrlParameters{
+namespace CommonUtils.Router{
     export function getParameters():{submitId:number, computationId:string}|null{
         let parameters = SimpleRouter.GlobalRouter.getParametersByRegex(/\/online\/([a-zA-Z0-9]+)\/*([0-9]*)/g);
         let computationId = null;
@@ -17,5 +17,9 @@ namespace CommonUtils.UrlParameters{
             submitId,
             computationId
         };
+    }
+
+    export function redirect(computationId:string, submitId:number){
+        SimpleRouter.GlobalRouter.redirect(`/${computationId}/${submitId}`,true);
     }
 }
