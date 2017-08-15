@@ -50,6 +50,7 @@ namespace LayerResidues.UI{
         layerIdx = -1;
 
         componentDidMount() {
+            /*
             var interactionHandler = function showInteraction(type: string, i: ChannelEventInfo | undefined, app: App) {
                 if (!i || i.source == null || i.source.props.tag === void 0 || i.source.props.tag.type === void 0) {
                     return;    
@@ -68,7 +69,11 @@ namespace LayerResidues.UI{
 
             this.interactionEventStream = LiteMoleEvent.Visual.VisualSelectElement.getStream(this.props.controller.context)
                 .subscribe(e => interactionHandler('select', e.data as ChannelEventInfo, this));
-
+            */
+            CommonUtils.Selection.SelectionHelper.attachOnChannelDeselectHandler(()=>{
+                this.setState({layerIdx:-1,data:null});
+            });
+            
             $( window ).on('layerTriggered', this.layerTriggerHandler.bind(this));
         }
         /*
@@ -90,8 +95,15 @@ namespace LayerResidues.UI{
 
             this.layerIdx = layerIdx;
 
-            this.setState({layerIdx});
-            
+            let data = CommonUtils.Selection.SelectionHelper.getSelectedChannelData();
+
+            if(data!==null){
+                this.setState({layerIdx, data: data.LayersInfo});
+            }
+            else{
+                this.setState({layerIdx});
+            }
+
             setTimeout(function(){
                 $( window ).trigger('contentResize');
             },1);
