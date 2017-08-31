@@ -18,6 +18,7 @@ namespace Mole.API.Models
     public class ComputationManager
     {
         private Config Config;
+        private CSA csa;
         private object locker = new object();
         private ObservableDictionary<string, int> RunningProcesses;
 
@@ -26,6 +27,7 @@ namespace Mole.API.Models
             var f = Path.Combine(c.WorkingDirectory, MoleApiFiles.RunningProcesses);
 
             this.Config = c;
+            csa = new CSA(c.CSA);
             if (File.Exists(f)) RunningProcesses = JsonConvert.DeserializeObject<ObservableDictionary<string, int>>(File.ReadAllText(f));
             else RunningProcesses = new ObservableDictionary<string, int>();
 
@@ -33,6 +35,13 @@ namespace Mole.API.Models
             {
                 File.WriteAllText(f, JsonConvert.SerializeObject(RunningProcesses, Formatting.Indented));
             };
+        }
+
+        internal CSAResidue[][] GetActiveSite(string pdbId)
+        {
+            if (csa.Database.ContainsKey(pdbId)) return csa.Database[pdbId].Select(x => x.Residues.ToArray()).ToArray();
+
+            return new CSAResidue[0][];
         }
 
 
@@ -313,9 +322,11 @@ namespace Mole.API.Models
         {
             StringBuilder sb = new StringBuilder();
 
-            Process p = new Process();
-            p.StartInfo = info;
-            p.EnableRaisingEvents = true;
+            Process p = new Process()
+            {
+                StartInfo = info,
+                EnableRaisingEvents = true
+            };
             p.ErrorDataReceived += (s, e) =>
             {
                 if (e.Data != null) sb.AppendLine(e.Data);
@@ -487,7 +498,7 @@ namespace Mole.API.Models
                     new XAttribute("OriginRadius", param.Tunnel.OriginRadius),
                     new XAttribute("SurfaceCoverRadius", param.Tunnel.SurfaceCoverRadius),
                     new XAttribute("WeightFunction", param.Tunnel.WeightFunction),
-                    new XAttribute("UseCustomExitsOnly", param.Tunnel.UseCustomExitsOnly ? "1" : "0")));
+                    new XAttribute("UseCustomExitsOnly", param.CustomExits.IsEmpty() ? "0" : "1")));
 
             var export = new XElement("Export",
                 new XElement("Formats",
@@ -549,7 +560,7 @@ namespace Mole.API.Models
             if (o.IsEmpty())
                 return new XElement($"{key}s", new XAttribute("Auto", "1"));
 
-            if (!o.Points.IsNullOrEmpty()) element.Add(o.Points.Select(x => new XElement($"{key}s", new XElement("Point", new XAttribute("X", x.X), new XAttribute("Y", x.Y), new XAttribute("Z", x.Z)))));
+            if (!o.Points.IsNullOrEmpty()) element.Add(o.Points.Select(x => new XElement($"{key}", new XElement("Point", new XAttribute("X", x.X), new XAttribute("Y", x.Y), new XAttribute("Z", x.Z)))));
 
             if (!o.Residues.IsNullOrEmpty())
             {
@@ -559,7 +570,7 @@ namespace Mole.API.Models
                 }
             }
 
-            if (!o.QueryExpresion.IsNullOrEmpty()) element.Add(new XElement($"{key}", new XElement("Query", o.QueryExpresion)));
+            if (!o.QueryExpression.IsNullOrEmpty()) element.Add(new XElement($"{key}", new XElement("Query", o.QueryExpression)));
 
             return element;
         }

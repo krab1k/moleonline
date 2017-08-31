@@ -25,8 +25,7 @@ namespace Mole.API.Utils
             }
             set
             {
-                TValue oldValue;
-                bool exist = base.TryGetValue(key, out oldValue);
+                bool exist = base.TryGetValue(key, out TValue oldValue);
                 var oldItem = new KeyValuePair<TKey, TValue>(key, oldValue);
                 base[key] = value;
                 var newItem = new KeyValuePair<TKey, TValue>(key, value);
@@ -55,8 +54,7 @@ namespace Mole.API.Utils
 
         public new bool Remove(TKey key)
         {
-            TValue value;
-            if (base.TryGetValue(key, out value))
+            if (base.TryGetValue(key, out TValue value))
             {
                 var item = new KeyValuePair<TKey, TValue>(key, base[key]);
                 bool result = base.Remove(key);
@@ -78,7 +76,7 @@ namespace Mole.API.Utils
         {
             if (this.CollectionChanged != null)
             {
-                this.CollectionChanged(this, e);
+                CollectionChanged(this, e);
             }
         }
 
@@ -86,7 +84,7 @@ namespace Mole.API.Utils
         {
             if (this.PropertyChanged != null)
             {
-                this.PropertyChanged(this, e);
+                PropertyChanged(this, e);
             }
         }
     }

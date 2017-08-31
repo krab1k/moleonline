@@ -33,13 +33,13 @@ namespace Mole.API.Models
         [JsonConstructor]
         public ComputationParameters(Input input, Cavity cavity, Tunnel tunnel, Residue[] nonActiveResidue, string queryFilter, Origin origin, Origin customExits, bool poresMerged, bool poresAuto)
         {
-            Input = input == null ? new Input() : input;
-            Cavity = cavity == null ? new Cavity() : cavity;
-            Tunnel = tunnel == null ? new Tunnel() : tunnel;
-            NonActiveResidues = nonActiveResidue == null ? new Residue[0] : nonActiveResidue;
-            QueryFilter = queryFilter == null ? string.Empty : queryFilter;
-            Origin = origin == null ? new Origin() : origin;
-            CustomExits = customExits == null ? new Origin() : customExits;
+            Input = input ?? new Input();
+            Cavity = cavity ?? new Cavity();
+            Tunnel = tunnel ?? new Tunnel();
+            NonActiveResidues = nonActiveResidue ?? (new Residue[0]);
+            QueryFilter = queryFilter ?? string.Empty;
+            Origin = origin ?? new Origin();
+            CustomExits = customExits ?? new Origin();
             PoresMerged = poresMerged;
             PoresAuto = poresAuto;
 
@@ -76,7 +76,6 @@ namespace Mole.API.Models
         public double MaxTunnelSimilarity { get; set; } = 0.7;
         public double OriginRadius { get; set; } = 5.0;
         public double SurfaceCoverRadius { get; set; } = 10.0;
-        public bool UseCustomExitsOnly { get; set; } = false;
 
     }
 
@@ -86,12 +85,12 @@ namespace Mole.API.Models
     public class Origin
     {
         public Point3D[] Points { get; set; }
-        public string QueryExpresion { get; set; }
+        public string QueryExpression { get; set; }
         public List<Residue[]> Residues { get; set; }
 
         public bool IsEmpty()
         {
-            return Points.IsNullOrEmpty() && String.IsNullOrEmpty(QueryExpresion) && Residues.IsNullOrEmpty();
+            return Points.IsNullOrEmpty() && String.IsNullOrEmpty(QueryExpression) && Residues.IsNullOrEmpty();
         }
     }
 
