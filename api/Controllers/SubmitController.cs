@@ -101,7 +101,7 @@ namespace Mole.API.Controllers
 
         private void LogIp(string s)
         {
-            System.IO.File.AppendAllText("Mole_api_IP_log.csv", $"{DateTime.Now} {Request.HttpContext.Connection.RemoteIpAddress.ToString()}\n");
+            System.IO.File.AppendAllText("Mole_api_IP_log.csv", $"{DateTime.Now} Submit - {Request.HttpContext.Connection.RemoteIpAddress.ToString()}\n");
         }
     }
 }

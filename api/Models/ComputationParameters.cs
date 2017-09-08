@@ -11,7 +11,7 @@ namespace Mole.API.Models
         [JsonProperty]
         public Input Input { get; set; }
         [JsonProperty]
-        public Cavity Cavity { get; set; }
+        public Cavity Cavity { get; set; } = new Cavity();
         [JsonProperty]
         public Tunnel Tunnel { get; set; }
         [JsonProperty]

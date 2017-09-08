@@ -1,8 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Mole.API.Models;
@@ -35,7 +31,6 @@ namespace Mole.API.Controllers
 
             try
             {
-                submitId = submitId == 0 ? c.SubmitId : submitId;
                 (byte[], string) data = manager.QueryFile(computationId, submitId, format);
 
                 if (System.IO.Path.GetExtension(data.Item2) == ".json") return File(data.Item1, "application/json", data.Item2);

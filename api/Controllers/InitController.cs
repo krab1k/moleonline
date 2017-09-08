@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using Microsoft.AspNetCore.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System;
 
 namespace Mole.API.Controllers
 {
@@ -15,10 +16,9 @@ namespace Mole.API.Controllers
         private readonly Config config;
         private ComputationManager manager;
 
-        public InitController(IOptions<Config> optionsAccessor)
+        public InitController(IOptions<ComputationManager> optionsAccessor)
         {
-            config = optionsAccessor.Value;
-            manager = new ComputationManager(config);
+            manager = optionsAccessor.Value;
         }
 
 

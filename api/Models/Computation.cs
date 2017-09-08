@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -205,7 +206,7 @@ namespace Mole.API.Models
             using (WebClient cl = new WebClient())
             {
                 try
-                {                    
+                {
                     cl.DownloadFileCompleted += (s, e) =>
                     {
                         if (e.Error != null)
@@ -217,22 +218,10 @@ namespace Mole.API.Models
                         var error = CheckDownloadedStructure(file);
                         DbModePores = AssemblyId == GetBioAssemblyId();
 
-                        if (String.IsNullOrEmpty(error)) ChangeStatus(ComputationStatus.Initialized);
-                        else
-                            ChangeStatus(ComputationStatus.FailedInitialization, error);
-                        
+                        if (!String.IsNullOrEmpty(error)) ChangeStatus(ComputationStatus.FailedInitialization, error);
                     };
 
-                    cl.DownloadFileAsync(new Uri(url), file);
-                    /*using (Stream s = cl.OpenRead(new Uri(url)))
-                    {
-                        using (GZipStream stream = new GZipStream(s, CompressionMode.Decompress))
-                        {
-                            Utils.Extensions.ReadStream(file, stream);
-                        }
-
-                    }*/
-
+                    cl.DownloadFile(new Uri(url), file);
                 }
                 catch (WebException)
                 {
@@ -259,50 +248,50 @@ namespace Mole.API.Models
 
 
 
-            /// <summary>
-            /// Checks if downloaded structure is correct or an error message has been retrieved
-            /// </summary>
-            /// <param name="path">Path with the downloaded protein structure</param>
-            /// <returns>Error message of the query, string.empty otherwise()</returns>
-            private string CheckDownloadedStructure(string path)
+        /// <summary>
+        /// Checks if downloaded structure is correct or an error message has been retrieved
+        /// </summary>
+        /// <param name="path">Path with the downloaded protein structure</param>
+        /// <returns>Error message of the query, string.empty otherwise()</returns>
+        private string CheckDownloadedStructure(string path)
+        {
+            var errorLine = File.ReadAllLines(path).FirstOrDefault(x => x.StartsWith("_coordinate_server_error.message"));
+
+            if (errorLine == null) return string.Empty;
+            else
             {
-                var errorLine = File.ReadAllLines(path).FirstOrDefault(x => x.StartsWith("_coordinate_server_error.message"));
-
-                if (errorLine == null) return string.Empty;
-                else
-                {
-                    var temp = errorLine.Substring(36).Trim();
-                    return temp.Substring(1, temp.Length - 2);
-                }
+                var temp = errorLine.Substring(36).Trim();
+                return temp.Substring(1, temp.Length - 2);
             }
-
-
-
-            /// <summary>
-            /// Shorthand for SubmitDirectoryPath
-            /// </summary>
-            /// <param name="submitId"></param>
-            /// <returns>Complete path to the submit directory folder</returns>
-            public string SubmitDirectory(int submitId = 0) => Path.Combine(BaseDir, ComputationId, submitId == 0 ? this.ComputationUnits.Last().SubmitId.ToString() : submitId.ToString());
-
-
-
-            /// <summary>
-            /// Returns path to the ComputationStatus file
-            /// </summary>
-            /// <param name="baseDir"></param>
-            /// <returns></returns>
-            private string StatusPath() => Path.Combine(BaseDir, ComputationId, MoleApiFiles.ComputationStatus);
-
-
-            /// <summary>
-            /// Saves current state of the computation to the ComputationStatus file
-            /// </summary>
-            /// <param name="baseDir"></param>
-            public void SaveStatus() =>
-                File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
-
         }
 
 
+
+        /// <summary>
+        /// Shorthand for SubmitDirectoryPath
+        /// </summary>
+        /// <param name="submitId"></param>
+        /// <returns>Complete path to the submit directory folder</returns>
+        public string SubmitDirectory(int submitId = -1) => Path.Combine(BaseDir, ComputationId, submitId == -1 ? this.ComputationUnits.Last().SubmitId.ToString() : submitId.ToString());
+
+
+
+        /// <summary>
+        /// Returns path to the ComputationStatus file
+        /// </summary>
+        /// <param name="baseDir"></param>
+        /// <returns></returns>
+        private string StatusPath() => Path.Combine(BaseDir, ComputationId, MoleApiFiles.ComputationStatus);
+
+
+        /// <summary>
+        /// Saves current state of the computation to the ComputationStatus file
+        /// </summary>
+        /// <param name="baseDir"></param>
+        public void SaveStatus() =>
+            File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
+
     }
+
+
+}

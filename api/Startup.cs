@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Mole.API.Models;
 
 namespace Mole.API
 {
@@ -24,7 +25,6 @@ namespace Mole.API
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-
             services.Configure<Config>(Configuration);// Read configuration appsettings.json
 
             services.AddResponseCompression(x => {
@@ -36,7 +36,7 @@ namespace Mole.API
             {
                 options.AddPolicy("CorsPolicy",
                     builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().AllowCredentials());
-            });// allow Cross-origin resource sharing
+            });// allow Cross-origin resource sharing            
 
             services.AddMvc();// Add framework services.
         }
@@ -46,6 +46,8 @@ namespace Mole.API
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
+
+            app.UseExceptionHandler("/Index/Error");
 
             app.UseStaticFiles(); // allow download files from wwwroot
             app.UseCors("CorsPolicy"); // has to be BEFORE UseMvc method

@@ -37,13 +37,6 @@ namespace Mole.API.Models
             };
         }
 
-        internal CSAResidue[][] GetActiveSite(string pdbId)
-        {
-            if (csa.Database.ContainsKey(pdbId)) return csa.Database[pdbId].Select(x => x.Residues.ToArray()).ToArray();
-
-            return new CSAResidue[0][];
-        }
-
 
 
 
@@ -58,7 +51,7 @@ namespace Mole.API.Models
         {
             var computation = new Computation(Config.WorkingDirectory, id, assemblyId);
 
-            Task.Run(() => computation.DownloadStructure());
+            Task.Run(() => computation.DownloadStructure()).ContinueWith(x => Init(computation));
 
             return computation.GetComputationReport(1);
         }
@@ -69,7 +62,8 @@ namespace Mole.API.Models
         {
             var computation = new Computation(Config.WorkingDirectory, id);
 
-            Task.Run(() => computation.DownloadBioStructure());
+            Task.Run(() => computation.DownloadBioStructure()).ContinueWith(x => Init(computation));
+
 
             return computation.GetComputationReport(1);
 
@@ -84,15 +78,32 @@ namespace Mole.API.Models
         /// <returns></returns>
         public ComputationReport CreateUserComputation(IFormFile file)
         {
-            var cpt = new Computation(Config.WorkingDirectory);
-            var savePath = Path.Combine(Config.WorkingDirectory, cpt.ComputationId, file.FileName);
+            var computation = new Computation(Config.WorkingDirectory);
+            var savePath = Path.Combine(Config.WorkingDirectory, computation.ComputationId, file.FileName);
 
-            using (var fileStream = new FileStream(savePath, FileMode.Create))
+            Task.Run(() =>
             {
-                file.CopyToAsync(fileStream);
-            }
-            return cpt.GetComputationReport();
+                using (var fileStream = new FileStream(savePath, FileMode.Create))
+                {
+                    file.CopyTo(fileStream);
+                }
+            }).ContinueWith(x => Init(computation));
+
+            return computation.GetComputationReport();
         }
+
+        public void Init(Computation c)
+        {
+
+            if (c.ComputationUnits.Last().Status != ComputationStatus.Initializing) return;
+
+            var xml = BuildInitXML(c);
+            RunMole(c, xml);
+
+            c.ChangeStatus(ComputationStatus.Initialized);
+        }
+
+
 
 
 
@@ -129,6 +140,7 @@ namespace Mole.API.Models
             }
             else return cpt.GetComputationReport(submitId);
         }
+
 
 
 
@@ -201,7 +213,7 @@ namespace Mole.API.Models
             var cpt = LoadComputation(computationId);
             if (cpt == null) return Computation.NotExists(computationId).ToJson();
 
-            var directories = Directory.GetDirectories(Path.Combine(Config.WorkingDirectory, computationId));
+            var directories = Directory.GetDirectories(Path.Combine(Config.WorkingDirectory, computationId)).Skip(1);
 
             return JsonConvert.SerializeObject(new
             {
@@ -209,9 +221,10 @@ namespace Mole.API.Models
                 UserStructure = cpt.UserStructure,
                 PdbId = cpt.PdbId,
                 AssemblyId = cpt.AssemblyId,
-                Submissions = directories.Select(x => new
+                Submissions = directories.Select((x, i) => new
                 {
                     SubmitId = Path.GetFileName(x),
+                    Status = cpt.ComputationUnits[i].Status,
                     MoleConfig = File.Exists(Path.Combine(x, MoleApiFiles.MoleParams)) ? JsonConvert.DeserializeObject(File.ReadAllText(Path.Combine(x, MoleApiFiles.MoleParams))) : new object(),
                     PoresConfig = File.Exists(Path.Combine(x, MoleApiFiles.PoreParams)) ? JsonConvert.DeserializeObject<PoresParameters>(File.ReadAllText(Path.Combine(x, MoleApiFiles.PoreParams))).UserParameters() : new object()
                 })
@@ -225,13 +238,13 @@ namespace Mole.API.Models
         {
             computation.ChangeStatus(ComputationStatus.Running);
 
-            var input = Path.Combine(computation.SubmitDirectory(0), MoleApiFiles.PoreParams);
+            var input = Path.Combine(computation.SubmitDirectory(-1), MoleApiFiles.PoreParams);
 
             var json = computation.DbModePores ?
                 new PoresParameters
                 {
                     PdbId = computation.PdbId,
-                    WorkingDirectory = Path.Combine(computation.SubmitDirectory(0)),
+                    WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
                     InMembrane = inMembraneMode,
                     Chains = chains,
                     PyMolLocation = Config.PyMOL,
@@ -241,7 +254,7 @@ namespace Mole.API.Models
                   new PoresParameters
                   {
                       UserStructure = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, computation.ComputationId)).First(x => Path.GetExtension(x) != ".json"),
-                      WorkingDirectory = Path.Combine(computation.SubmitDirectory(0)),
+                      WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
                       InMembrane = inMembraneMode,
                       Chains = chains,
                       PyMolLocation = Config.PyMOL,
@@ -450,6 +463,18 @@ namespace Mole.API.Models
 
 
         }
+
+        /// <summary>
+        /// Retrieves CSA anotated active sites for a given pdb id
+        /// </summary>
+        /// <param name="pdbId">pdbId to be processed</param>
+        /// <returns></returns>
+        internal CSAResidue[][] GetActiveSite(string pdbId)
+        {
+            if (csa.Database.ContainsKey(pdbId)) return csa.Database[pdbId].Select(x => x.Residues.ToArray()).ToArray();
+
+            return new CSAResidue[0][];
+        }
         #endregion
 
 
@@ -546,6 +571,57 @@ namespace Mole.API.Models
         }
 
 
+        private string BuildInitXML(Computation c) {
+            var param = new ComputationParameters();
+
+            var structure = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, c.ComputationId)).
+                        Where(x => Path.GetExtension(x) != ".json").First();
+            var structureName = Path.GetFileNameWithoutExtension(structure);
+
+            var root = new XElement("Tunnels");
+            var input = new XElement("Input", structure);
+            var WD = new XElement("WorkingDirectory", Path.Combine(Path.GetDirectoryName(structure), "0"));
+
+            var par = new XElement("Params",
+                new XElement("Cavity",
+                    new XAttribute("ProbeRadius", param.Cavity.ProbeRadius),
+                    new XAttribute("InteriorThreshold", param.Cavity.InteriorThreshold),
+                    new XAttribute("IgnoreHETAtoms", param.Cavity.IgnoreHETAtoms ? "1" : "0"),
+                    new XAttribute("IgnoreHydrogens", param.Cavity.IgnoreHydrogens ? "1" : "0")));
+
+            var export = new XElement("Export",
+                new XElement("Formats",
+                    new XAttribute("ChargeSurface", "0"),
+                    new XAttribute("PyMol", "0"),
+                    new XAttribute("PDBProfile", "0"),
+                    new XAttribute("VMD", "0"),
+                    new XAttribute("Chimera", "0"),
+                    new XAttribute("CSV", "0"),
+                    new XAttribute("JSON", "1")),
+                 new XElement("Types",
+                    new XAttribute("Cavities", "0"),
+                    new XAttribute("Tunnels", "0"),
+                    new XAttribute("PoresAuto", param.PoresAuto ? "1" : "0"),
+                    new XAttribute("PoresMerged", param.PoresMerged ? "1" : "0"),
+                    new XAttribute("PoresUser", (param.CustomExits?.IsEmpty() ?? true) ? "0" : "1")));
+
+
+            var origins = new XElement("Origins", new XAttribute("Auto", "0"));
+
+            root.Add(input);
+            root.Add(WD);
+            root.Add(par);
+            root.Add(export);
+            root.Add(origins);
+
+            var submitDir = c.SubmitDirectory(0);
+            Directory.CreateDirectory(submitDir);
+            var path = Path.Combine(submitDir, MoleApiFiles.InputXML);
+            root.Save(path);
+            return path;
+
+        }
+
         /// <summary>
         /// Builds Origin element. If null or empty automatic start points are used for calculation.
         /// PatternQuery expression, Residues[] and Points3D[] are all included
@@ -554,7 +630,7 @@ namespace Mole.API.Models
         /// <returns>XElement for the MOLE input XML</returns>
         private XElement BuildOriginElement(Origin o, string key)
         {
-            if (o == null) return new XElement("Origins", new XAttribute("Auto", "1"));
+            if (o == null) return new XElement("Origins", new XAttribute("Auto",  "1"));
 
             var element = new XElement($"{key}s");
             if (o.IsEmpty())
