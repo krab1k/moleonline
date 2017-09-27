@@ -14,21 +14,22 @@ namespace Mole.API.Controllers
     [Route("[controller]")]
     public class EBIController : Controller
     {
-        private readonly Config config;
-        private ComputationManager manager;
+        private readonly ComputationManager manager;
 
-        public EBIController(IOptions<Config> optionsAccessor)
+        public EBIController(IOptions<ComputationManager> optionsAccessor)
         {
-            config = optionsAccessor.Value;
-            manager = new ComputationManager(config);
+            manager = optionsAccessor.Value;
+
         }
 
         [HttpGet("{pdbId}")]
         public string Get(string pdbId, bool ignoreHet)
         {
-            var para = new ComputationParameters() {
+            var para = new ComputationParameters()
+            {
                 Input = new Input(),
-                Cavity = new Cavity() {
+                Cavity = new Cavity()
+                {
                     IgnoreHETAtoms = ignoreHet,
                 },
                 Tunnel = new Tunnel()

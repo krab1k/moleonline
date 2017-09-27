@@ -14,13 +14,12 @@ namespace Mole.API.Controllers
     [Route("[controller]")]
     public class KillController : Controller
     {
-        private readonly Config config;
-        private ComputationManager manager;
+        private readonly ComputationManager manager;
 
-        public KillController(IOptions<Config> optionsAccessor)
+
+        public KillController(IOptions<ComputationManager> optionsAccessor)
         {
-            config = optionsAccessor.Value;
-            manager = new ComputationManager(config);
+            manager = optionsAccessor.Value;
         }
 
         [HttpGet("{computationId}")]

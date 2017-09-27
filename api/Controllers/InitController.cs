@@ -13,8 +13,7 @@ namespace Mole.API.Controllers
     [Route("[controller]")]
     public class InitController : Controller
     {
-        private readonly Config config;
-        private ComputationManager manager;
+        private readonly ComputationManager manager;
 
         public InitController(IOptions<ComputationManager> optionsAccessor)
         {

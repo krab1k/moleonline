@@ -17,16 +17,29 @@ namespace Mole.API.Models
     /// </summary>
     public class ComputationManager
     {
-        private Config Config;
+        private Config _config;
         private CSA csa;
         private object locker = new object();
         private ObservableDictionary<string, int> RunningProcesses;
 
-        public ComputationManager(Config c)
+
+
+        public Config Config
+        {
+            get { return _config; }
+            set
+            {
+                _config = value;
+                Init(value);
+            }
+        }
+
+        public ComputationManager() { }
+
+        public void Init(Config c)
         {
             var f = Path.Combine(c.WorkingDirectory, MoleApiFiles.RunningProcesses);
 
-            this.Config = c;
             csa = new CSA(c.CSA);
             if (File.Exists(f)) RunningProcesses = JsonConvert.DeserializeObject<ObservableDictionary<string, int>>(File.ReadAllText(f));
             else RunningProcesses = new ObservableDictionary<string, int>();
@@ -98,7 +111,7 @@ namespace Mole.API.Models
             if (c.ComputationUnits.Last().Status != ComputationStatus.Initializing) return;
 
             var xml = BuildInitXML(c);
-            RunMole(c, xml);
+            RunMole(c, xml, false);
 
             c.ChangeStatus(ComputationStatus.Initialized);
         }
@@ -315,7 +328,7 @@ namespace Mole.API.Models
 
 
 
-        private void RunMole(Computation c, string xmlPath)
+        private void RunMole(Computation c, string xmlPath, bool zipDirectory = true)
         {
             ProcessStartInfo info = new ProcessStartInfo()
             {
@@ -325,13 +338,13 @@ namespace Mole.API.Models
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            RunComputation(c, info);
+            RunComputation(c, info, zipDirectory);
 
         }
 
 
 
-        private void RunComputation(Computation c, ProcessStartInfo info)
+        private void RunComputation(Computation c, ProcessStartInfo info, bool zipDirectory = true)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -357,8 +370,11 @@ namespace Mole.API.Models
                     return;
                 }
 
-                Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
-                c.ChangeStatus(ComputationStatus.Finished);
+                if (zipDirectory)
+                {
+                    Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
+                    c.ChangeStatus(ComputationStatus.Finished);
+                }
             };
 
             p.Start();
@@ -571,7 +587,8 @@ namespace Mole.API.Models
         }
 
 
-        private string BuildInitXML(Computation c) {
+        private string BuildInitXML(Computation c)
+        {
             var param = new ComputationParameters();
 
             var structure = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, c.ComputationId)).
@@ -630,7 +647,7 @@ namespace Mole.API.Models
         /// <returns>XElement for the MOLE input XML</returns>
         private XElement BuildOriginElement(Origin o, string key)
         {
-            if (o == null) return new XElement("Origins", new XAttribute("Auto",  "1"));
+            if (o == null) return new XElement("Origins", new XAttribute("Auto", "1"));
 
             var element = new XElement($"{key}s");
             if (o.IsEmpty())

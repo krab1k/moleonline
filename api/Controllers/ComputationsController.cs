@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.IO;
 using Mole.API.Utils;
+using Mole.API.Models;
 
 namespace Mole.API.Controllers
 {
@@ -14,11 +15,14 @@ namespace Mole.API.Controllers
     [Route("__[controller]")]
     public class ComputationsController : Controller
     {
+        private readonly ComputationManager manager;
         private readonly Config config;
 
-        public ComputationsController(IOptions<Config> optionsAccessor)
+
+        public ComputationsController(IOptions<ComputationManager> optionsAccessor)
         {
-            config = optionsAccessor.Value;
+            manager = optionsAccessor.Value;
+            config = manager.Config;
         }
 
         public string Get()

@@ -15,14 +15,12 @@ namespace Mole.API.Controllers
     [Route("[controller]")]
     public class SubmitController : Controller
     {
-        private readonly Config config;
-        private ComputationManager manager;
+        private readonly ComputationManager manager;
 
 
-        public SubmitController(IOptions<Config> optionsAccessor)
+        public SubmitController(IOptions<ComputationManager> optionsAccessor)
         {
-            config = optionsAccessor.Value;
-            manager = new ComputationManager(config);
+            manager = optionsAccessor.Value;
         }
 
 

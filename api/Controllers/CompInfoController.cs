@@ -9,13 +9,11 @@ namespace Mole.API.Controllers
     [Route("[controller]")]
     public class CompInfoController : Controller
     {
-        private readonly Config config;
-        private ComputationManager manager;
+        private readonly ComputationManager manager;
 
-        public CompInfoController(IOptions<Config> optionsAccessor)
+        public CompInfoController(IOptions<ComputationManager> optionsAccessor)
         {
-            config = optionsAccessor.Value;
-            manager = new ComputationManager(config);
+            manager = optionsAccessor.Value;
         }
 
         [HttpGet("{computationId}")]

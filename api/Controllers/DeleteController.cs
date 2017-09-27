@@ -14,13 +14,11 @@ namespace Mole.API.Controllers
     [Route("[controller]")]
     public class DeleteController : Controller
     {
-        private readonly Config config;
-        private ComputationManager manager;
+        private readonly ComputationManager manager;
 
-        public DeleteController(IOptions<Config> optionsAccessor)
+        public DeleteController(IOptions<ComputationManager> optionsAccessor)
         {
-            config = optionsAccessor.Value;
-            manager = new ComputationManager(config);
+            manager = optionsAccessor.Value;
         }
 
 

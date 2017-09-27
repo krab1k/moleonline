@@ -9,13 +9,11 @@ namespace Mole.API.Controllers
     [Route("[controller]")]
     public class StatusController : Controller
     {
-        private readonly Config config;
-        private ComputationManager manager;
+        private readonly ComputationManager manager;
 
-        public StatusController(IOptions<Config> optionsAccessor)
+        public StatusController(IOptions<ComputationManager> optionsAccessor)
         {
-            config = optionsAccessor.Value;
-            manager = new ComputationManager(config);
+            manager = optionsAccessor.Value;
         }
 
         [HttpGet("{computationId}")]
