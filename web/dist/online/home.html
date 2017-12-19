@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>MoleOnline | Home</title>
+	<meta name="description" content="MOLE 2.5 is an universal toolkit for rapid and fully automated location and characterization of tunnels, channels and pores in (bio)molecular structures.">
+	<meta name="author" content="Ing. Ondřej Hanák; http://ondrejhanak.cz">
+	<link rel="shortcut icon" href="http://beta.mole.upol.cz/favicon.ico" type="image/icon">
+<script type="text/javascript" src="http://beta.mole.upol.cz/temp/jsloader-dfac1c60f3fb.js?1409226142"></script>
+<link rel="stylesheet" type="text/css" media="screen" href="http://beta.mole.upol.cz/temp/cssloader-67095fc34ac3.css?1380184049">
+	<link rel="stylesheet" href="http://beta.mole.upol.cz/css/print.front.css" type="text/css" media="print">
+        <link rel="stylesheet" href="http://beta.mole.upol.cz/libs/css-litemol/LiteMol-plugin.css?lmversion=1484057705188" type="text/css">
+        <!--<link rel="stylesheet" href="/libs/css-litemol/litemol-style.css?lmversion=1484057705188" type="text/css" />-->
+        <!--<script src="http://beta.mole.upol.cz/libs/LiteMol-plugin.js?lmversion=1493053346323"></script>-->
+        	<link rel="stylesheet" href="\css/init-styles.css?version=1.4.6" type="text/css">
+	<script src="\js/provided.js?version=1.4.6"></script>
+	<script src="\js/scripts.js?version=1.4.6"></script>     
+        
+         
+
+	<script type="text/javascript">
+	$(function () {
+		// auto-hide flash messages
+		$('.flashmsg.info, .flashmsg.ok').each(function () {
+			var el = $(this);
+			setTimeout(function () {
+				el.animate({'opacity': 0}, 2000).slideUp();
+			}, 10100);
+		});
+
+		// format hint messages
+		$('span.hint, div.hint').before('<img src="/images/help.png" class="hint" alt="">').each(function () {
+			var div = $(this);
+			var img = div.prev('img.hint');
+			div.hide();
+			div.css('position', 'fixed');
+			div.append('<img src="/images/front/hint_toptip.png" alt="" class="toptip">');
+			img.mouseenter(function () { $(this).next('.hint').show();});
+			img.mouseout(function () { $(this).next('.hint').hide();});
+		});
+	});
+	</script>
+
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/bxslider/4.2.12/jquery.bxslider.css">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/bxslider/4.2.12/jquery.bxslider.min.js"></script>
+  
+	<script>
+	  $(document).ready(function(){
+		$('.slider').bxSlider({
+			mode: 'fade',
+			captions: true,
+			slideWidth: 600
+		});
+	  });
+	</script>
+</head>
+
+<body>
+
+<div id="page">
+
+	<div id="header">
+		<h1><a href="/">MOLE<em>online</em></a></h1>
+
+		<div id="topmenu">
+			<ul>
+				<li class="active"><a href="/">Home</a></li>
+				<li><a href="/online/">Online</a></li>
+				<li><a href="/documentation/">Documentation</a></li>
+				<li><a href="/about/">About</a></li>
+			</ul>
+		</div> <!-- #topmenu -->
+	</div> <!-- #header -->
+
+	<div id="content">
+		
+
+
+<div class="column homeleft">
+
+<p><a href="/online/"><b>MOLE<em>online</em></a></b> web interface provides a direct access to MOLE 2.5 functionality and enables on-line and easy-to-use interactive channel analysis.</p>
+
+<p><b>MOLE 2.5</b> is an universal toolkit for <a href="/method/">rapid and fully automated location and
+characterization of channels, tunnels and pores </a> in (bio)macromolecular structures.</p>
+<img src="http://shire.upol.cz/4TSY.png" title="Cytolytic pore (PDBID: 4TSY)">
+<h3>MOLE<em>online</em> features</h3> 
+<ul>
+		<li>Quickest channel calculation on the market</li>
+		<li>Automatic transmembrane pore identification</li>
+		<li>Layered channel profile - geometry, length and radius</li>
+		<li>List of residues lining channels (distinguishing sidechain/mainchain contact with the channel)</li>
+		<li>Layered or channel-wise physico-chemical properties (several types of channel radius, length, charge, polarity, hydropathy, hydrophobicity, mutability, etc.) </li>
+		<li>Interactive selection of start or end points via XYZ coordinates, residues, or surface tetrahedron or via PatternQuery language </li>
+		<li>Automatic active site identification using CSA  for enzymes, cofactors, and cavity interiors (origins)</li>
+		<li>Interactive visualization of structure and channels with LiteMol </li>
+		<li>Optimization and visualization of start and end points</li>
+		<li>Cavity and molecular surface visualization</li>
+		<li>Download results - complete results as ZIP or PDF report, channel PDB files and scripts for PyMol, Chimera, or VMD visualization, rich JSON, and channel profile image as SVG or PNG</li>
+		<li>Two-ways connectivity with ChannelsDB (comparison and annotation)</li>
+		<li>Free of charge</li>
+</ul>
+
+</div>
+
+<div class="column homeright">
+    <div id="alert-messages" class="index">
+    </div>
+	<h3>Quick start</h3>
+    <div id="init-form">
+    </div>
+	<div id="news">
+
+			<h3>News</h3>
+	
+			<div class="item">
+				<h4>Previous version</h4>
+				<span class="date">19. 12. 2017</span>
+				<div class="body">Old version of MOLEonline 2.0 is still available at address: <a href="http://old.mole.upol.cz/">http://old.mole.upol.cz/</a> </div>
+			</div> <!-- .item -->
+			
+			<div class="item">
+				<h4>New features in MOLEonline</h4>
+				<span class="date">19. 12. 2017</span>
+				<div class="body">
+				<ul>
+				<li>Input:</li>
+				<ul>
+	<li>mmCIF parsing </li>
+	<li>Added PatternQuery language support (ignore residues, start points, tunnel filtering)</li>
+	<li>Automatic starting points from cavities in 3D structure - Origin points</li>
+	Transmembrane Pore mode 
+	</ul>
+	<li>Parameters of calculation</li>
+	<ul>
+	<li>Selection of end points (It is possible to compute tunnels to only 1 user specified exit)</li>
+	<li>New weight functions for computing tunnels (added Length, Voronoi scale weight functions)</li>
+	<li>Computation of "User Pores" now works for any cavity, not just the "surface".</li>
+	<li>Selection of end points with Ctrl+left click</li>
+	</ul>
+	<li>Visualization</li>
+	<ul>
+	<li>LiteMol instead of Jmol</li>
+	<li>Layered Channel profile with physicochemical properties</li>
+	<li>Connectivity to ChannelsDB </li>
+	</ul>
+	<li>New properties</li>
+	<ul>
+	<li>Free Radius for channels (Free radius is the distance to the closest backbone or HET atom)</li>
+	<li>BRadius for channels (BRadius is the Radius + RMSF (from Bfactors) to estimate local flexibility)</li>
+	</ul>
+	<li>Export of results</li>
+	<ul>
+	<li>Ability to export residues surrounding a cavity or channel</li>
+	<li>Export current computation settings in XML </li>
+	<li>Rich JSON output for programmatic analysis </li>
+	<li>Export of channel profile in PNG or SVG format</li>
+	<li>Output to PyMOL, VMD, and Chimera.</li>
+	<li>Export of results for individual channels to PDF report or within ZIP archive</li>
+	<li>User contributions to ChannelsDB annotations</li>
+	</ul>
+				</ul>
+				
+				
+				</div>
+			</div> <!-- .item -->
+			
+					<div class="item">
+				<h4>New plugins for Pymol and Chimera</h4>
+				<span class="date">19. 6. 2017</span>
+				<div class="body"><A href="https://pymolwiki.org/index.php/MOLE_2.0:_advanced_approach_for_analysis_of_biomacromolecular_channels">PyMOL</a>, 
+	<a href="https://www.cgl.ucsf.edu/chimera/plugins/plugins.html">Chimera</a>
+	 </div>
+			</div> <!-- .item -->
+			
+			<div class="item">
+				<h4>ELIXIR CZ support</h4>
+				<span class="date">01. 04. 2017</span>
+				<div class="body">MOLEonline is supported by ELIXIR CZ research infrastructure project (MEYS Grant No: LM2015047).
+	</div>
+			</div> <!-- .item -->
+		</div> <!-- #news -->
+	  
+	</div>
+	<div style="float:left;">
+			  <img src="\images/elixir.png" width="250px" alt="ELIXIR CZ" title="ELIXIR CZ">&nbsp;&nbsp;&nbsp;
+			  <img src="http://shire.upol.cz/UP_logo_horizont_en.png" width="250px" alt="Palacký University Olomouc" title="Palacký University Olomouc">&nbsp;&nbsp;&nbsp;
+			  <img src="http://shire.upol.cz/Logo_Masaryk_University.png" width="110px" alt="Masaryk University" title="Masaryk University">&nbsp;&nbsp;&nbsp;
+			  <img src="http://shire.upol.cz/ceitec-clr-logo.png" width="250px" alt="CEITEC" title="CEITEC">
+	</div>
+	</div> <!-- #content -->
+	<hr class="cleaner">
+
+</div> <!-- #page -->
+
+<div id="ajaxspinner"></div>
+<!--
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-4336835-6']);
+  _gaq.push(['_trackPageview']);
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+-->
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-4336835-7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-4336835-7');
+</script>
+<script src="\MoleOnlineWebUI-Core-Init.js?version=1.4.6"></script>
+</body>
+</html>
