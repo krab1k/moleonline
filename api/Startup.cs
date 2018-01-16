@@ -35,7 +35,12 @@ namespace Mole.API
             services.AddCors(options =>
             {
                 options.AddPolicy("CorsPolicy",
-                    builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().AllowCredentials());
+                    builder => builder.
+                        AllowAnyOrigin().
+                        AllowAnyMethod().
+                        AllowAnyHeader().
+                        AllowCredentials().
+                        WithExposedHeaders("Content-Disposition"));
             });// allow Cross-origin resource sharing            
 
             services.AddMvc();// Add framework services.
@@ -48,9 +53,9 @@ namespace Mole.API
             loggerFactory.AddDebug();
 
             app.UseExceptionHandler("/Index/Error");
-
-            app.UseStaticFiles(); // allow download files from wwwroot
+            
             app.UseCors("CorsPolicy"); // has to be BEFORE UseMvc method
+            app.UseStaticFiles(); // allow download files from wwwroot
             app.UseResponseCompression();
             app.UseMvc(routes =>
             {

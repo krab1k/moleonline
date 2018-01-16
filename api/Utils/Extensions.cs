@@ -57,8 +57,11 @@ namespace Mole.API.Utils
                             readmeEntry = archive.CreateEntryFromFile(Path.Combine(path, item.Name, file.Name), Path.Combine(item.Name, file.Name));
                         }
                     }
+                    var parent = Directory.GetParent(path).FullName;
+                    var molecule = Directory.GetFiles(parent).First(x => Path.GetExtension(x) != ".json");
 
-                }
+                    archive.CreateEntryFromFile(molecule, Path.GetFileName(molecule));
+                }                
             }
 
         }

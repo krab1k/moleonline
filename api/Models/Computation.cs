@@ -207,21 +207,16 @@ namespace Mole.API.Models
             {
                 try
                 {
-                    cl.DownloadFileCompleted += (s, e) =>
-                    {
-                        if (e.Error != null)
-                        {
-                            ChangeStatus(ComputationStatus.FailedInitialization, $"[{PdbId}] is unlikelly to exist: {e.Error.Message}");
-                            return;
-                        }
-
-                        var error = CheckDownloadedStructure(file);
-                        DbModePores = AssemblyId == GetBioAssemblyId();
-
-                        if (!String.IsNullOrEmpty(error)) ChangeStatus(ComputationStatus.FailedInitialization, error);
-                    };
-
                     cl.DownloadFile(new Uri(url), file);
+                    var error = CheckDownloadedStructure(file);
+                    if (!String.IsNullOrEmpty(error))
+                    {
+                        ChangeStatus(ComputationStatus.FailedInitialization, error);
+                        return;
+                    }
+                        DbModePores = AssemblyId == GetBioAssemblyId();
+                        SaveStatus();
+
                 }
                 catch (WebException)
                 {
