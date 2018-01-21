@@ -115,9 +115,7 @@ namespace Mole.API.Models
             if (c.ComputationUnits.Last().Status != ComputationStatus.Initializing) return;
 
             var xml = BuildInitXML(c);
-            RunMole(c, xml, false);
-
-            c.ChangeStatus(ComputationStatus.Initialized);
+            RunMole(c, xml, true, false);
         }
 
 
@@ -133,14 +131,14 @@ namespace Mole.API.Models
         public Computation LoadComputation(string computationId)
         {
             var file = Path.Combine(Config.WorkingDirectory, computationId, MoleApiFiles.ComputationStatus);
-            if (File.Exists(file))
-                using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, computationId))
-                {
-                    if (waitHandle.WaitOne(100))
-                    {
+            if (File.Exists(file)) { 
+//                using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, computationId))
+//                {
+                    //if (waitHandle.WaitOne())
+                    //{
                         return JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file));
-                    }
-                    waitHandle.Set();
+//                    }
+                    //waitHandle.Set();
                 }
 
             return null;
@@ -314,7 +312,7 @@ namespace Mole.API.Models
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            RunComputation(computation, info);
+            RunComputation(computation, info, false);
         }
 
 
@@ -328,7 +326,7 @@ namespace Mole.API.Models
                 var xmlPath = BuildXML(c, param);
                 File.WriteAllText(Path.Combine(c.SubmitDirectory(c.ComputationUnits.Count), MoleApiFiles.MoleParams), JsonConvert.SerializeObject(param, Formatting.Indented));
 
-                Task.Run(() => RunMole(c, xmlPath));
+                Task.Run(() => RunMole(c, xmlPath, false));
 
                 return c.GetComputationReport();
             }
@@ -341,7 +339,7 @@ namespace Mole.API.Models
 
 
 
-        private void RunMole(Computation c, string xmlPath, bool zipDirectory = true)
+        private void RunMole(Computation c, string xmlPath, bool init, bool zipDirectory = true)
         {
             ProcessStartInfo info = new ProcessStartInfo()
             {
@@ -351,13 +349,13 @@ namespace Mole.API.Models
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            RunComputation(c, info, zipDirectory);
+            RunComputation(c, info, init, zipDirectory);
 
         }
 
 
 
-        private void RunComputation(Computation c, ProcessStartInfo info, bool zipDirectory = true)
+        private void RunComputation(Computation c, ProcessStartInfo info, bool init, bool zipDirectory = true)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -376,18 +374,19 @@ namespace Mole.API.Models
                 lock (locker) RunningProcesses.Remove(c.ComputationId);
 
                 if (((Process)s).ExitCode == -1) return;
-
                 if (sb.Length != 0)
                 {
                     c.ChangeStatus(ComputationStatus.Error, sb.ToString());
                     return;
                 }
-
-                if (zipDirectory)
+                if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
+                if (init)
                 {
-                    Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
-                    c.ChangeStatus(ComputationStatus.Finished);
+                    c.ChangeStatus(ComputationStatus.Initialized);
                 }
+                else c.ChangeStatus(ComputationStatus.Finished);
+
+
             };
 
             p.Start();

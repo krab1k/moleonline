@@ -36,8 +36,8 @@ namespace Mole.API.Controllers
 
                 return File(data.Item1, MediaTypeNames.Text.Plain, data.Item2);
             }
-            catch (Exception) {
-                return StatusCode(500);
+            catch (Exception e) {
+                return new JsonResult(e);
             }
         }
     }

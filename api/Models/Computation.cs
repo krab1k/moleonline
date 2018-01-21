@@ -2,14 +2,11 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Xml.Linq;
 
 namespace Mole.API.Models
@@ -288,14 +285,14 @@ namespace Mole.API.Models
         /// <param name="baseDir"></param>
         public void SaveStatus()
         {
-            using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, this.ComputationId))
-            {
-                if (waitHandle.WaitOne(100)) {
-                    File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
-                }
-                waitHandle.Set();                
-            }
-
+            //            using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, this.ComputationId))
+            //{
+            //  if (waitHandle.WaitOne()) {
+            File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
+            //}
+            //waitHandle.Set();                
+        
+    
         }
 
     }
