@@ -8,6 +8,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -110,6 +111,7 @@ namespace Mole.API.Models
             BaseDir = baseDir;
 
             Directory.CreateDirectory(Path.Combine(baseDir, ComputationId));
+
             File.WriteAllText(Path.Combine(baseDir, ComputationId, MoleApiFiles.ComputationStatus), JsonConvert.SerializeObject(this, Formatting.Indented));
         }
 
@@ -124,9 +126,10 @@ namespace Mole.API.Models
         /// </summary>
         /// <param name="i">id of submission</param>
         /// <returns>Computation report of given submission Id</returns>
-        internal ComputationReport GetComputationReport(int i = 0)
+        internal ComputationReport GetComputationReport(int i = -1)
         {
-            if (i == 0) i = this.ComputationUnits.Count;
+            if (i == -1) i = this.ComputationUnits.Count;
+            if (i == 0) i = 1;
             var unit = ComputationUnits.FirstOrDefault(x => x.SubmitId == i);
 
             if (unit == null)
@@ -214,8 +217,8 @@ namespace Mole.API.Models
                         ChangeStatus(ComputationStatus.FailedInitialization, error);
                         return;
                     }
-                        DbModePores = AssemblyId == GetBioAssemblyId();
-                        SaveStatus();
+                    DbModePores = AssemblyId == GetBioAssemblyId();
+                    SaveStatus();
 
                 }
                 catch (WebException)
@@ -283,10 +286,18 @@ namespace Mole.API.Models
         /// Saves current state of the computation to the ComputationStatus file
         /// </summary>
         /// <param name="baseDir"></param>
-        public void SaveStatus() =>
-            File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
+        public void SaveStatus()
+        {
+            using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, this.ComputationId))
+            {
+                if (waitHandle.WaitOne(100)) {
+                    File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
+                }
+                waitHandle.Set();                
+            }
+
+        }
 
     }
-
 
 }

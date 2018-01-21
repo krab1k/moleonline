@@ -17,13 +17,13 @@ namespace Mole.API.Controllers
         }
 
         [HttpGet("{computationId}")]
-        public ActionResult Get(string computationId, int submitId = 0, string format = "json")
+        public ActionResult Get(string computationId, int submitId = -1, string format = "json")
         {
 
             var c = manager.GetComputationReport(computationId);
 
             if (c.ComputationId == null) return StatusCode(404);
-            if (submitId < 0 || submitId > c.SubmitId) return StatusCode(404);
+            if (submitId < -1 || submitId > c.SubmitId) return StatusCode(404);
             if (c.Status == ComputationStatus.Deleted) return StatusCode(410);
             
 

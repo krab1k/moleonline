@@ -133,7 +133,15 @@ namespace Mole.API.Models
         public Computation LoadComputation(string computationId)
         {
             var file = Path.Combine(Config.WorkingDirectory, computationId, MoleApiFiles.ComputationStatus);
-            if (File.Exists(file)) return JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file));
+            if (File.Exists(file))
+                using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, computationId))
+                {
+                    if (waitHandle.WaitOne(100))
+                    {
+                        return JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file));
+                    }
+                    waitHandle.Set();
+                }
 
             return null;
         }
@@ -147,7 +155,7 @@ namespace Mole.API.Models
         /// <param name="computationId">Id of computation</param>
         /// <param name="submitId">Id of submission</param>
         /// <returns>Computation report</returns>
-        internal ComputationReport GetComputationReport(string computationId, int submitId = 0)
+        internal ComputationReport GetComputationReport(string computationId, int submitId = -1)
         {
             var cpt = LoadComputation(computationId);
 
@@ -563,7 +571,7 @@ namespace Mole.API.Models
                     new XAttribute("JSON", "1")),
                  new XElement("Types",
                     new XAttribute("Cavities", "0"),
-                    new XAttribute("Tunnels", (!hasOrigin && hasExits)? "0" : "1"),
+                    new XAttribute("Tunnels", (!hasOrigin && hasExits) ? "0" : "1"),
                     new XAttribute("PoresAuto", param.PoresAuto ? "1" : "0"),
                     new XAttribute("PoresMerged", param.PoresMerged ? "1" : "0"),
                     new XAttribute("PoresUser", (!hasOrigin & hasExits) ? "1" : "0")),
