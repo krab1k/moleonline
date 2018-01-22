@@ -11,10 +11,10 @@ namespace Mole.API.Controllers
     {
         public IActionResult Index()
         {
-            ViewBag.PoresVersion = "1.4.4";
+            ViewBag.PoresVersion = "1.4.5";
             ViewBag.MoleVersion = "2.5.18.1.14";
-            ViewBag.APIVersion = "0.5";
-            ViewBag.Build = "111317";
+            ViewBag.APIVersion = "0.5.1";
+            ViewBag.Build = "012218";
 
             return View();
         }

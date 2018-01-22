@@ -115,6 +115,9 @@ namespace Mole.API.Models
         public bool InMembrane { get; set; } // Decides whether or not the pore will be calculated in the membrane region only. => Valid only in case OPM structure is present
         public bool IsBetaBarel { get; set; }
 
+        public double InteriorThreshold { get; set; }
+        public double ProbeRadius { get; set; }
+
         public string UserStructure { get; set; } // Path to the input protein
         public string PdbId { get; set; }    // PdbId to be processed e.g. "1tqn"
         public string WorkingDirectory { get; set; }
@@ -126,11 +129,21 @@ namespace Mole.API.Models
         {
             return new
             {
-                InMembrane = InMembrane,
-                IsBetaBarel = IsBetaBarel,
-                Chains = Chains,
+                InMembrane,
+                InteriorThreshold,
+                ProbeRadius,
+                IsBetaBarel,
+                Chains,
             };
         }
+    }
+
+    public class APIPoresParameters {
+        public bool InMembrane { get; set; }
+        public bool IsBetaBarel { get; set; }
+        public string Chains { get; set; }
+        public double InteriorThreshold { get; set; }
+        public double ProbeRadius { get; set; }
     }
 
 

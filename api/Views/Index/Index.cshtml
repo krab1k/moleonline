@@ -234,12 +234,13 @@
             </h2>
             <div id="moleapi-documentation-submit-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
-                <a href="@Url.RouteUrl("Submit/Pores", new { computationId = "OaUmDZj0Kk2ZBgJLLxVUA", isBetaStructure = false, inMembrane = true })" class="cs-docs-template-link" target="_blank" rel="nofollow">[GET] /Submit/Pores/OaUmDZj0Kk2ZBgJLLxVUA?isBetaStructure=false&inMembrane=true</a><br>
+                <a href="@Url.RouteUrl("Submit/Pores", new { computationId = "OaUmDZj0Kk2ZBgJLLxVUA" })" class="cs-docs-template-link" target="_blank" rel="nofollow">[POST] /Submit/Pores/OaUmDZj0Kk2ZBgJLLxVUA | json in a HTTP request body</a><br>
                 <a href="@Url.RouteUrl("Submit/Mole", new { computationId = "4gXtPeHExECAqd9bnOb5Lw"})" class="cs-docs-template-link" target="_blank" rel="nofollow">[POST] /Submit/Mole/4gXtPeHExECAqd9bnOb5Lw | json in a HTTP request body</a><br>
                 <a href="/inputs/1tqn_residue_channels.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1tqn | Residue tunnels</a><br>
                 <a href="/inputs/1tqn_point_channels.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1tqn | Point tunnels</a><br>
                 <a href="/inputs/1tqn_custom_exit_tunnel.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1tqn | Custom tunnel</a><br>
                 <a href="/inputs/2bg9_user_pore.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 2bg9 | User pores </a><br>
+                <a href="/inputs/1k4c_pores.json" class="cs-docs-template-link" target="_blank" rel="nofollow"> 1k4c | Pores mode </a><br>
                 <h4 onclick='javascript:toggle("moleapi-documentation-submit-mode-table", event)'>URL Parameters</h4>
                 <div id="moleapi-documentation-submit-mode-table">
                     <table cellpadding="0" cellspacing="0" style='width: 100%'>
@@ -251,31 +252,53 @@
                                 <td>Submit a new MOLE computation with a parameters provided in the POST body. List of the allowed parameters is provided below.</td>
                             </tr>
                             <tr>
-                                <td class="mole-api-docs-param-name">GET</td>
+                                <td class="mole-api-docs-param-name">POST</td>
                                 <td>Pores</td>
                                 <td>Submits a new pore computation</td>
-                            </tr>
-                            <tr><td style="font-weight:bold">Name <span style="font-size:small; font-weight:100">[Pore mode]</span></td><td style="font-weight:bold">Type</td><td style="font-weight:bold">Description</td></tr>
-                            <tr>
-                                <td class="mole-api-docs-param-name">isBetaStructure</td>
-                                <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
-                                <td>Determine if submitted structure is formed by &beta;-sheets in its transmembrane part.</td>
-                            </tr>
-                            <tr>
-                                <td class="mole-api-docs-param-name">inMembrane</td>
-                                <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
-                                <td>Compute pore only in the transmembrane region.</td>
-                            </tr>
-                            <tr>
-                                <td class="mole-api-docs-param-name">chains</td>
-                                <td><span style="font-weight: 100; font-style:italic ">String[]</span></td>
-                                <td>Optional comma delimited list of chains for pore determination (e.g. 'A,B,C'). Usefull for structures containing multiple pores (e.g. aquaporine - 1ymg).</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <h3 style="font-size:20px" onclick='javascript:toggle("moleapi-documentation-submit-post-attributes", event)'>Post Attributes</h3>
-                <div id="moleapi-documentation-submit-post-attributes">
+                <h3 style="font-size:20px" onclick='javascript:toggle("moleapi-documentation-submit-post-pores-attributes", event)'>Pores Post Attributes</h3>
+                <div id="moleapi-documentation-submit-post-pores-attributes">
+                    <h4 onclick='javascript:toggle("moleapi-documentation-submit-post-pores-attributes", event)'>Input Attributes</h4>
+                    <div id="moleapi-documentation-submit-input-table">
+                        <table cellpadding="0" cellspacing="0" style='width: 100%'>
+                            <tbody>
+                                <tr><th>Name</th><th>Type</th><th>Description</th></tr>
+                                <tr>
+                                    <td class="mole-api-docs-param-name">InMembrane</td>
+                                    <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
+                                    <td>Compute pore only in the transmembrane region.</td>
+                                </tr>
+                                <tr>
+                                    <td class="mole-api-docs-param-name">IsBetaBarel</td>
+                                    <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
+                                    <td>Determine if submitted structure is formed by β-sheets in its transmembrane part.</td>
+                                </tr>
+                                <tr>
+                                    <td class="mole-api-docs-param-name">Chains</td>
+                                    <td><span style="font-weight: 100; font-style:italic ">String</span></td>
+                                    <td>One or more characters that specify which chains should participate in the computation. If empty or not present, all chains are loaded. Case sensitive!</td>
+                                </tr>
+                                <tr>
+                                    <td class="mole-api-docs-param-name">InteriorThreshold</td>
+                                    <td><span style="font-weight: 100; font-style:italic ">Double?</span></td>
+                                    <td>Minimum radius of void inside the protein structure. Approximation of minimal channel radius.</td>
+                                </tr>
+                                <tr>
+                                    <td class="mole-api-docs-param-name">ProbeRadius</td>
+                                    <td><span style="font-weight: 100; font-style:italic ">Double?</span></td>
+                                    <td>Regulates level of detail of the molecular surface. Approximation of maximal channel radius.</td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+                <h3 style="font-size:20px" onclick='javascript:toggle("moleapi-documentation-submit-post-mole-attributes", event)'>MOLE Post Attributes</h3>
+                <div id="moleapi-documentation-submit-post-mole-attributes">
                     <h4 onclick='javascript:toggle("moleapi-documentation-submit-input-table", event)'>Input Attributes</h4>
                     <div id="moleapi-documentation-submit-input-table">
                         <table cellpadding="0" cellspacing="0" style='width: 100%'>

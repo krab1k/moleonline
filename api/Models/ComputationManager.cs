@@ -131,15 +131,16 @@ namespace Mole.API.Models
         public Computation LoadComputation(string computationId)
         {
             var file = Path.Combine(Config.WorkingDirectory, computationId, MoleApiFiles.ComputationStatus);
-            if (File.Exists(file)) { 
-//                using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, computationId))
-//                {
-                    //if (waitHandle.WaitOne())
-                    //{
-                        return JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file));
-//                    }
-                    //waitHandle.Set();
-                }
+            if (File.Exists(file))
+            {
+                //                using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, computationId))
+                //                {
+                //if (waitHandle.WaitOne())
+                //{
+                return JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file));
+                //                    }
+                //waitHandle.Set();
+            }
 
             return null;
         }
@@ -258,7 +259,7 @@ namespace Mole.API.Models
 
 
 
-        internal ComputationReport PrepareAndRunPores(Computation computation, bool isBetaStructure, bool inMembraneMode, string[] chains)
+        internal ComputationReport PrepareAndRunPores(Computation computation, APIPoresParameters p)
         {
             computation.ChangeStatus(ComputationStatus.Running);
 
@@ -269,21 +270,25 @@ namespace Mole.API.Models
                 {
                     PdbId = computation.PdbId,
                     WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
-                    InMembrane = inMembraneMode,
-                    Chains = chains,
+                    InMembrane = p.InMembrane,
+                    Chains = string.IsNullOrEmpty(p.Chains) ? new string[0] : p.Chains.Split(new char[] { ',' }),
+                    InteriorThreshold = p.InteriorThreshold,
+                    ProbeRadius = p.ProbeRadius,
                     PyMolLocation = Config.PyMOL,
                     MemEmbedLocation = Config.MEMBED,
-                    IsBetaBarel = isBetaStructure
+                    IsBetaBarel = p.IsBetaBarel
                 } :
                   new PoresParameters
                   {
                       UserStructure = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, computation.ComputationId)).First(x => Path.GetExtension(x) != ".json"),
                       WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
-                      InMembrane = inMembraneMode,
-                      Chains = chains,
+                      InMembrane = p.InMembrane,
+                      InteriorThreshold = p.InteriorThreshold,
+                      ProbeRadius = p.ProbeRadius,
+                      Chains = p.Chains.Split(new char[] { ',' }),
                       PyMolLocation = Config.PyMOL,
                       MemEmbedLocation = Config.MEMBED,
-                      IsBetaBarel = isBetaStructure
+                      IsBetaBarel = p.IsBetaBarel
                   };
 
             File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));
@@ -485,7 +490,7 @@ namespace Mole.API.Models
                     bytes = Utils.Extensions.ZipDirectory(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pdb", "profile"));
                     return (bytes, $"mole_channels_{computationId}_{submitId}_pdb.zip");
                 case "membrane":
-                    bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "membrane.json"));
+                    bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, "membrane.json"));
                     return (bytes, "membrane.json");
 
                 default:

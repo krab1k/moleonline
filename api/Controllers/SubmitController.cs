@@ -66,8 +66,8 @@ namespace Mole.API.Controllers
 
 
 
-        [HttpGet("Pores/{computationId}", Name = "Submit/Pores")]
-        public string Pores(string computationId, bool isBetaStructure, bool inMembrane, string chains)
+        [HttpPost("Pores/{computationId}", Name = "Submit/Pores")]
+        public string Pores(string computationId, [FromBody] APIPoresParameters parameters)
         {
             Task.Run(() => LogIp($"Pores|{computationId}"));
 
@@ -90,7 +90,7 @@ namespace Mole.API.Controllers
 
             cpt.AddCalculation();
 
-            var result = manager.PrepareAndRunPores(cpt, isBetaStructure, inMembrane, chains?.Split(new char[] { ',' }));
+            var result = manager.PrepareAndRunPores(cpt, parameters);
 
             return result.ToJson();
 
