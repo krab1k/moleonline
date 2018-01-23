@@ -265,31 +265,20 @@ namespace Mole.API.Models
 
             var input = Path.Combine(computation.SubmitDirectory(-1), MoleApiFiles.PoreParams);
 
-            var json = computation.DbModePores ?
-                new PoresParameters
-                {
-                    PdbId = computation.PdbId,
-                    WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
-                    InMembrane = p.InMembrane,
-                    Chains = string.IsNullOrEmpty(p.Chains) ? new string[0] : p.Chains.Split(new char[] { ',' }),
-                    InteriorThreshold = p.InteriorThreshold,
-                    ProbeRadius = p.ProbeRadius,
-                    PyMolLocation = Config.PyMOL,
-                    MemEmbedLocation = Config.MEMBED,
-                    IsBetaBarel = p.IsBetaBarel
-                } :
-                  new PoresParameters
-                  {
-                      UserStructure = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, computation.ComputationId)).First(x => Path.GetExtension(x) != ".json"),
-                      WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
-                      InMembrane = p.InMembrane,
-                      InteriorThreshold = p.InteriorThreshold,
-                      ProbeRadius = p.ProbeRadius,
-                      Chains = p.Chains.Split(new char[] { ',' }),
-                      PyMolLocation = Config.PyMOL,
-                      MemEmbedLocation = Config.MEMBED,
-                      IsBetaBarel = p.IsBetaBarel
-                  };
+            var json = new PoresParameters
+            {
+                WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
+                InMembrane = p.InMembrane,
+                Chains = string.IsNullOrEmpty(p.Chains) ? new string[0] : p.Chains.Split(new char[] { ',' }),
+                InteriorThreshold = p.InteriorThreshold == 0 ? 0.8 : p.InteriorThreshold,
+                ProbeRadius = p.ProbeRadius == 0 ? 13.0 : p.ProbeRadius,
+                PyMolLocation = Config.PyMOL,
+                MemEmbedLocation = Config.MEMBED,
+                IsBetaBarel = p.IsBetaBarel
+            };
+
+            if (computation.DbModePores) json.PdbId = computation.PdbId;
+            else json.UserStructure = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, computation.ComputationId)).First(x => Path.GetExtension(x) != ".json");
 
             File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));
 
