@@ -24,7 +24,7 @@ namespace Mole.API.Controllers
         [HttpGet("{id}")]
         public string Get(string id, string assemblyId)
         {
-            var result = manager.CreatePDBComputation(id, assemblyId);
+            var result = manager.CreatePDBComputation(id.ToLower(), assemblyId);
             return result.ToJson();
         }
 
@@ -32,7 +32,7 @@ namespace Mole.API.Controllers
         [HttpGet("Pores/{id}", Name = "Init/Pores")]
         public string Get(string id)
         {
-            var result = manager.CreatePoreComputation(id);
+            var result = manager.CreatePoreComputation(id.ToLower());
             return result.ToJson();
         }
 
