@@ -183,7 +183,7 @@ namespace Mole.API.Models
         /// <param name="computationId"></param>
         /// <returns>Empty computation</returns>
         public static ComputationReport NotExists(string computationId) =>
-             new ComputationReport(computationId, 0, ComputationStatus.Error, $"ComputationId [{computationId}] does not exists.");
+             new ComputationReport(computationId, 0, ComputationStatus.Error, $"ComputationId [{computationId}] does not exists.\n");
 
 
         public void DownloadBioStructure()
@@ -285,14 +285,17 @@ namespace Mole.API.Models
         /// <param name="baseDir"></param>
         public void SaveStatus()
         {
-            //            using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, this.ComputationId))
+            //using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, this.ComputationId))
             //{
-            //  if (waitHandle.WaitOne()) {
+            //    if (waitHandle.WaitOne())
+            //    {
             File.WriteAllText(StatusPath(), JsonConvert.SerializeObject(this, Formatting.Indented));
+            File.AppendAllText("apii_log.log", $"save status of {ComputationId} to be {ComputationUnits.Last().Status}");
+            //    }
+            //    waitHandle.Set();
+
+
             //}
-            //waitHandle.Set();                
-        
-    
         }
 
     }

@@ -27,12 +27,17 @@ namespace Mole.API.Utils
         /// </summary>
         /// <param name="path"></param>
         /// <returns></returns>
-        public static byte[] ZipDirectory(string path) {
-            var temp = "temp.zip";
+        public static byte[] ZipDirectory(string tempDirectory, string path) {
+
+            var temp = Path.Combine(tempDirectory, "temp.zip");
+
+            if (File.Exists(temp)) File.Delete(temp);
 
             ZipFile.CreateFromDirectory(path, temp);
             var bytes = File.ReadAllBytes(temp);
-            File.Delete(temp);
+
+            if (File.Exists(temp)) File.Delete(temp);
+
 
             return bytes;
         }

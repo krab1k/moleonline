@@ -9,6 +9,7 @@ using System.Text;
 using Microsoft.AspNetCore.Http;
 using System.Threading;
 using System;
+using System.Collections.Concurrent;
 
 namespace Mole.API.Models
 {
@@ -19,8 +20,8 @@ namespace Mole.API.Models
     {
         private Config _config;
         private CSA csa;
-        private object locker = new object();
-        private ObservableDictionary<string, int> RunningProcesses;
+        private object locker;
+        private ConcurrentDictionary<string, int> RunningProcesses;
 
 
 
@@ -39,15 +40,11 @@ namespace Mole.API.Models
         public void Init(Config c)
         {
             var f = Path.Combine(c.WorkingDirectory, MoleApiFiles.RunningProcesses);
+            locker = new object();
 
             csa = new CSA(c.CSA);
-            if (File.Exists(f)) RunningProcesses = JsonConvert.DeserializeObject<ObservableDictionary<string, int>>(File.ReadAllText(f));
-            else RunningProcesses = new ObservableDictionary<string, int>();
+            RunningProcesses = new ConcurrentDictionary<string, int>();
 
-            RunningProcesses.CollectionChanged += (s, e) =>
-            {
-                File.WriteAllText(f, JsonConvert.SerializeObject(RunningProcesses, Formatting.Indented));
-            };
         }
 
 
@@ -365,7 +362,11 @@ namespace Mole.API.Models
 
             p.Exited += (s, e) =>
             {
-                lock (locker) RunningProcesses.Remove(c.ComputationId);
+                lock (locker)
+                {
+                    int i = 0;
+                    RunningProcesses.TryRemove(c.ComputationId, out i);
+                }
 
                 if (((Process)s).ExitCode == -1) return;
                 if (sb.Length != 0)
@@ -374,17 +375,16 @@ namespace Mole.API.Models
                     return;
                 }
                 if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
+
                 if (init)
                 {
                     c.ChangeStatus(ComputationStatus.Initialized);
                 }
                 else c.ChangeStatus(ComputationStatus.Finished);
-
-
             };
 
             p.Start();
-            RunningProcesses.Add(c.ComputationId, p.Id);
+            RunningProcesses.GetOrAdd(c.ComputationId, p.Id);
             p.BeginErrorReadLine();
         }
 
@@ -411,12 +411,13 @@ namespace Mole.API.Models
 
         internal ComputationReport KillComputation(Computation cpt)
         {
+
             if (RunningProcesses.ContainsKey(cpt.ComputationId))
             {
                 try
                 {
                     Process.GetProcessById(RunningProcesses[cpt.ComputationId]).Kill();
-                    RunningProcesses.Remove(cpt.ComputationId);
+                    RunningProcesses.TryRemove(cpt.ComputationId, out int i);
 
                     cpt.ChangeStatus(ComputationStatus.Aborted);
                 }
@@ -476,7 +477,9 @@ namespace Mole.API.Models
                     bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "vmd", MoleApiFiles.VMDScript));
                     return (bytes, $"mole_channels_{computationId}_{submitId}.tk");
                 case "pdb":
-                    bytes = Utils.Extensions.ZipDirectory(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pdb", "profile"));
+                    var zipDir = Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pdb", "profile");
+                    var tempDir = Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString());
+                    bytes = Utils.Extensions.ZipDirectory(tempDir, zipDir);
                     return (bytes, $"mole_channels_{computationId}_{submitId}_pdb.zip");
                 case "membrane":
                     bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, "membrane.json"));
