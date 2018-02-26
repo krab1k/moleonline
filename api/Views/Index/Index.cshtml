@@ -717,12 +717,22 @@
                     </tbody>
                 </table>
             </div>
-        </div>
+            <div class="mole-api-docs-query-wrap">
+                <h2 onclick='javascript:toggle("moleapi-documentation-version-body", event)'>
+                    Version info <span>/Version</span><br>
+                    <small>Get version information about employed services</small>
+                </h2>
+                <div id="moleapi-documentation-version-body" style="display:none; margin: 24px 24px 0 24px">
+                <h4>Examples</h4>
+                   <a href="@Url.Action("", "Version")" class="cs-docs-template-link" target="_blank" rel="nofollow">/Version</a><br>
+                </div>
 
-        <p style="color: #999;font-size:smaller;margin: 20px 0; text-align: left">
-            Software &ndash; MOLE binary @ViewBag.MoleVersion | Pores mode @ViewBag.PoresVersion
-            <span style="float: right">&copy; 2013 &ndash; now, CEITEC &amp; FCH UPOL</span>
-        </p>
-    </div>
+            </div>
+
+                <p style="color: #999;font-size:smaller;margin: 20px 0; text-align: left">
+                    Software &ndash; MOLE binary @ViewBag.MoleVersion | Pores mode @ViewBag.PoresVersion
+                    <span style="float: right">&copy; 2013 &ndash; now, CEITEC &amp; FCH UPOL</span>
+                </p>
+            </div>
 </body>
 </html>

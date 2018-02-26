@@ -3,14 +3,13 @@
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
     "iisExpress": {
-      "applicationUrl": "http://localhost:62846/",
+      "applicationUrl": "http://localhost:5000/",
       "sslPort": 0
     }
   },
   "profiles": {
     "IIS Express": {
       "commandName": "IISExpress",
-      "launchBrowser": false,
       "launchUrl": "Init",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
@@ -18,7 +17,6 @@
     },
     "Mole.API": {
       "commandName": "Project",
-      "launchBrowser": false,
       "launchUrl": "Init",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
