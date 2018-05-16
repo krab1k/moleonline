@@ -1,0 +1,72 @@
+﻿@model IEnumerable<Mole.API.ViewModels.ComputationsSummary>
+
+<!doctype html>
+<html lang="en">
+<head>
+    <title>MOLEOnline computations</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <style>
+        body {
+            padding-top: 54px;
+        }
+
+        .footer {
+            padding-top: 20px;
+            color: #777;
+            border-top: .05rem solid #e5e5e5;
+        }
+    </style>
+</head>
+
+<body class="container">
+    <h3>MOLEOnline computations</h3>
+
+    <div class="row">
+        <div class="col-3">
+            <div class="list-group" id="list-tab" role="tablist">
+                @{var count = 0;
+                    @foreach (var item in ViewBag.Data)
+                    {
+                        <a class="@(count == 0 ? "list-group-item list-group-item-action justify-content-between align-items-center active" : "list-group-item list-group-item-action justify-content-between align-items-center")"
+                           id="list-home-list" data-toggle="list" href="#@item.Date" role="tab" aria-controls="home">
+                            @item.Date
+                            <span class="badge badge-dark badge-pill">@item.Count</span>
+                        </a>
+                        count++;
+                    }}
+                </div>
+        </div>
+        <div class="col-9">
+            <div class="tab-content" id="nav-tabContent">
+                @{var counter = 0;
+                @foreach (var day in ViewBag.Data)
+                {
+                <div class="@(counter == 0 ? "tab-pane fade show active" : "tab-pane fade show")" id="@day.Date" role="tabpanel" aria-labelledby="@day.Date-list">
+                    <ul>
+                        @foreach (var item in @day.Summaries)
+                        {
+                        <li>
+                            <span><a href="https://mole.upol.cz/online/@item.Id" target="_blank" rel="nofollow">@item.Structure</a> | @(item.Computations == 1 ? "No Computation" : $"Computations: {item.Computations - 1}")</span>
+                        </li>
+                        }
+                    </ul>
+                </div>
+                    counter++;
+                }}
+                <!--<div class="tab-pane fade show active" id="list-home" role="tabpanel" aria-labelledby="list-home-list">Foo-baaar</div>
+            <div class="tab-pane fade" id="list-profile" role="tabpanel" aria-labelledby="list-profile-list">Baaar-foooo</div>
+            <div class="tab-pane fade" id="list-messages" role="tabpanel" aria-labelledby="list-messages-list">...</div>
+            <div class="tab-pane fade" id="list-settings" role="tabpanel" aria-labelledby="list-settings-list">...</div>-->
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2018 | CEITEC, FCH UPOL</p>
+    </footer>
+</body>
+</html>

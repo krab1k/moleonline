@@ -9,7 +9,7 @@ namespace Mole.API.Utils
     {
         public string PoresVersion { get; set; } = "1.4.5";
         public string MoleVersion { get; set; } = "2.5.18.1.14";
-        public string APIVersion { get; set; } = "0.5.2";
-        public string Build { get; set; } = "022618";
+        public string APIVersion { get; set; } = "0.5.3";
+        public string Build { get; set; } = "051218";
     }
 }

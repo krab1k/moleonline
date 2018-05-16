@@ -49,7 +49,7 @@ namespace Mole.API.Controllers
                             new string[] {
                                 "MOLE API mailing service\n",
                                 $"User {p.From} is asking for help with the following computation: https://mole.upol.cz/online/{p.ComputationId}/{p.SubmitId}",
-                                "DO NOT reply to this email directly and Respond ASAP :)\n",
+                                "DO NOT reply to this email directly and respond ASAP :)\n",
                                 "----------",
                                 p.Msg,
                                 "----------\n",
