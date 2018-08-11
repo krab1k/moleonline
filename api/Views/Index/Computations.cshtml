@@ -50,7 +50,7 @@
                         @foreach (var item in @day.Summaries)
                         {
                         <li>
-                            <span><a href="https://mole.upol.cz/online/@item.Id" target="_blank" rel="nofollow">@item.Structure</a> | @(item.Computations == 1 ? "No Computation" : $"Computations: {item.Computations - 1}")</span>
+                            <span><a href="https://mole.upol.cz/online/@item.Id" target="_blank" rel="nofollow">@item.Structure</a> | @(item.Computations == 0 ? "No Computation" : $"Computations: {item.Computations}")</span>
                         </li>
                         }
                     </ul>
