@@ -62,6 +62,11 @@ namespace Mole.API.Controllers
         [Route("__computations")]
         public IActionResult Computations()
         {
+            var statuses = new List<string>() {
+                ComputationStatus.Initialized,
+                ComputationStatus.FailedInitialization
+
+            };
             var data = Directory.GetDirectories(config.WorkingDirectory)
                             .Where(x => System.IO.File.Exists(Path.Combine(config.WorkingDirectory, x, MoleApiFiles.ComputationStatus)))
                             .Select(x =>
@@ -81,7 +86,7 @@ namespace Mole.API.Controllers
                                 {
                                     Id = y.obj.ComputationId,
                                     Structure = y.obj.PdbId == string.Empty ? "UserStructure" : y.obj.PdbId,
-                                    Computations = y.obj.ComputationUnits.Count
+                                    Computations = y.obj.ComputationUnits.Count(q => !statuses.Contains(q.Status))
                                 })
                             });
 

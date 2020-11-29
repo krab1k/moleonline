@@ -194,13 +194,13 @@ namespace Mole.API.Models
 
 
         /// <summary>
-        /// Downloads Protein Data Bank file from Coordinate Server https://coords.litemol.org
+        /// Downloads Protein Data Bank file from Coordinate Server https://www.ebi.ac.uk/pdbe/coordinates
         /// </summary>
         /// <param name="url">Url to fetch the file</param>
         /// <param name="id">PDB if of this file</param>
         public void DownloadStructure()
         {
-            var url = AssemblyId != null ? $"https://coords.litemol.org/{PdbId}/assembly?id={AssemblyId}" : $"https://coords.litemol.org/{PdbId}/full";
+            var url = AssemblyId != null ? $"https://www.ebi.ac.uk/pdbe/coordinates/{PdbId}/assembly?id={AssemblyId}" : $"https://www.ebi.ac.uk/pdbe/coordinates/{PdbId}/full";
 
             var file = Path.Combine(BaseDir, ComputationId, PdbId + ".cif");
             using (WebClient cl = new WebClient())
@@ -218,8 +218,8 @@ namespace Mole.API.Models
                     SaveStatus();
 
                 }
-                catch (WebException)
-                {
+                catch (WebException e)
+                {                    
                     ComputationUnits.First().Status = ComputationStatus.FailedInitialization;
                     ComputationUnits.First().ErrorMsg = $"Structure [{PdbId}] is unlikely to exist or has been made obsolete.";
                     SaveStatus();

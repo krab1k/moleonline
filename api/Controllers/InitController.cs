@@ -32,7 +32,7 @@ namespace Mole.API.Controllers
         [HttpGet("Pores/{id}", Name = "Init/Pores")]
         public string Get(string id)
         {
-            var result = manager.CreatePoreComputation(id.ToLower());
+            var result = manager.CreatePoreComputation(id.ToLower());            
             return result.ToJson();
         }
 

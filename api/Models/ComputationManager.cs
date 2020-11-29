@@ -74,9 +74,8 @@ namespace Mole.API.Models
         /// <param name="bioUnit">optional biologicall assembly</param>
         /// <returns>Computation report object</returns>
         internal ComputationReport CreatePoreComputation(string id)
-        {
-            var computation = new Computation(Config.WorkingDirectory, id);
-
+        {            
+            var computation = new Computation(Config.WorkingDirectory, id);         
             Task.Run(() => computation.DownloadBioStructure()).ContinueWith(x => Init(computation));
 
 
