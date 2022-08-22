@@ -200,7 +200,7 @@ namespace Mole.API.Models
         /// <param name="id">PDB if of this file</param>
         public void DownloadStructure()
         {
-            var url = AssemblyId != null ? $"https://www.ebi.ac.uk/pdbe/coordinates/{PdbId}/assembly?id={AssemblyId}" : $"https://www.ebi.ac.uk/pdbe/coordinates/{PdbId}/full";
+            var url = AssemblyId != null ? $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/assembly?name={AssemblyId}" : $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/full";
 
             var file = Path.Combine(BaseDir, ComputationId, PdbId + ".cif");
             using (WebClient cl = new WebClient())
