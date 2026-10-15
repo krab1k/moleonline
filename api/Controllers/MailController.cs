@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;

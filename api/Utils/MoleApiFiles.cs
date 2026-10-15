@@ -1,4 +1,4 @@
-﻿namespace Mole.API.Utils
+namespace Mole.API.Utils
 {
     public static class MoleApiFiles
     {

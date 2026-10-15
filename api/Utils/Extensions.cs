@@ -1,4 +1,4 @@
-﻿using Mole.API.Models;
+using Mole.API.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
