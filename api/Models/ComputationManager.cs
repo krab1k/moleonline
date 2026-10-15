@@ -20,7 +20,6 @@ namespace Mole.API.Models
     {
         private Config _config;
         private CSA csa;
-        private object locker;
         private ConcurrentDictionary<string, int> RunningProcesses;
 
 
@@ -40,7 +39,6 @@ namespace Mole.API.Models
         public void Init(Config c)
         {
             var f = Path.Combine(c.WorkingDirectory, MoleApiFiles.RunningProcesses);
-            locker = new object();
 
             csa = new CSA(c.CSA);
             RunningProcesses = new ConcurrentDictionary<string, int>();
@@ -348,44 +346,59 @@ namespace Mole.API.Models
 
         private void RunComputation(Computation c, ProcessStartInfo info, bool init, bool zipDirectory = true)
         {
-            StringBuilder sb = new StringBuilder();
+            Task.Run(() => RunComputationAsync(c, info, init, zipDirectory));
+        }
 
-            Process p = new Process()
+
+        /// <summary>
+        /// Runs the process and sets the computation status when it exits: Error when the process writes to stderr
+        /// or the API itself fails (e.g. the process cannot be started), otherwise Initialized/Finished.
+        /// </summary>
+        private async Task RunComputationAsync(Computation c, ProcessStartInfo info, bool init, bool zipDirectory)
+        {
+            try
             {
-                StartInfo = info,
-                EnableRaisingEvents = true
-            };
-            p.ErrorDataReceived += (s, e) =>
+                StringBuilder sb = new StringBuilder();
+
+                using (Process p = new Process() { StartInfo = info })
+                {
+                    p.ErrorDataReceived += (s, e) =>
+                    {
+                        if (e.Data != null) lock (sb) sb.AppendLine(e.Data);
+                    };
+
+                    p.Start();
+                    RunningProcesses[c.ComputationId] = p.Id;
+                    p.BeginErrorReadLine();
+
+                    try
+                    {
+                        await p.WaitForExitAsync(); // also waits until stderr is read completely
+                    }
+                    finally
+                    {
+                        RunningProcesses.TryRemove(c.ComputationId, out _);
+                    }
+
+                    if (p.ExitCode == -1) return;
+                    if (sb.Length != 0)
+                    {
+                        c.ChangeStatus(ComputationStatus.Error, sb.ToString());
+                        return;
+                    }
+                    if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
+
+                    if (init)
+                    {
+                        c.ChangeStatus(ComputationStatus.Initialized);
+                    }
+                    else c.ChangeStatus(ComputationStatus.Finished);
+                }
+            }
+            catch (Exception e)
             {
-                if (e.Data != null) sb.AppendLine(e.Data);
-            };
-
-            p.Exited += (s, e) =>
-            {
-                lock (locker)
-                {
-                    int i = 0;
-                    RunningProcesses.TryRemove(c.ComputationId, out i);
-                }
-
-                if (((Process)s).ExitCode == -1) return;
-                if (sb.Length != 0)
-                {
-                    c.ChangeStatus(ComputationStatus.Error, sb.ToString());
-                    return;
-                }
-                if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
-
-                if (init)
-                {
-                    c.ChangeStatus(ComputationStatus.Initialized);
-                }
-                else c.ChangeStatus(ComputationStatus.Finished);
-            };
-
-            p.Start();
-            RunningProcesses.GetOrAdd(c.ComputationId, p.Id);
-            p.BeginErrorReadLine();
+                try { c.ChangeStatus(ComputationStatus.Error, e.Message); } catch (Exception) { } // never leave the computation running
+            }
         }
 
 
