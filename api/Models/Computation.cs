@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml.Linq;
@@ -194,36 +195,54 @@ namespace Mole.API.Models
 
 
         /// <summary>
-        /// Downloads Protein Data Bank file from Coordinate Server https://www.ebi.ac.uk/pdbe/coordinates
+        /// Downloads Protein Data Bank file from Model Server https://www.ebi.ac.uk/pdbe/model-server
         /// </summary>
-        /// <param name="url">Url to fetch the file</param>
-        /// <param name="id">PDB if of this file</param>
         public void DownloadStructure()
         {
             var url = AssemblyId != null ? $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/assembly?name={AssemblyId}" : $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/full";
 
             var file = Path.Combine(BaseDir, ComputationId, PdbId + ".cif");
-            using (WebClient cl = new WebClient())
+            var temp = file + ".download"; // the structure file appears only when complete
+            try
             {
-                try
+                HttpStatusCode status;
+                using (var stream = File.Create(temp))
                 {
-                    cl.DownloadFile(new Uri(url), file);
-                    var error = CheckDownloadedStructure(file);
-                    if (!String.IsNullOrEmpty(error))
-                    {
-                        ChangeStatus(ComputationStatus.FailedInitialization, error);
-                        return;
-                    }
-                    DbModePores = AssemblyId == GetBioAssemblyId();
-                    SaveStatus();
+                    status = Download(url, stream);
+                }
 
+                if (status == HttpStatusCode.NotFound)
+                {
+                    ChangeStatus(ComputationStatus.FailedInitialization, $"Structure [{PdbId}] is unlikely to exist or has been made obsolete.");
+                    return;
                 }
-                catch (WebException)
-                {                    
-                    ComputationUnits.First().Status = ComputationStatus.FailedInitialization;
-                    ComputationUnits.First().ErrorMsg = $"Structure [{PdbId}] is unlikely to exist or has been made obsolete.";
-                    SaveStatus();
+                if (status != HttpStatusCode.OK)
+                {
+                    ChangeStatus(ComputationStatus.FailedInitialization, $"PDBe returned an error ({(int)status}) when downloading structure [{PdbId}]. Please, try again later.");
+                    return;
                 }
+
+                File.Move(temp, file);
+                var error = CheckDownloadedStructure(file);
+                if (!String.IsNullOrEmpty(error))
+                {
+                    ChangeStatus(ComputationStatus.FailedInitialization, error);
+                    return;
+                }
+                DbModePores = AssemblyId == GetBioAssemblyId();
+                SaveStatus();
+            }
+            catch (Exception e) when (e is HttpRequestException || e is OperationCanceledException || e is IOException)
+            {
+                ChangeStatus(ComputationStatus.FailedInitialization, "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later.");
+            }
+            catch (Exception e)
+            {
+                ChangeStatus(ComputationStatus.FailedInitialization, $"Structure [{PdbId}] could not be downloaded: {e.Message}");
+            }
+            finally
+            {
+                if (File.Exists(temp)) File.Delete(temp);
             }
         }
 
@@ -231,14 +250,51 @@ namespace Mole.API.Models
         {
             try
             {
-                using (WebClient cl = new WebClient())
+                using (var stream = new MemoryStream())
                 {
-                    var xml = cl.DownloadString(new Uri($"http://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml"));
-                    return XDocument.Parse(xml).Root.Elements("assembly").First(x => x.Attribute("prefered").Value.Equals("True")).Attribute("id").Value;
+                    if (Download($"https://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml", stream) != HttpStatusCode.OK) return null;
+                    stream.Position = 0;
+                    return XDocument.Load(stream).Root.Elements("assembly").First(x => x.Attribute("prefered").Value.Equals("True")).Attribute("id").Value;
                 }
             }
             catch (Exception)
             { return null; }
+        }
+
+
+        private static readonly HttpClient http = new HttpClient(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(15) })
+        {
+            Timeout = Timeout.InfiniteTimeSpan // handled in Download
+        };
+        private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(120); // model server builds assemblies on the fly
+        private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(60);
+
+
+        /// <summary>
+        /// Downloads url into target. Fails when the response does not start within ResponseTimeout
+        /// or no data arrive within IdleTimeout, so that large structures can still be downloaded on slow links.
+        /// </summary>
+        /// <returns>HTTP status code of the response, target is written only for OK</returns>
+        private static HttpStatusCode Download(string url, Stream target)
+        {
+            using (var cts = new CancellationTokenSource(ResponseTimeout))
+            using (var response = http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token).GetAwaiter().GetResult())
+            {
+                if (response.StatusCode != HttpStatusCode.OK) return response.StatusCode;
+
+                using (var body = response.Content.ReadAsStream(cts.Token))
+                {
+                    var buffer = new byte[81920];
+                    while (true)
+                    {
+                        cts.CancelAfter(IdleTimeout);
+                        var read = body.ReadAsync(buffer, 0, buffer.Length, cts.Token).GetAwaiter().GetResult();
+                        if (read == 0) break;
+                        target.Write(buffer, 0, read);
+                    }
+                }
+                return HttpStatusCode.OK;
+            }
         }
 
 
