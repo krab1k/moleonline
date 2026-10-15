@@ -18,15 +18,15 @@ namespace Mole.API.Controllers
 
 
         [HttpGet("{compId}")]
-        public string Get(string compId)
+        public ContentResult Get(string compId)
         {
             var cpt = manager.LoadComputation(compId);
 
-            if (cpt == null || cpt.UserStructure) return "[]";
+            if (cpt == null || cpt.UserStructure) return Content("[]", "application/json");
 
             var residues = manager.GetActiveSite(cpt.PdbId);
 
-            return JsonConvert.SerializeObject(residues, Formatting.Indented);
+            return Content(JsonConvert.SerializeObject(residues, Formatting.Indented), "application/json");
             }
     }
 }

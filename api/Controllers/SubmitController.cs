@@ -27,32 +27,32 @@ namespace Mole.API.Controllers
 
 
         [HttpPost("Mole/{computationId}", Name = "Submit/Mole")]
-        public string Post(string computationId, [FromBody] ComputationParameters param)
+        public ContentResult Post(string computationId, [FromBody] ComputationParameters param)
         {
             Task.Run(() => LogIp($"Mole|{computationId}"));
 
             var cpt = manager.LoadComputation(computationId);
-            if (cpt == null) return Computation.NotExists(computationId).ToJson();
-            if (param == null) return new ComputationReport()
+            if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
+            if (param == null) return Content(new ComputationReport()
             {
                 ComputationId = cpt.ComputationId,
                 Status = ComputationStatus.Error,
                 ErrorMsg = "Input format error. Request's body could not be serialized, please fix the error and try again."
-            }.ToJson();
+            }.ToJson(), "application/json");
 
 
             var canRunMsg = manager.CanRun(cpt);
 
             if (!String.IsNullOrEmpty(canRunMsg))
             {
-                return
+                return Content(
                     new ComputationReport()
                     {
                         ComputationId = computationId,
                         SubmitId = 0,
                         Status = ComputationStatus.Error,
                         ErrorMsg = canRunMsg
-                    }.ToJson();
+                    }.ToJson(), "application/json");
             }
 
             cpt.AddCalculation();
@@ -61,38 +61,38 @@ namespace Mole.API.Controllers
 
             var report = manager.PrepareAndRunMole(cpt, param);
 
-            return report.ToJson();
+            return Content(report.ToJson(), "application/json");
         }
 
 
 
         [HttpPost("Pores/{computationId}", Name = "Submit/Pores")]
-        public string Pores(string computationId, [FromBody] APIPoresParameters parameters)
+        public ContentResult Pores(string computationId, [FromBody] APIPoresParameters parameters)
         {
             Task.Run(() => LogIp($"Pores|{computationId}"));
 
             var cpt = manager.LoadComputation(computationId);
-            if (cpt == null) return Computation.NotExists(computationId).ToJson();
+            if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
 
             var canRunMsg = manager.CanRun(cpt);
 
             if (!String.IsNullOrEmpty(canRunMsg))
             {
-                return
+                return Content(
                     new ComputationReport()
                     {
                         ComputationId = computationId,
                         SubmitId = 0,
                         Status = ComputationStatus.Error,
                         ErrorMsg = canRunMsg
-                    }.ToJson();
+                    }.ToJson(), "application/json");
             }
 
             cpt.AddCalculation();
 
             var result = manager.PrepareAndRunPores(cpt, parameters);
 
-            return result.ToJson();
+            return Content(result.ToJson(), "application/json");
 
         }
 

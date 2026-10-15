@@ -17,8 +17,8 @@ namespace Mole.API.Controllers
         }
 
         [HttpGet("{computationId}")]
-        public string Get(string computationId) {
-            return manager.ComputationInfos(computationId);
+        public ContentResult Get(string computationId) {
+            return Content(manager.ComputationInfos(computationId), "application/json");
         }
     }
 }

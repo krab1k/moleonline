@@ -23,14 +23,14 @@ namespace Mole.API.Controllers
 
 
         [HttpGet("{id}")]
-        public string Get(string id)
+        public ContentResult Get(string id)
         {
             var cpt = manager.LoadComputation(id);
 
-            if (cpt == null) return Computation.NotExists(id).ToJson();
+            if (cpt == null) return Content(Computation.NotExists(id).ToJson(), "application/json");
 
             var result = manager.DeleteComputation(id);
-            return result.ToJson();
+            return Content(result.ToJson(), "application/json");
         }
     }
 }

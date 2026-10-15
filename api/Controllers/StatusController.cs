@@ -17,13 +17,13 @@ namespace Mole.API.Controllers
         }
 
         [HttpGet("{computationId}")]
-        public string Get(string computationId, int submitId)
+        public ContentResult Get(string computationId, int submitId)
         {
             var cpt = manager.LoadComputation(computationId);
 
-            if (cpt == null) return Computation.NotExists(computationId).ToJson();
+            if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
 
-            return cpt.GetComputationReport(submitId).ToJson();
+            return Content(cpt.GetComputationReport(submitId).ToJson(), "application/json");
 
 
 

@@ -22,39 +22,39 @@ namespace Mole.API.Controllers
 
 
         [HttpGet("{id}")]
-        public string Get(string id, string assemblyId)
+        public ContentResult Get(string id, string assemblyId)
         {
             var result = manager.CreatePDBComputation(id.ToLower(), assemblyId);
-            return result.ToJson();
+            return Content(result.ToJson(), "application/json");
         }
 
 
         [HttpGet("Pores/{id}", Name = "Init/Pores")]
-        public string Get(string id)
+        public ContentResult Get(string id)
         {
             var result = manager.CreatePoreComputation(id.ToLower());            
-            return result.ToJson();
+            return Content(result.ToJson(), "application/json");
         }
 
 
 
         [HttpPost]
         [Consumes("multipart/form-data")]
-        public string Post(IFormFile file)
+        public ContentResult Post(IFormFile file)
         {
             if (!Regex.Match(file.FileName.ToLower(), "(\\.pdb|\\.cif|\\.gz|\\.pdb[0-9]+)$").Success)
             {
-                return new ComputationReport()
+                return Content(new ComputationReport()
                 {
                     ComputationId = null,
                     ErrorMsg = "Unsupported file type. Supported extensions are *.pdb, *.cif, *.pdbX (e.g. *.pdb1) and *.gz",
                     Status = ComputationStatus.Error,
                     SubmitId = 0
-                }.ToJson();
+                }.ToJson(), "application/json");
             }
             var result = manager.CreateUserComputation(file);
 
-            return result.ToJson();
+            return Content(result.ToJson(), "application/json");
         }
 
 

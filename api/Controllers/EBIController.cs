@@ -23,7 +23,7 @@ namespace Mole.API.Controllers
         }
 
         [HttpGet("{pdbId}")]
-        public string Get(string pdbId, bool ignoreHet)
+        public ContentResult Get(string pdbId, bool ignoreHet)
         {
             var para = new ComputationParameters()
             {
@@ -36,7 +36,7 @@ namespace Mole.API.Controllers
             };
             var result = manager.InitAndRunEBI(pdbId, para);
 
-            return result.ToJson();
+            return Content(result.ToJson(), "application/json");
 
         }
     }
