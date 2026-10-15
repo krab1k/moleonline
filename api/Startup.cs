@@ -1,26 +1,19 @@
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Mole.API.Models;
 
 namespace Mole.API
 {
     public class Startup
     {
-        public Startup(IHostingEnvironment env)
+        public Startup(IConfiguration configuration)
         {
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
-                .AddEnvironmentVariables();
-            Configuration = builder.Build();
+            Configuration = configuration; // appsettings.json, appsettings.{env}.json and environment variables, see Program
         }
 
-        public IConfigurationRoot Configuration { get; }
+        public IConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -39,29 +32,27 @@ namespace Mole.API
                         AllowAnyOrigin().
                         AllowAnyMethod().
                         AllowAnyHeader().
-                        AllowCredentials().
                         WithExposedHeaders("Content-Disposition"));
-            });// allow Cross-origin resource sharing            
+            });// allow Cross-origin resource sharing (credentials cannot be combined with any origin)
 
-            services.AddMvc();// Add framework services.
+            services.AddControllersWithViews().AddNewtonsoftJson();// Add framework services, keep Newtonsoft.Json for request bodies
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public void Configure(IApplicationBuilder app)
         {
-            loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-            loggerFactory.AddDebug();
-
             app.UseExceptionHandler("/Index/Error");
-            
-            app.UseCors("CorsPolicy"); // has to be BEFORE UseMvc method
+
+            app.UseCors("CorsPolicy"); // before UseStaticFiles, the web fetches inputs/cofactors.json cross-origin
             app.UseStaticFiles(); // allow download files from wwwroot
             app.UseResponseCompression();
-            app.UseMvc(routes =>
+            app.UseRouting();
+            app.UseEndpoints(endpoints =>
             {
-                routes.MapRoute(
+                endpoints.MapControllers();
+                endpoints.MapControllerRoute(
                     name: "Index",
-                    template: "{controller=Index}/{action=Index}");
+                    pattern: "{controller=Index}/{action=Index}");
             });
 
             
