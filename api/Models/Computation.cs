@@ -350,7 +350,6 @@ namespace Mole.API.Models
             var temp = $"{StatusPath()}.{Guid.NewGuid():N}.tmp.json";
             File.WriteAllText(temp, JsonConvert.SerializeObject(this, Formatting.Indented));
             File.Move(temp, StatusPath(), overwrite: true);
-            File.AppendAllText("apii_log.log", $"save status of {ComputationId} to be {ComputationUnits.Last().Status}");
             //    }
             //    waitHandle.Set();
 
