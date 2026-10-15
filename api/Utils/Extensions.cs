@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
 
 namespace Mole.API.Utils
@@ -69,58 +68,6 @@ namespace Mole.API.Utils
                 }                
             }
 
-        }
-
-
-        /// <summary>
-        /// Download gzipped file from a given url location and stores it in provided file
-        /// </summary>
-        /// <param name="url">Url to be hit</param>
-        /// <param name="fileName">Destination</param>
-        /// <returns></returns>
-        public static string DownloadCompressedGz(string url, string fileName)
-        {
-            if (File.Exists(fileName)) File.Delete(fileName);
-
-            try
-            {
-                using (WebClient c = new WebClient())
-                {
-                    using (Stream s = c.OpenRead(url))
-                    {
-                        using (GZipStream stream = new GZipStream(s, CompressionMode.Decompress))
-                        {
-                            ReadStream(fileName, stream);
-                        }
-                    }
-                }
-            }
-            catch (WebException)
-            {
-                return $"Error downloading from: {url}";
-            }
-            return string.Empty;
-        }
-
-
-        public static void ReadStream(string fileName, Stream stream)
-        {
-            using (var outputStream = new FileStream(fileName, FileMode.Create))
-            {
-                const int size = 4096;
-                byte[] buffer = new byte[size];
-                using (MemoryStream memory = new MemoryStream())
-                {
-                    int count = 0;
-                    do
-                    {
-                        count = stream.Read(buffer, 0, size);
-                        if (count > 0)
-                            outputStream.Write(buffer, 0, count);
-                    }
-                    while (count > 0);
-                }
-            }
         }
     }
 }
