@@ -189,6 +189,7 @@ namespace Mole.API.Models
         {
             var computation = new Computation(Config.WorkingDirectory, pdbId);
             computation.DownloadStructure();
+            if (computation.ComputationUnits.Last().Status == ComputationStatus.FailedInitialization) return computation.GetComputationReport();
 
             Task.Run(() => RunEBIRoutine(computation, pars));
 
