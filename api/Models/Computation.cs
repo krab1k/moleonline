@@ -218,7 +218,7 @@ namespace Mole.API.Models
                     SaveStatus();
 
                 }
-                catch (WebException e)
+                catch (WebException)
                 {                    
                     ComputationUnits.First().Status = ComputationStatus.FailedInitialization;
                     ComputationUnits.First().ErrorMsg = $"Structure [{PdbId}] is unlikely to exist or has been made obsolete.";
