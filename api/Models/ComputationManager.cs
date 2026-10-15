@@ -307,6 +307,7 @@ namespace Mole.API.Models
             {
                 FileName = Config.Pores,
                 Arguments = inputJson,
+                RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -344,6 +345,7 @@ namespace Mole.API.Models
             {
                 FileName = Config.MOLE,
                 Arguments = xmlPath,
+                RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -377,11 +379,13 @@ namespace Mole.API.Models
                     {
                         if (e.Data != null) lock (sb) sb.AppendLine(e.Data);
                     };
+                    p.OutputDataReceived += (s, e) => { }; // progress output is not needed, read it so the process never blocks on a full pipe
 
                     var job = new RunningJob() { Process = p };
                     p.Start();
                     RunningProcesses[c.ComputationId] = job;
                     p.BeginErrorReadLine();
+                    p.BeginOutputReadLine();
 
                     try
                     {
