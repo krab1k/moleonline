@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using System.Threading;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace Mole.API.Models
 {
@@ -20,7 +21,16 @@ namespace Mole.API.Models
     {
         private Config _config;
         private CSA csa;
-        private ConcurrentDictionary<string, int> RunningProcesses;
+        private ConcurrentDictionary<string, RunningJob> RunningProcesses;
+
+        /// <summary>
+        /// One run of MOLE/Pores. Submissions of a computation share its id, so the kill flag must belong to the run.
+        /// </summary>
+        private class RunningJob
+        {
+            public Process Process;
+            public volatile bool Killed;
+        }
 
 
 
@@ -41,7 +51,7 @@ namespace Mole.API.Models
             var f = Path.Combine(c.WorkingDirectory, MoleApiFiles.RunningProcesses);
 
             csa = new CSA(c.CSA);
-            RunningProcesses = new ConcurrentDictionary<string, int>();
+            RunningProcesses = new ConcurrentDictionary<string, RunningJob>();
 
         }
 
@@ -351,8 +361,9 @@ namespace Mole.API.Models
 
 
         /// <summary>
-        /// Runs the process and sets the computation status when it exits: Error when the process writes to stderr
-        /// or the API itself fails (e.g. the process cannot be started), otherwise Initialized/Finished.
+        /// Runs the process and sets the computation status when it exits: Error when the process writes to stderr,
+        /// exits with a non-zero code or the API itself fails (e.g. the process cannot be started), otherwise Initialized/Finished.
+        /// A process killed by the user keeps the Aborted status set by KillComputation.
         /// </summary>
         private async Task RunComputationAsync(Computation c, ProcessStartInfo info, bool init, bool zipDirectory)
         {
@@ -367,8 +378,9 @@ namespace Mole.API.Models
                         if (e.Data != null) lock (sb) sb.AppendLine(e.Data);
                     };
 
+                    var job = new RunningJob() { Process = p };
                     p.Start();
-                    RunningProcesses[c.ComputationId] = p.Id;
+                    RunningProcesses[c.ComputationId] = job;
                     p.BeginErrorReadLine();
 
                     try
@@ -377,13 +389,20 @@ namespace Mole.API.Models
                     }
                     finally
                     {
-                        RunningProcesses.TryRemove(c.ComputationId, out _);
+                        RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(c.ComputationId, job)); // only this run, not a later submission
                     }
 
-                    if (p.ExitCode == -1) return;
+                    if (job.Killed) return; // killed by the user, status set by KillComputation
                     if (sb.Length != 0)
                     {
                         c.ChangeStatus(ComputationStatus.Error, sb.ToString());
+                        return;
+                    }
+                    if (p.ExitCode != 0)
+                    {
+                        c.ChangeStatus(ComputationStatus.Error, p.ExitCode == 137
+                            ? "The computation was terminated by the system, most likely it ran out of memory."
+                            : $"The computation failed with exit code {p.ExitCode}.");
                         return;
                     }
                     if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
@@ -425,17 +444,19 @@ namespace Mole.API.Models
         internal ComputationReport KillComputation(Computation cpt)
         {
 
-            if (RunningProcesses.ContainsKey(cpt.ComputationId))
+            if (RunningProcesses.TryGetValue(cpt.ComputationId, out var job))
             {
                 try
                 {
-                    Process.GetProcessById(RunningProcesses[cpt.ComputationId]).Kill();
-                    RunningProcesses.TryRemove(cpt.ComputationId, out int i);
+                    job.Killed = true;
+                    job.Process.Kill();
+                    RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(cpt.ComputationId, job));
 
                     cpt.ChangeStatus(ComputationStatus.Aborted);
                 }
                 catch (Exception)
                 {
+                    job.Killed = false;
                     return new ComputationReport()
                     {
                         ComputationId = cpt.ComputationId,
