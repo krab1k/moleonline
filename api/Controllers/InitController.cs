@@ -11,6 +11,8 @@ public partial class InitController(ComputationManager manager) : Controller
     [GeneratedRegex(@"(\.pdb|\.cif|\.gz|\.pdb[0-9]+)$")]
     private static partial Regex StructureExtension();
 
+    private const int MaxUploadMB = 30;
+
     [HttpPost("{id}")]
     public ContentResult Pdb(string id, string assemblyId)
     {
@@ -30,8 +32,19 @@ public partial class InitController(ComputationManager manager) : Controller
 
     [HttpPost]
     [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaxUploadMB * 1024 * 1024)]
     public ContentResult Post(IFormFile file)
     {
+        if (Request.ContentLength > MaxUploadMB * 1024 * 1024) // the file is then not read at all, it would look like no file
+        {
+            return Content(new ComputationReport()
+            {
+                ComputationId = null,
+                ErrorMsg = $"The file is too large, at most {MaxUploadMB} MB can be uploaded. Compressed files (*.gz) are accepted.",
+                Status = ComputationStatus.Error,
+                SubmitId = 0
+            }.ToJson(), "application/json");
+        }
         if (file == null || file.Length == 0)
         {
             return Content(new ComputationReport()

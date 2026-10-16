@@ -37,7 +37,7 @@ location /api/ {
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    client_max_body_size 30m;    # uploaded structures, the API accepts up to 30 MB
+    client_max_body_size 31m;    # uploaded structures, the API accepts files up to 30 MB
 }
 ```
 
