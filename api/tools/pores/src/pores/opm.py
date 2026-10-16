@@ -10,8 +10,11 @@ of 1k4c) and PDBe names assembly copies like A, A_2. Alpha carbons are paired by
 insertion code and residue name, chain against chain, under one common transformation.
 """
 
+import http.client
+import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import gemmi
 import numpy as np
@@ -19,19 +22,41 @@ import numpy as np
 from pores.membrane import Membrane, MembraneError, kabsch, rmsd
 
 OPM_URL = "https://opm-assets.storage.googleapis.com/pdb/{pdb_id}.pdb"
+OPM_TIMEOUT = 30  # s, per network operation
+CACHE_DAYS = 30  # OPM revises entries rarely (e.g. curved membranes)
 PAIR_RMSD = 1.0  # Å, a structure chain belongs to an OPM chain under the transformation
 MAX_RMSD = 2.0  # Å, the superposition as a whole
 
 
-def download_opm(pdb_id: str, timeout: float = 60) -> str | None:
-    """OPM file for the PDB entry, None when OPM does not have it."""
+def download_opm(pdb_id: str, cache: Path | None = None) -> str | None:
+    """OPM file for the PDB entry, None when OPM does not have it.
+
+    Downloaded files are kept in the cache directory for CACHE_DAYS; when OPM is not available,
+    an older cached file is used rather than failing.
+    """
+    pdb_id = pdb_id.lower()
+    cached = cache / f"{pdb_id}.pdb" if cache else None
+    if cached and cached.exists() and time.time() - cached.stat().st_mtime < CACHE_DAYS * 86400:
+        return cached.read_text()
     try:
-        with urllib.request.urlopen(OPM_URL.format(pdb_id=pdb_id.lower()), timeout=timeout) as response:
-            return response.read().decode()
+        with urllib.request.urlopen(OPM_URL.format(pdb_id=pdb_id), timeout=OPM_TIMEOUT) as response:
+            text = response.read().decode()
     except urllib.error.HTTPError as e:
         if e.code in (403, 404):  # the storage answers 403 for missing objects
             return None
-        raise
+        if cached and cached.exists():
+            return cached.read_text()
+        raise MembraneError(f"OPM returned an error ({e.code}) when downloading the membrane position of {pdb_id}. Please, try again later.")
+    except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException) as e:
+        if cached and cached.exists():
+            return cached.read_text()
+        raise MembraneError("The membrane position could not be downloaded, OPM (opm-assets.storage.googleapis.com) is not available at the moment. Please, try again later.") from e
+    if cache:
+        cache.mkdir(parents=True, exist_ok=True)
+        temp = cached.with_suffix(f".{time.time_ns()}.tmp")  # the cached file appears only when complete
+        temp.write_text(text)
+        temp.replace(cached)
+    return text
 
 
 def _alpha_carbons(model: gemmi.Model) -> dict[str, dict[tuple, np.ndarray]]:

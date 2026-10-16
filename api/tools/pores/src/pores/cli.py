@@ -8,6 +8,7 @@ Errors are reported on stderr (the API shows them to the user) with a non-zero e
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -31,7 +32,8 @@ def run(parameters_path: Path) -> None:
     structure_path = Path(parameters["UserStructure"]) if parameters.get("UserStructure") else computation_dir / f"{pdb_id}.cif"
     structure = read_structure(structure_path)
 
-    opm = download_opm(pdb_id) if pdb_id else None
+    cache = os.environ.get("PORES_OPM_CACHE")  # directory for downloaded OPM files, no cache when unset
+    opm = download_opm(pdb_id, Path(cache) if cache else None) if pdb_id else None
     if opm is not None:
         membrane = membrane_from_opm(structure, opm)
     else:
