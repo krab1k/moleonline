@@ -21,10 +21,12 @@ namespace Mole.API.Models
     {
         private Config _config;
         private CSA csa;
-        private ConcurrentDictionary<string, RunningJob> RunningProcesses;
+        private ConcurrentDictionary<string, RunningJob> RunningProcesses; // runs waiting for a slot and running
+        private SemaphoreSlim slots; // MaxConcurentComputations processes at once, initializations included
 
         /// <summary>
         /// One run of MOLE/Pores. Submissions of a computation share its id, so the kill flag must belong to the run.
+        /// Process is null while the run waits for a slot. Lock the job to start or kill its process.
         /// </summary>
         private class RunningJob
         {
@@ -52,6 +54,7 @@ namespace Mole.API.Models
 
             csa = new CSA(c.CSA);
             RunningProcesses = new ConcurrentDictionary<string, RunningJob>();
+            slots = new SemaphoreSlim(Math.Max(1, c.MaxConcurentComputations));
 
         }
 
@@ -363,14 +366,34 @@ namespace Mole.API.Models
 
 
         /// <summary>
-        /// Runs the process and sets the computation status when it exits: Error when the process writes to stderr,
+        /// Waits for a free slot (at most MaxConcurentComputations processes run at once, initializations included),
+        /// runs the process and sets the computation status when it exits: Error when the process writes to stderr,
         /// exits with a non-zero code or the API itself fails (e.g. the process cannot be started), otherwise Initialized/Finished.
         /// A process killed by the user keeps the Aborted status set by KillComputation.
         /// </summary>
         private async Task RunComputationAsync(Computation c, ProcessStartInfo info, bool init, bool zipDirectory)
         {
+            var job = new RunningJob();
+            RunningProcesses[c.ComputationId] = job; // registered while waiting, so that KillComputation can abort it
             try
             {
+                await RunJobAsync(c, info, init, zipDirectory, job);
+            }
+            finally
+            {
+                RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(c.ComputationId, job)); // only this run, not a later submission
+            }
+        }
+
+
+        private async Task RunJobAsync(Computation c, ProcessStartInfo info, bool init, bool zipDirectory, RunningJob job)
+        {
+            await slots.WaitAsync();
+
+            try
+            {
+                if (LoadComputation(c.ComputationId)?.ComputationUnits.Last().Status == ComputationStatus.Deleted) return; // deleted while waiting
+
                 StringBuilder sb = new StringBuilder();
 
                 using (Process p = new Process() { StartInfo = info })
@@ -381,9 +404,12 @@ namespace Mole.API.Models
                     };
                     p.OutputDataReceived += (s, e) => { }; // progress output is not needed, read it so the process never blocks on a full pipe
 
-                    var job = new RunningJob() { Process = p };
-                    p.Start();
-                    RunningProcesses[c.ComputationId] = job;
+                    lock (job)
+                    {
+                        if (job.Killed) return; // aborted while waiting, status set by KillComputation
+                        job.Process = p;
+                        p.Start();
+                    }
                     p.BeginErrorReadLine();
                     p.BeginOutputReadLine();
 
@@ -393,7 +419,7 @@ namespace Mole.API.Models
                     }
                     finally
                     {
-                        RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(c.ComputationId, job)); // only this run, not a later submission
+                        RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(c.ComputationId, job)); // as soon as the process exits
                     }
 
                     if (job.Killed) return; // killed by the user, status set by KillComputation
@@ -421,6 +447,10 @@ namespace Mole.API.Models
             catch (Exception e)
             {
                 try { c.ChangeStatus(ComputationStatus.Error, e.Message); } catch (Exception) { } // never leave the computation running
+            }
+            finally
+            {
+                slots.Release();
             }
         }
 
@@ -452,8 +482,11 @@ namespace Mole.API.Models
             {
                 try
                 {
-                    job.Killed = true;
-                    job.Process.Kill(entireProcessTree: true); // Pores starts PyMOL and MEMEMBED
+                    lock (job)
+                    {
+                        job.Killed = true;
+                        job.Process?.Kill(entireProcessTree: true); // Pores starts PyMOL and MEMEMBED; no process yet: still waiting, it will not start
+                    }
                     RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(cpt.ComputationId, job));
 
                     cpt.ChangeStatus(ComputationStatus.Aborted);
