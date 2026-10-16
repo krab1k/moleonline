@@ -63,6 +63,7 @@ Settings are in `appsettings.json` (container paths) and can be overridden with 
 |---|---|---|
 | `Config__WorkingDirectory` | `/data/computations` | computations, must be writable |
 | `Config__MaxConcurentComputations` | `4` | MOLE and pore runs at once (loads included), others wait in a queue |
+| `Config__MaxComputationMinutes` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
 | `Config__MOLE` | `/opt/mole2/mole2` | full path |
 | `Config__Pores` | `/opt/pores/bin/pores` | full path |
 | `Config__CSA` | `Resources/CSA_2_0_121113.txt` | active sites from the Catalytic Site Atlas, relative to the app |

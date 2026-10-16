@@ -344,10 +344,16 @@ public class ComputationManager(IOptions<Config> options)
         {
             if (LoadComputation(c.ComputationId)?.ComputationUnits.Last().Status == ComputationStatus.Deleted) return; // deleted while waiting
 
+            using var timeLimit = new CancellationTokenSource(TimeSpan.FromMinutes(Config.MaxComputationMinutes)); // from now, the queue does not count
             foreach (var info in steps)
             {
-                var (killed, error) = await RunProcessAsync(info, job);
+                var (killed, error) = await RunProcessAsync(info, job, timeLimit.Token);
                 if (killed) return; // killed by the user, status set by KillComputation
+                if (timeLimit.IsCancellationRequested)
+                {
+                    c.ChangeStatus(ComputationStatus.Error, $"The computation exceeded the time limit of {Config.MaxComputationMinutes} minute{(Config.MaxComputationMinutes == 1 ? "" : "s")}.");
+                    return;
+                }
                 if (error != null)
                 {
                     c.ChangeStatus(ComputationStatus.Error, error);
@@ -383,8 +389,9 @@ public class ComputationManager(IOptions<Config> options)
 
     /// <summary>
     /// Runs one process of a computation. Returns whether the user killed it, or the error when it failed.
+    /// When the time limit expires, the process is killed (the caller reports it).
     /// </summary>
-    private static async Task<(bool killed, string error)> RunProcessAsync(ProcessStartInfo info, RunningJob job)
+    private static async Task<(bool killed, string error)> RunProcessAsync(ProcessStartInfo info, RunningJob job, CancellationToken timeLimit)
     {
         StringBuilder sb = new();
 
@@ -398,6 +405,7 @@ public class ComputationManager(IOptions<Config> options)
         lock (job)
         {
             if (job.Killed) return (true, null); // aborted while waiting or between processes, status set by KillComputation
+            if (timeLimit.IsCancellationRequested) return (false, null);
             job.Process = p;
             p.Start();
         }
@@ -406,7 +414,16 @@ public class ComputationManager(IOptions<Config> options)
 
         try
         {
-            await p.WaitForExitAsync(); // also waits until stderr is read completely
+            await p.WaitForExitAsync(timeLimit); // also waits until stderr is read completely
+        }
+        catch (OperationCanceledException)
+        {
+            p.Kill(entireProcessTree: true);
+            // the output closes when the process and its descendants are gone; one that left the tree (its parent exited)
+            // may keep it open, do not let it hold the slot
+            using var grace = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try { await p.WaitForExitAsync(grace.Token); } catch (OperationCanceledException) { }
+            return (job.Killed, null); // a kill by the user meanwhile wins, it set the status
         }
         finally
         {

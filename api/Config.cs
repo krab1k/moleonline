@@ -7,6 +7,7 @@ public class Config
     public string WorkingDirectory { get; set; }
     public string CSA { get; set; }
     public int MaxConcurentComputations { get; set; }
+    public int MaxComputationMinutes { get; set; } // one run (all its processes), the queue not included
     public string MOLE { get; set; }
     public string Pores { get; set; }
 }
@@ -38,6 +39,7 @@ public class ConfigValidation : IValidateOptions<Config>
 
         if (!File.Exists(config.CSA)) errors.Add($"Config:CSA '{config.CSA}' does not exist.");
         if (config.MaxConcurentComputations < 1) errors.Add("Config:MaxConcurentComputations must be at least 1.");
+        if (config.MaxComputationMinutes < 1) errors.Add("Config:MaxComputationMinutes must be at least 1.");
         CheckExecutable(errors, "MOLE", config.MOLE);
         CheckExecutable(errors, "Pores", config.Pores);
 
