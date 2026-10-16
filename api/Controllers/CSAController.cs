@@ -1,22 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
 namespace Mole.API.Controllers
 {
     [Produces("application/json")]
     [Route("[controller]")]
-    public class CSAController : Controller
+    public class CSAController(ComputationManager manager) : Controller
     {
-        private readonly ComputationManager manager;        
-
-        public CSAController(IOptions<ComputationManager> optionsAccessor)
-        {
-            manager = optionsAccessor.Value;
-        }
-
-
         [HttpGet("{compId}")]
         public ContentResult Get(string compId)
         {

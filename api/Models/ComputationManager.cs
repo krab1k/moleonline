@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Text;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using System.Threading;
 using System;
 using System.Collections.Concurrent;
@@ -17,12 +18,12 @@ namespace Mole.API.Models
     /// <summary>
     /// API logic
     /// </summary>
-    public class ComputationManager
+    public class ComputationManager(IOptions<Config> options)
     {
-        private Config _config;
-        private CSA csa;
-        private ConcurrentDictionary<string, RunningJob> RunningProcesses; // runs waiting for a slot and running
-        private SemaphoreSlim slots; // MaxConcurentComputations processes at once, initializations included
+        public Config Config { get; } = options.Value;
+        private readonly CSA csa = new(options.Value.CSA);
+        private readonly ConcurrentDictionary<string, RunningJob> RunningProcesses = new(); // runs waiting for a slot and running
+        private readonly SemaphoreSlim slots = new(Math.Max(1, options.Value.MaxConcurentComputations)); // MaxConcurentComputations processes at once, initializations included
 
         /// <summary>
         /// One run of MOLE/Pores. Submissions of a computation share its id, so the kill flag must belong to the run.
@@ -33,29 +34,6 @@ namespace Mole.API.Models
             public Process Process;
             public volatile bool Killed;
         }
-
-
-
-        public Config Config
-        {
-            get { return _config; }
-            set
-            {
-                _config = value;
-                Init(value);
-            }
-        }
-
-        public ComputationManager() { }
-
-        public void Init(Config c)
-        {
-            csa = new CSA(c.CSA);
-            RunningProcesses = new ConcurrentDictionary<string, RunningJob>();
-            slots = new SemaphoreSlim(Math.Max(1, c.MaxConcurentComputations));
-
-        }
-
 
 
 

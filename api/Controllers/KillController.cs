@@ -5,23 +5,14 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
 namespace Mole.API.Controllers
 {
     [Produces("application/json")]
     [Route("[controller]")]
-    public class KillController : Controller
+    public class KillController(ComputationManager manager) : Controller
     {
-        private readonly ComputationManager manager;
-
-
-        public KillController(IOptions<ComputationManager> optionsAccessor)
-        {
-            manager = optionsAccessor.Value;
-        }
-
         [HttpGet("{computationId}")]
         public ContentResult Get(string computationId)
         {

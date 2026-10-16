@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.Net.Mail;
 using System.Text.RegularExpressions;
@@ -15,13 +14,6 @@ namespace Mole.API.Controllers
     [Route("__Mail")]
     public class MailController : Controller
     {
-        private readonly ComputationManager manager;
-
-        public MailController(IOptions<ComputationManager> optionsAccessor)
-        {
-            manager = optionsAccessor.Value;
-        }
-
         [HttpPost]
         public ActionResult Post([FromBody] MailParameters p)
         {

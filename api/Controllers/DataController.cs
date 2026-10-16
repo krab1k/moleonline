@@ -1,21 +1,13 @@
 using System;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using Mole.API.Models;
 using System.Net.Mime;
 
 namespace Mole.API.Controllers
 {
     [Route("[controller]")]
-    public class DataController : Controller
+    public class DataController(ComputationManager manager) : Controller
     {
-        private readonly ComputationManager manager;
-
-        public DataController(IOptions<ComputationManager> optionsAccessor)
-        {
-            manager = optionsAccessor.Value;
-        }
-
         [HttpGet("{computationId}")]
         public ActionResult Get(string computationId, int submitId = -1, string format = "json")
         {

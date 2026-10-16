@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Diagnostics;
 using Mole.API.Models;
-using Microsoft.Extensions.Options;
 using System.IO;
 using Mole.API.Utils;
 using Newtonsoft.Json;
@@ -13,17 +12,9 @@ using Mole.API.ViewModels;
 
 namespace Mole.API.Controllers
 {
-    public class IndexController : Controller
+    public class IndexController(ComputationManager manager) : Controller
     {
-        private readonly ComputationManager manager;
-        private readonly Config config;
-
-
-        public IndexController(IOptions<ComputationManager> optionsAccessor)
-        {
-            manager = optionsAccessor.Value;
-            config = manager.Config;
-        }
+        private readonly Config config = manager.Config;
 
         public IActionResult Index()
         {

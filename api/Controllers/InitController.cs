@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using Mole.API.Models;
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.Http;
@@ -11,16 +10,8 @@ namespace Mole.API.Controllers
 {
     [Produces("application/json")]
     [Route("[controller]")]
-    public class InitController : Controller
+    public class InitController(ComputationManager manager) : Controller
     {
-        private readonly ComputationManager manager;
-
-        public InitController(IOptions<ComputationManager> optionsAccessor)
-        {
-            manager = optionsAccessor.Value;
-        }
-
-
         [HttpGet("{id}")]
         public ContentResult Get(string id, string assemblyId)
         {

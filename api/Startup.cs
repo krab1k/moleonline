@@ -18,7 +18,8 @@ namespace Mole.API
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.Configure<ComputationManager>(Configuration);// Read configuration appsettings.json
+            services.Configure<Config>(Configuration.GetSection("Config")); // appsettings.json, environment variables Config__*
+            services.AddSingleton<ComputationManager>();
 
             services.AddResponseCompression(x => {
                 x.EnableForHttps = true;
