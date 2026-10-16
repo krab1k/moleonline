@@ -191,17 +191,17 @@ public partial class Computation
          new(computationId, 0, ComputationStatus.Error, $"ComputationId [{computationId}] does not exists.\n");
 
 
-    public void DownloadBioStructure()
+    public async Task DownloadBioStructureAsync()
     {
-        AssemblyId = GetBioAssemblyId();
-        DownloadStructure();
+        AssemblyId = await GetBioAssemblyIdAsync();
+        await DownloadStructureAsync();
     }
 
 
     /// <summary>
     /// Downloads Protein Data Bank file from Model Server https://www.ebi.ac.uk/pdbe/model-server
     /// </summary>
-    public void DownloadStructure()
+    public async Task DownloadStructureAsync()
     {
         var url = AssemblyId != null ? $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/assembly?name={AssemblyId}" : $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/full";
 
@@ -210,9 +210,9 @@ public partial class Computation
         try
         {
             HttpStatusCode status;
-            using (var stream = File.Create(temp))
+            await using (var stream = File.Create(temp))
             {
-                status = Download(url, stream);
+                status = await DownloadAsync(url, stream);
             }
 
             if (status == HttpStatusCode.NotFound)
@@ -233,7 +233,7 @@ public partial class Computation
                 ChangeStatus(ComputationStatus.FailedInitialization, error);
                 return;
             }
-            DbModePores = AssemblyId == GetBioAssemblyId();
+            DbModePores = AssemblyId == await GetBioAssemblyIdAsync();
             SaveStatus();
         }
         catch (Exception e) when (e is HttpRequestException || e is OperationCanceledException || e is IOException)
@@ -250,12 +250,12 @@ public partial class Computation
         }
     }
 
-    public string GetBioAssemblyId()
+    public async Task<string> GetBioAssemblyIdAsync()
     {
         try
         {
             using var stream = new MemoryStream();
-            if (Download($"https://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml", stream) != HttpStatusCode.OK) return null;
+            if (await DownloadAsync($"https://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml", stream) != HttpStatusCode.OK) return null;
             stream.Position = 0;
             return XDocument.Load(stream).Root.Elements("assembly").First(x => x.Attribute("prefered").Value.Equals("True")).Attribute("id").Value;
         }
@@ -277,20 +277,20 @@ public partial class Computation
     /// or no data arrive within IdleTimeout, so that large structures can still be downloaded on slow links.
     /// </summary>
     /// <returns>HTTP status code of the response, target is written only for OK</returns>
-    private static HttpStatusCode Download(string url, Stream target)
+    private static async Task<HttpStatusCode> DownloadAsync(string url, Stream target)
     {
         using var cts = new CancellationTokenSource(ResponseTimeout);
-        using var response = http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token).GetAwaiter().GetResult();
+        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token);
         if (response.StatusCode != HttpStatusCode.OK) return response.StatusCode;
 
-        using var body = response.Content.ReadAsStream(cts.Token);
+        await using var body = await response.Content.ReadAsStreamAsync(cts.Token);
         var buffer = new byte[81920];
         while (true)
         {
             cts.CancelAfter(IdleTimeout);
-            var read = body.ReadAsync(buffer, 0, buffer.Length, cts.Token).GetAwaiter().GetResult();
+            var read = await body.ReadAsync(buffer, cts.Token);
             if (read == 0) break;
-            target.Write(buffer, 0, read);
+            await target.WriteAsync(buffer.AsMemory(0, read), cts.Token);
         }
         return HttpStatusCode.OK;
     }

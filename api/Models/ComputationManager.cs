@@ -47,7 +47,7 @@ public class ComputationManager(IOptions<Config> options)
     {
         var computation = new Computation(Config.WorkingDirectory, id, assemblyId);
 
-        Task.Run(() => computation.DownloadStructure()).ContinueWith(x => Init(computation));
+        computation.DownloadStructureAsync().ContinueWith(x => Init(computation)); // no thread is held while waiting for PDBe
 
         return computation.GetComputationReport(1);
     }
@@ -62,7 +62,7 @@ public class ComputationManager(IOptions<Config> options)
     internal ComputationReport CreatePoreComputation(string id)
     {
         var computation = new Computation(Config.WorkingDirectory, id);
-        Task.Run(() => computation.DownloadBioStructure()).ContinueWith(x => Init(computation));
+        computation.DownloadBioStructureAsync().ContinueWith(x => Init(computation));
 
 
         return computation.GetComputationReport(1);
