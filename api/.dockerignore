@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.git/
+.vs/
+*.user
+Mole_api_IP_log.csv
+ErrorLog.log
+tools/pores/.venv/
+tools/pores/reference/
+**/__pycache__/
+**/.pytest_cache/

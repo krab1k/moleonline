@@ -1,0 +1,17 @@
+# The API behind nginx on the host: nginx proxies to 127.0.0.1:${API_PORT} and sets
+# X-Forwarded-For $proxy_add_x_forwarded_for, the API logs that client address.
+services:
+  api:
+    build: .
+    image: moleonline-api
+    restart: unless-stopped
+    init: true # reaps processes left by killed computations
+    ports:
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    volumes:
+      - data:/data # computations, the submission log, OPM files
+    environment:
+      TZ: Europe/Prague # times in the submission log
+
+volumes:
+  data:
