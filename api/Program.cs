@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.Extensions.Options;
 using Mole.API;
 using Mole.API.Models;
 
 var builder = WebApplication.CreateBuilder(args); // Kestrel, appsettings.json, appsettings.{env}.json, environment variables, logging
 
-builder.Services.Configure<Config>(builder.Configuration.GetSection("Config")); // appsettings.json, environment variables Config__*
+builder.Services.AddOptions<Config>().Bind(builder.Configuration.GetSection("Config")).ValidateOnStart(); // appsettings.json, environment variables Config__*
+builder.Services.AddSingleton<IValidateOptions<Config>, ConfigValidation>();
 builder.Services.AddSingleton<ComputationManager>();
 
 builder.Services.AddResponseCompression(x =>
@@ -51,4 +53,11 @@ app.MapControllerRoute(
     name: "Index",
     pattern: "{controller=Index}/{action=Index}");
 
-app.Run();
+try
+{
+    app.Run();
+}
+catch (OptionsValidationException)
+{
+    Environment.ExitCode = 1; // the host has logged what is wrong with the configuration
+}
