@@ -88,7 +88,8 @@ public class SubmitController(ComputationManager manager) : Controller
 
     private void LogIp()
     {
-        var line = $"{DateTime.Now} Submit - {Request.HttpContext.Connection.RemoteIpAddress}\n"; // read while the request is still alive
-        Task.Run(() => { lock (ipLogLock) System.IO.File.AppendAllText("Mole_api_IP_log.csv", line); });
+        var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} Submit - {Request.HttpContext.Connection.RemoteIpAddress}\n"; // read while the request is still alive
+        var log = Path.Combine(manager.Config.WorkingDirectory, "Mole_api_IP_log.csv"); // next to the computations, it outlives the API
+        Task.Run(() => { lock (ipLogLock) System.IO.File.AppendAllText(log, line); });
     }
 }
