@@ -43,6 +43,36 @@ public class ComputationParameters
 
 
     }
+
+    private static readonly string[] WeightFunctions = ["VoronoiScale", "LengthAndRadius", "Length", "Constant"];
+
+    /// <summary>
+    /// The ranges of the web, so that a request cannot start an unreasonable computation
+    /// </summary>
+    /// <returns>What is wrong, null when the parameters are valid</returns>
+    public string Validate()
+    {
+        List<string> errors = [];
+        Limits.Check(errors, "Probe radius", Cavity.ProbeRadius, 1.4, 45);
+        Limits.Check(errors, "Interior threshold", Cavity.InteriorThreshold, 0.3, 3);
+        Limits.Check(errors, "Origin radius", Tunnel.OriginRadius, 0.1, 10);
+        Limits.Check(errors, "Surface cover radius", Tunnel.SurfaceCoverRadius, 5, 20);
+        Limits.Check(errors, "Bottleneck radius", Tunnel.BottleneckRadius, 0, 5);
+        Limits.Check(errors, "Bottleneck tolerance", Tunnel.BottleneckTolerance, 0, 5);
+        Limits.Check(errors, "Max tunnel similarity", Tunnel.MaxTunnelSimilarity, 0, 1);
+        if (!WeightFunctions.Contains(Tunnel.WeightFunction)) errors.Add($"Weight function must be one of {string.Join(", ", WeightFunctions)}.");
+        return Limits.Message(errors);
+    }
+}
+
+internal static class Limits
+{
+    public static void Check(List<string> errors, string name, double value, double min, double max)
+    {
+        if (!(value >= min && value <= max)) errors.Add($"{name} must be between {min} and {max}."); // also NaN
+    }
+
+    public static string Message(List<string> errors) => errors.Count == 0 ? null : "Invalid parameters. " + string.Join(" ", errors);
 }
 
 
@@ -145,4 +175,13 @@ public class APIPoresParameters {
     public string Chains { get; set; }
     public double? InteriorThreshold { get; set; } // null or 0: the default
     public double? ProbeRadius { get; set; }
+
+    /// <returns>What is wrong, null when the parameters are valid</returns>
+    public string Validate()
+    {
+        List<string> errors = [];
+        if (ProbeRadius is not (null or 0)) Limits.Check(errors, "Probe radius", ProbeRadius.Value, 1.4, 45);
+        if (InteriorThreshold is not (null or 0)) Limits.Check(errors, "Interior threshold", InteriorThreshold.Value, 0.3, 3);
+        return Limits.Message(errors);
+    }
 }

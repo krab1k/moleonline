@@ -21,6 +21,7 @@ public class SubmitController(ComputationManager manager) : Controller
             Status = ComputationStatus.Error,
             ErrorMsg = "Input format error. Request's body could not be serialized, please fix the error and try again."
         }.ToJson(), "application/json");
+        if (param.Validate() is string invalid) return Content(new ComputationReport(cpt.ComputationId, 0, ComputationStatus.Error, invalid).ToJson(), "application/json");
 
 
         var canRunMsg = manager.CanRun(cpt);
@@ -60,6 +61,7 @@ public class SubmitController(ComputationManager manager) : Controller
             Status = ComputationStatus.Error,
             ErrorMsg = "Input format error. Request's body could not be serialized, please fix the error and try again."
         }.ToJson(), "application/json");
+        if (parameters.Validate() is string invalid) return Content(new ComputationReport(cpt.ComputationId, 0, ComputationStatus.Error, invalid).ToJson(), "application/json");
 
         var canRunMsg = manager.CanRun(cpt);
 
