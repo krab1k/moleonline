@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Diagnostics;
 using Mole.API.Models;
-using System.IO;
 using Mole.API.Utils;
 using Newtonsoft.Json;
 using Mole.API.ViewModels;

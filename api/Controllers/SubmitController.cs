@@ -1,13 +1,5 @@
-using System;
-using Mole.API;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
-using Newtonsoft.Json;
 
 namespace Mole.API.Controllers
 {

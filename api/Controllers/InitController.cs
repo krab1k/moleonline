@@ -1,10 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
-using Newtonsoft.Json;
-using Microsoft.AspNetCore.Http;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System;
 
 namespace Mole.API.Controllers
 {

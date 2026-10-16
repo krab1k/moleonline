@@ -3,9 +3,6 @@ using Mole.API.Models;
 using Newtonsoft.Json;
 using System.Net.Mail;
 using System.Text.RegularExpressions;
-using System.Linq;
-using System;
-using Microsoft.AspNetCore.Http;
 using System.Net;
 
 namespace Mole.API.Controllers

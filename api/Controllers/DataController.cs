@@ -1,4 +1,3 @@
-using System;
 using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
 using System.Net.Mime;

@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
-using Newtonsoft.Json;
 
 namespace Mole.API.Controllers
 {

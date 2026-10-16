@@ -1,5 +1,3 @@
-using System;
-
 namespace Mole.API.Models
 {
     public static class ComputationStatus
