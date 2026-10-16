@@ -517,8 +517,7 @@ namespace Mole.API.Models
                     return (bytes, $"mole_channels_{computationId}_{submitId}.tk");
                 case "pdb":
                     var zipDir = Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pdb", "profile");
-                    var tempDir = Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString());
-                    bytes = Utils.Extensions.ZipDirectory(tempDir, zipDir);
+                    bytes = Utils.Extensions.ZipDirectory(zipDir);
                     return (bytes, $"mole_channels_{computationId}_{submitId}_pdb.zip");
                 case "membrane":
                     bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, "membrane.json"));

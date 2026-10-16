@@ -22,23 +22,16 @@ namespace Mole.API.Utils
         }
 
         /// <summary>
-        /// 
+        /// Zips the directory in memory, so that concurrent downloads do not share a temporary file
         /// </summary>
         /// <param name="path"></param>
-        /// <returns></returns>
-        public static byte[] ZipDirectory(string tempDirectory, string path) {
-
-            var temp = Path.Combine(tempDirectory, "temp.zip");
-
-            if (File.Exists(temp)) File.Delete(temp);
-
-            ZipFile.CreateFromDirectory(path, temp);
-            var bytes = File.ReadAllBytes(temp);
-
-            if (File.Exists(temp)) File.Delete(temp);
-
-
-            return bytes;
+        /// <returns>Zip archive content</returns>
+        public static byte[] ZipDirectory(string path) {
+            using (var stream = new MemoryStream())
+            {
+                ZipFile.CreateFromDirectory(path, stream);
+                return stream.ToArray();
+            }
         }
 
 
