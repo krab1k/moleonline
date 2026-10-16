@@ -1,5 +1,6 @@
 using Mole.API.Utils;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Diagnostics;
 using System.Xml.Linq;
 using System.Text;
@@ -256,8 +257,12 @@ public class ComputationManager(IOptions<Config> options)
 
 
 
+    /// <summary>
+    /// Pores computes the membrane and writes the MOLE input of a path across it (input.xml), MOLE then computes the pore.
+    /// </summary>
     private void RunPores(Computation computation, string inputJson)
     {
+        var submitDirectory = Path.GetDirectoryName(inputJson);
         ProcessStartInfo info = new()
         {
             FileName = Config.Pores,
@@ -265,7 +270,13 @@ public class ComputationManager(IOptions<Config> options)
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
-        RunComputation(computation, info, false);
+        RunComputation(computation, [info, MoleProcess(Path.Combine(submitDirectory, MoleApiFiles.InputXML))], false, check: () =>
+        {
+            var data = Path.Combine(submitDirectory, "json", MoleApiFiles.DataJson);
+            if (!File.Exists(data)) return "MOLE did not produce any result.";
+            var paths = JObject.Parse(File.ReadAllText(data))["Channels"]?["Paths"] as JArray;
+            return paths == null || paths.Count == 0 ? "No pore was found along the membrane normal." : null;
+        });
     }
 
 
@@ -294,38 +305,39 @@ public class ComputationManager(IOptions<Config> options)
 
     private void RunMole(Computation c, string xmlPath, bool init, bool zipDirectory = true)
     {
-        ProcessStartInfo info = new()
-        {
-            FileName = Config.MOLE,
-            ArgumentList = { xmlPath }, // one argument even with spaces in the path
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        RunComputation(c, info, init, zipDirectory);
-
+        RunComputation(c, [MoleProcess(xmlPath)], init, zipDirectory);
     }
 
 
-
-    private void RunComputation(Computation c, ProcessStartInfo info, bool init, bool zipDirectory = true)
+    private ProcessStartInfo MoleProcess(string xmlPath) => new()
     {
-        Task.Run(() => RunComputationAsync(c, info, init, zipDirectory));
+        FileName = Config.MOLE,
+        ArgumentList = { xmlPath }, // one argument even with spaces in the path
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+    };
+
+
+
+    private void RunComputation(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory = true, Func<string> check = null)
+    {
+        Task.Run(() => RunComputationAsync(c, steps, init, zipDirectory, check));
     }
 
 
     /// <summary>
-    /// Waits for a free slot (at most MaxConcurentComputations processes run at once, initializations included),
-    /// runs the process and sets the computation status when it exits: Error when the process writes to stderr,
-    /// exits with a non-zero code or the API itself fails (e.g. the process cannot be started), otherwise Initialized/Finished.
-    /// A process killed by the user keeps the Aborted status set by KillComputation.
+    /// Waits for a free slot (at most MaxConcurentComputations computations run at once, initializations included),
+    /// runs the processes one after another and sets the computation status: Error when a process writes to stderr,
+    /// exits with a non-zero code, the check after the last one fails or the API itself fails (e.g. a process cannot be started),
+    /// otherwise Initialized/Finished. A computation killed by the user keeps the Aborted status set by KillComputation.
     /// </summary>
-    private async Task RunComputationAsync(Computation c, ProcessStartInfo info, bool init, bool zipDirectory)
+    private async Task RunComputationAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string> check)
     {
         var job = new RunningJob();
         RunningProcesses[c.ComputationId] = job; // registered while waiting, so that KillComputation can abort it
         try
         {
-            await RunJobAsync(c, info, init, zipDirectory, job);
+            await RunJobAsync(c, steps, init, zipDirectory, check, job);
         }
         finally
         {
@@ -334,7 +346,7 @@ public class ComputationManager(IOptions<Config> options)
     }
 
 
-    private async Task RunJobAsync(Computation c, ProcessStartInfo info, bool init, bool zipDirectory, RunningJob job)
+    private async Task RunJobAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string> check, RunningJob job)
     {
         await slots.WaitAsync();
 
@@ -342,44 +354,22 @@ public class ComputationManager(IOptions<Config> options)
         {
             if (LoadComputation(c.ComputationId)?.ComputationUnits.Last().Status == ComputationStatus.Deleted) return; // deleted while waiting
 
-            StringBuilder sb = new();
-
-            using Process p = new() { StartInfo = info };
-            p.ErrorDataReceived += (s, e) =>
+            foreach (var info in steps)
             {
-                if (e.Data != null) lock (sb) sb.AppendLine(e.Data);
-            };
-            p.OutputDataReceived += (s, e) => { }; // progress output is not needed, read it so the process never blocks on a full pipe
-
-            lock (job)
-            {
-                if (job.Killed) return; // aborted while waiting, status set by KillComputation
-                job.Process = p;
-                p.Start();
+                var (killed, error) = await RunProcessAsync(info, job);
+                if (killed) return; // killed by the user, status set by KillComputation
+                if (error != null)
+                {
+                    c.ChangeStatus(ComputationStatus.Error, error);
+                    return;
+                }
             }
-            p.BeginErrorReadLine();
-            p.BeginOutputReadLine();
+            RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(c.ComputationId, job)); // as soon as the last process exits
 
-            try
+            var checkError = check?.Invoke();
+            if (checkError != null)
             {
-                await p.WaitForExitAsync(); // also waits until stderr is read completely
-            }
-            finally
-            {
-                RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(c.ComputationId, job)); // as soon as the process exits
-            }
-
-            if (job.Killed) return; // killed by the user, status set by KillComputation
-            if (sb.Length != 0)
-            {
-                c.ChangeStatus(ComputationStatus.Error, sb.ToString());
-                return;
-            }
-            if (p.ExitCode != 0)
-            {
-                c.ChangeStatus(ComputationStatus.Error, p.ExitCode == 137
-                    ? "The computation was terminated by the system, most likely it ran out of memory."
-                    : $"The computation failed with exit code {p.ExitCode}.");
+                c.ChangeStatus(ComputationStatus.Error, checkError);
                 return;
             }
             if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()), StructurePath(c.ComputationId));
@@ -398,6 +388,48 @@ public class ComputationManager(IOptions<Config> options)
         {
             slots.Release();
         }
+    }
+
+
+    /// <summary>
+    /// Runs one process of a computation. Returns whether the user killed it, or the error when it failed.
+    /// </summary>
+    private static async Task<(bool killed, string error)> RunProcessAsync(ProcessStartInfo info, RunningJob job)
+    {
+        StringBuilder sb = new();
+
+        using Process p = new() { StartInfo = info };
+        p.ErrorDataReceived += (s, e) =>
+        {
+            if (e.Data != null) lock (sb) sb.AppendLine(e.Data);
+        };
+        p.OutputDataReceived += (s, e) => { }; // progress output is not needed, read it so the process never blocks on a full pipe
+
+        lock (job)
+        {
+            if (job.Killed) return (true, null); // aborted while waiting or between processes, status set by KillComputation
+            job.Process = p;
+            p.Start();
+        }
+        p.BeginErrorReadLine();
+        p.BeginOutputReadLine();
+
+        try
+        {
+            await p.WaitForExitAsync(); // also waits until stderr is read completely
+        }
+        finally
+        {
+            lock (job) job.Process = null; // exited and disposed below, a kill now stops the next process
+        }
+
+        if (job.Killed) return (true, null);
+        if (sb.Length != 0) return (false, sb.ToString());
+        if (p.ExitCode != 0)
+            return (false, p.ExitCode == 137
+                ? "The computation was terminated by the system, most likely it ran out of memory."
+                : $"The computation failed with exit code {p.ExitCode}.");
+        return (false, null);
     }
 
 
