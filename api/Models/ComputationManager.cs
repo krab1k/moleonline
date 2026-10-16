@@ -50,8 +50,6 @@ namespace Mole.API.Models
 
         public void Init(Config c)
         {
-            var f = Path.Combine(c.WorkingDirectory, MoleApiFiles.RunningProcesses);
-
             csa = new CSA(c.CSA);
             RunningProcesses = new ConcurrentDictionary<string, RunningJob>();
             slots = new SemaphoreSlim(Math.Max(1, c.MaxConcurentComputations));
@@ -140,13 +138,7 @@ namespace Mole.API.Models
             var file = Path.Combine(Config.WorkingDirectory, computationId, MoleApiFiles.ComputationStatus);
             if (File.Exists(file))
             {
-                //                using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, computationId))
-                //                {
-                //if (waitHandle.WaitOne())
-                //{
                 return JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file));
-                //                    }
-                //waitHandle.Set();
             }
 
             return null;

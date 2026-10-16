@@ -5,11 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Properties\PublishProfiles\CustomProfile1.pubxml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Views\Computations\" />
     <Folder Include="wwwroot\" />
   </ItemGroup>
   <ItemGroup>

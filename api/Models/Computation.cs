@@ -341,20 +341,11 @@ namespace Mole.API.Models
         /// <param name="baseDir"></param>
         public void SaveStatus()
         {
-            //using (var waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset, this.ComputationId))
-            //{
-            //    if (waitHandle.WaitOne())
-            //    {
             // write a temporary file first and rename it, so that concurrent readers (status polling) never see a partially written file
             // (.json extension: the structure is selected as the first non-.json file in the computation folder)
             var temp = $"{StatusPath()}.{Guid.NewGuid():N}.tmp.json";
             File.WriteAllText(temp, JsonConvert.SerializeObject(this, Formatting.Indented));
             File.Move(temp, StatusPath(), overwrite: true);
-            //    }
-            //    waitHandle.Set();
-
-
-            //}
         }
 
     }

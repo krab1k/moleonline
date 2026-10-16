@@ -9,13 +9,6 @@ namespace Mole.API.Controllers
     [Route("[controller]")]
     public class VersionController : Controller
     {
-        private readonly ComputationManager manager;
-
-        public VersionController(IOptions<ComputationManager> optionsAccessor)
-        {
-            manager = optionsAccessor.Value;
-        }
-
         [HttpGet()]
         public ActionResult Get()
         {

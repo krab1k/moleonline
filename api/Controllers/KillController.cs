@@ -28,7 +28,6 @@ namespace Mole.API.Controllers
             var computation = manager.LoadComputation(computationId);
             if (computation != null)
             {
-                var report = computation.GetComputationReport();
                 return Content(manager.KillComputation(computation).ToJson(), "application/json");
             }
 

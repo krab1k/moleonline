@@ -29,7 +29,7 @@ namespace Mole.API.Controllers
         [HttpPost("Mole/{computationId}", Name = "Submit/Mole")]
         public ContentResult Post(string computationId, [FromBody] ComputationParameters param)
         {
-            Task.Run(() => LogIp($"Mole|{computationId}"));
+            Task.Run(() => LogIp());
 
             var cpt = manager.LoadComputation(computationId);
             if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
@@ -57,8 +57,6 @@ namespace Mole.API.Controllers
 
             cpt.AddCalculation();
 
-            if (param == null) param = new ComputationParameters();
-
             var report = manager.PrepareAndRunMole(cpt, param);
 
             return Content(report.ToJson(), "application/json");
@@ -69,7 +67,7 @@ namespace Mole.API.Controllers
         [HttpPost("Pores/{computationId}", Name = "Submit/Pores")]
         public ContentResult Pores(string computationId, [FromBody] APIPoresParameters parameters)
         {
-            Task.Run(() => LogIp($"Pores|{computationId}"));
+            Task.Run(() => LogIp());
 
             var cpt = manager.LoadComputation(computationId);
             if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
@@ -97,7 +95,7 @@ namespace Mole.API.Controllers
         }
 
 
-        private void LogIp(string s)
+        private void LogIp()
         {
             System.IO.File.AppendAllText("Mole_api_IP_log.csv", $"{DateTime.Now} Submit - {Request.HttpContext.Connection.RemoteIpAddress.ToString()}\n");
         }
