@@ -469,40 +469,40 @@ public class ComputationManager(IOptions<Config> options)
     /// <param name="submitId">Submit</param>
     /// <param name="type">Type of data to be downloaded: pymol/chimera/vmd/pdb/json/report default:json</param>
     /// <returns></returns>
-    internal (byte[], string) QueryFile(string computationId, int submitId, string type)
+    internal (Stream, string) QueryFile(string computationId, int submitId, string type)
     {
-        byte[] bytes;
+        Stream stream; // files are streamed, not read into memory
         switch (type)
         {
 
             case "json":
-                bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "json", MoleApiFiles.DataJson));
-                return (bytes, $"mole_channels_{computationId}_{submitId}.json");
+                stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "json", MoleApiFiles.DataJson));
+                return (stream, $"mole_channels_{computationId}_{submitId}.json");
             case "report":
-                bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), MoleApiFiles.Report));
-                return (bytes, $"mole_channels_{computationId}_{submitId}.zip");
+                stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), MoleApiFiles.Report));
+                return (stream, $"mole_channels_{computationId}_{submitId}.zip");
             case "molecule":
                 var molecule = StructurePath(computationId);
-                return (File.ReadAllBytes(molecule), Path.GetFileName(molecule));
+                return (File.OpenRead(molecule), Path.GetFileName(molecule));
             case "pymol":
-                bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pymol", MoleApiFiles.PythonScript));
-                return (bytes, $"mole_channels_{computationId}_{submitId}_pymol.py");
+                stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pymol", MoleApiFiles.PythonScript));
+                return (stream, $"mole_channels_{computationId}_{submitId}_pymol.py");
             case "chimera":
-                bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "chimera", MoleApiFiles.PythonScript));
-                return (bytes, $"mole_channels_{computationId}_{submitId}_chimera.py");
+                stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "chimera", MoleApiFiles.PythonScript));
+                return (stream, $"mole_channels_{computationId}_{submitId}_chimera.py");
             case "vmd":
-                bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "vmd", MoleApiFiles.VMDScript));
-                return (bytes, $"mole_channels_{computationId}_{submitId}.tk");
+                stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "vmd", MoleApiFiles.VMDScript));
+                return (stream, $"mole_channels_{computationId}_{submitId}.tk");
             case "pdb":
                 var zipDir = Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pdb", "profile");
-                bytes = Utils.Extensions.ZipDirectory(zipDir);
-                return (bytes, $"mole_channels_{computationId}_{submitId}_pdb.zip");
+                stream = new MemoryStream(Utils.Extensions.ZipDirectory(zipDir));
+                return (stream, $"mole_channels_{computationId}_{submitId}_pdb.zip");
             case "membrane":
-                bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, "membrane.json"));
-                return (bytes, "membrane.json");
+                stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, "membrane.json"));
+                return (stream, "membrane.json");
 
             default:
-                return (File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "json", MoleApiFiles.DataJson)), $"mole_channels_{computationId}_{submitId}.json");
+                return (File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "json", MoleApiFiles.DataJson)), $"mole_channels_{computationId}_{submitId}.json");
         }
 
 
