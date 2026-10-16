@@ -71,6 +71,12 @@ namespace Mole.API.Controllers
 
             var cpt = manager.LoadComputation(computationId);
             if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
+            if (parameters == null) return Content(new ComputationReport()
+            {
+                ComputationId = cpt.ComputationId,
+                Status = ComputationStatus.Error,
+                ErrorMsg = "Input format error. Request's body could not be serialized, please fix the error and try again."
+            }.ToJson(), "application/json");
 
             var canRunMsg = manager.CanRun(cpt);
 
