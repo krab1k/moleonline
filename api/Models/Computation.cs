@@ -110,7 +110,7 @@ namespace Mole.API.Models
 
             Directory.CreateDirectory(Path.Combine(baseDir, ComputationId));
 
-            File.WriteAllText(Path.Combine(baseDir, ComputationId, MoleApiFiles.ComputationStatus), JsonConvert.SerializeObject(this, Formatting.Indented));
+            SaveStatus();
         }
 
 
