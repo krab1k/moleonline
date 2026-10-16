@@ -19,7 +19,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="CSA_2_0_121113.txt">
+    <None Update="Resources/CSA_2_0_121113.txt"> <!-- Catalytic Site Atlas 2.0 (EBI, 2013): active sites offered as tunnel starting points -->
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
