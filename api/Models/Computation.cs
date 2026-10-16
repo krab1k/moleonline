@@ -72,8 +72,11 @@ public class ComputationReport
 
 
 
-public class Computation
+public partial class Computation
 {
+    [GeneratedRegex("[/+=]")]
+    private static partial Regex Base64Symbols();
+
     public string ComputationId { get; set; }
     public string BaseDir { get; set; }
     public bool UserStructure { get; set; }
@@ -95,7 +98,7 @@ public class Computation
     /// <param name="bioUnit">Optional biological assembly to be downloaded</param>
     public Computation(string baseDir, string pdbId = "", string bioUnit = "")
     {
-        ComputationId = Regex.Replace(Convert.ToBase64String(Guid.NewGuid().ToByteArray()), "[/+=]", "");
+        ComputationId = Base64Symbols().Replace(Convert.ToBase64String(Guid.NewGuid().ToByteArray()), "");
         ComputationUnits = [ComputationUnit.Initialize()];
         UserStructure = pdbId == string.Empty;
         PdbId = pdbId;

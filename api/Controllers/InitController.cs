@@ -6,8 +6,11 @@ namespace Mole.API.Controllers;
 
 [Produces("application/json")]
 [Route("[controller]")]
-public class InitController(ComputationManager manager) : Controller
+public partial class InitController(ComputationManager manager) : Controller
 {
+    [GeneratedRegex(@"(\.pdb|\.cif|\.gz|\.pdb[0-9]+)$")]
+    private static partial Regex StructureExtension();
+
     [HttpGet("{id}")]
     public ContentResult Get(string id, string assemblyId)
     {
@@ -39,7 +42,7 @@ public class InitController(ComputationManager manager) : Controller
                 SubmitId = 0
             }.ToJson(), "application/json");
         }
-        if (!Regex.Match(file.FileName.ToLower(), "(\\.pdb|\\.cif|\\.gz|\\.pdb[0-9]+)$").Success)
+        if (!StructureExtension().IsMatch(file.FileName.ToLower()))
         {
             return Content(new ComputationReport()
             {
