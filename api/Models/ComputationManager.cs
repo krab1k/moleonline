@@ -218,13 +218,13 @@ namespace Mole.API.Models
             return JsonConvert.SerializeObject(new
             {
                 ComputationId = computationId,
-                UserStructure = cpt.UserStructure,
-                PdbId = cpt.PdbId,
-                AssemblyId = cpt.AssemblyId,
+                cpt.UserStructure,
+                cpt.PdbId,
+                cpt.AssemblyId,
                 Submissions = directories.Select((x, i) => new
                 {
                     SubmitId = Path.GetFileName(x),
-                    Status = cpt.ComputationUnits[i].Status,
+                    cpt.ComputationUnits[i].Status,
                     MoleConfig = File.Exists(Path.Combine(x, MoleApiFiles.MoleParams)) ? JsonConvert.DeserializeObject(File.ReadAllText(Path.Combine(x, MoleApiFiles.MoleParams))) : new object(),
                     PoresConfig = File.Exists(Path.Combine(x, MoleApiFiles.PoreParams)) ? JsonConvert.DeserializeObject<PoresParameters>(File.ReadAllText(Path.Combine(x, MoleApiFiles.PoreParams))).UserParameters() : new object()
                 })
@@ -246,7 +246,7 @@ namespace Mole.API.Models
                 {
                     WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
                     InMembrane = p.InMembrane,
-                    Chains = string.IsNullOrEmpty(p.Chains) ? new string[0] : p.Chains.Split(new char[] { ',' }),
+                    Chains = string.IsNullOrEmpty(p.Chains) ? [] : p.Chains.Split([',']),
                     InteriorThreshold = p.InteriorThreshold == 0 ? 0.8 : p.InteriorThreshold,
                     ProbeRadius = p.ProbeRadius == 0 ? 13.0 : p.ProbeRadius,
                     PyMolLocation = Config.PyMOL,
@@ -274,7 +274,7 @@ namespace Mole.API.Models
 
         private void RunPores(Computation computation, string inputJson)
         {
-            ProcessStartInfo info = new ProcessStartInfo()
+            ProcessStartInfo info = new()
             {
                 FileName = Config.Pores,
                 Arguments = inputJson,
@@ -312,7 +312,7 @@ namespace Mole.API.Models
 
         private void RunMole(Computation c, string xmlPath, bool init, bool zipDirectory = true)
         {
-            ProcessStartInfo info = new ProcessStartInfo()
+            ProcessStartInfo info = new()
             {
                 FileName = Config.MOLE,
                 Arguments = xmlPath,
@@ -362,55 +362,53 @@ namespace Mole.API.Models
             {
                 if (LoadComputation(c.ComputationId)?.ComputationUnits.Last().Status == ComputationStatus.Deleted) return; // deleted while waiting
 
-                StringBuilder sb = new StringBuilder();
+                StringBuilder sb = new();
 
-                using (Process p = new Process() { StartInfo = info })
+                using Process p = new() { StartInfo = info };
+                p.ErrorDataReceived += (s, e) =>
                 {
-                    p.ErrorDataReceived += (s, e) =>
-                    {
-                        if (e.Data != null) lock (sb) sb.AppendLine(e.Data);
-                    };
-                    p.OutputDataReceived += (s, e) => { }; // progress output is not needed, read it so the process never blocks on a full pipe
+                    if (e.Data != null) lock (sb) sb.AppendLine(e.Data);
+                };
+                p.OutputDataReceived += (s, e) => { }; // progress output is not needed, read it so the process never blocks on a full pipe
 
-                    lock (job)
-                    {
-                        if (job.Killed) return; // aborted while waiting, status set by KillComputation
-                        job.Process = p;
-                        p.Start();
-                    }
-                    p.BeginErrorReadLine();
-                    p.BeginOutputReadLine();
-
-                    try
-                    {
-                        await p.WaitForExitAsync(); // also waits until stderr is read completely
-                    }
-                    finally
-                    {
-                        RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(c.ComputationId, job)); // as soon as the process exits
-                    }
-
-                    if (job.Killed) return; // killed by the user, status set by KillComputation
-                    if (sb.Length != 0)
-                    {
-                        c.ChangeStatus(ComputationStatus.Error, sb.ToString());
-                        return;
-                    }
-                    if (p.ExitCode != 0)
-                    {
-                        c.ChangeStatus(ComputationStatus.Error, p.ExitCode == 137
-                            ? "The computation was terminated by the system, most likely it ran out of memory."
-                            : $"The computation failed with exit code {p.ExitCode}.");
-                        return;
-                    }
-                    if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()), StructurePath(c.ComputationId));
-
-                    if (init)
-                    {
-                        c.ChangeStatus(ComputationStatus.Initialized);
-                    }
-                    else c.ChangeStatus(ComputationStatus.Finished);
+                lock (job)
+                {
+                    if (job.Killed) return; // aborted while waiting, status set by KillComputation
+                    job.Process = p;
+                    p.Start();
                 }
+                p.BeginErrorReadLine();
+                p.BeginOutputReadLine();
+
+                try
+                {
+                    await p.WaitForExitAsync(); // also waits until stderr is read completely
+                }
+                finally
+                {
+                    RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(c.ComputationId, job)); // as soon as the process exits
+                }
+
+                if (job.Killed) return; // killed by the user, status set by KillComputation
+                if (sb.Length != 0)
+                {
+                    c.ChangeStatus(ComputationStatus.Error, sb.ToString());
+                    return;
+                }
+                if (p.ExitCode != 0)
+                {
+                    c.ChangeStatus(ComputationStatus.Error, p.ExitCode == 137
+                        ? "The computation was terminated by the system, most likely it ran out of memory."
+                        : $"The computation failed with exit code {p.ExitCode}.");
+                    return;
+                }
+                if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()), StructurePath(c.ComputationId));
+
+                if (init)
+                {
+                    c.ChangeStatus(ComputationStatus.Initialized);
+                }
+                else c.ChangeStatus(ComputationStatus.Finished);
             }
             catch (Exception e)
             {
@@ -493,7 +491,7 @@ namespace Mole.API.Models
         /// <returns></returns>
         internal (byte[], string) QueryFile(string computationId, int submitId, string type)
         {
-            byte[] bytes = null;
+            byte[] bytes;
             switch (type)
             {
 
@@ -537,9 +535,9 @@ namespace Mole.API.Models
         /// <returns></returns>
         internal CSAResidue[][] GetActiveSite(string pdbId)
         {
-            if (csa.Database.ContainsKey(pdbId)) return csa.Database[pdbId].Select(x => x.Residues.ToArray()).ToArray();
+            if (csa.Database.ContainsKey(pdbId)) return [.. csa.Database[pdbId].Select(x => x.Residues.ToArray())];
 
-            return new CSAResidue[0][];
+            return [];
         }
         #endregion
 
@@ -654,7 +652,6 @@ namespace Mole.API.Models
             var param = new ComputationParameters();
 
             var structure = StructurePath(c.ComputationId);
-            var structureName = Path.GetFileNameWithoutExtension(structure);
 
             var root = new XElement("Tunnels");
             var input = new XElement("Input", structure);
@@ -736,7 +733,7 @@ namespace Mole.API.Models
         /// <param name="residues"></param>
         /// <returns></returns>
         private XElement[] BuildResiduesElement(Residue[] residues) =>
-            residues.Select(x => new XElement("Residue", new XAttribute("SequenceNumber", x.SequenceNumber), new XAttribute("Chain", x.Chain))).ToArray();
+            [.. residues.Select(x => new XElement("Residue", new XAttribute("SequenceNumber", x.SequenceNumber), new XAttribute("Chain", x.Chain)))];
         #endregion
 
     }

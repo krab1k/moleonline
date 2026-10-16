@@ -27,7 +27,7 @@ namespace Mole.API.Controllers
 
         public IActionResult Index()
         {
-            Utils.Version v = new Utils.Version();
+            Utils.Version v = new();
 
             ViewBag.PoresVersion = v.PoresVersion;
             ViewBag.MoleVersion = v.MoleVersion;
@@ -49,7 +49,7 @@ namespace Mole.API.Controllers
                     $"Path: {ex.Path}",
                     $"Type: {ex.Error.GetType()}",
                     $"Message: {ex.Error.Message}",
-                    $"Exception: {ex.Error.ToString()}",
+                    $"Exception: {ex.Error}",
                     $"========================================================="
                 };
 
@@ -75,7 +75,7 @@ namespace Mole.API.Controllers
                                 var file = Path.Combine(config.WorkingDirectory, x, MoleApiFiles.ComputationStatus);
                                 var time = Directory.GetCreationTime(Path.Combine(config.WorkingDirectory, x));
                                 var obj = JsonConvert.DeserializeObject<Computation>(System.IO.File.ReadAllText(file));
-                                return (time: time, obj: obj);
+                                return (time, obj);
                             })
                             .GroupBy(x => new DateTime(x.time.Year, x.time.Month, x.time.Day))
                             .OrderByDescending(x => x.Key)

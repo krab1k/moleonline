@@ -102,7 +102,7 @@ namespace Mole.API.Controllers
         }
 
 
-        private static readonly Lock ipLogLock = new Lock(); // concurrent appends to the same file fail
+        private static readonly Lock ipLogLock = new(); // concurrent appends to the same file fail
 
         private void LogIp()
         {

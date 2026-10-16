@@ -36,7 +36,7 @@ namespace Mole.API.Models
             Input = input ?? new Input();
             Cavity = cavity ?? new Cavity();
             Tunnel = tunnel ?? new Tunnel();
-            NonActiveResidues = nonActiveResidue ?? (new Residue[0]);
+            NonActiveResidues = nonActiveResidue ?? [];
             QueryFilter = queryFilter ?? string.Empty;
             Origin = origin ?? new Origin();
             CustomExits = customExits ?? new Origin();

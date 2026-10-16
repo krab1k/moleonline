@@ -102,7 +102,7 @@ namespace Mole.API.Models
         public Computation(string baseDir, string pdbId = "", string bioUnit = "")
         {
             ComputationId = Regex.Replace(Convert.ToBase64String(Guid.NewGuid().ToByteArray()), "[/+=]", "");
-            ComputationUnits = new List<ComputationUnit>() { ComputationUnit.Initialize() };
+            ComputationUnits = [ComputationUnit.Initialize()];
             UserStructure = pdbId == string.Empty;
             PdbId = pdbId;
             AssemblyId = bioUnit;
@@ -184,7 +184,7 @@ namespace Mole.API.Models
         /// <param name="computationId"></param>
         /// <returns>Empty computation</returns>
         public static ComputationReport NotExists(string computationId) =>
-             new ComputationReport(computationId, 0, ComputationStatus.Error, $"ComputationId [{computationId}] does not exists.\n");
+             new(computationId, 0, ComputationStatus.Error, $"ComputationId [{computationId}] does not exists.\n");
 
 
         public void DownloadBioStructure()
@@ -250,19 +250,17 @@ namespace Mole.API.Models
         {
             try
             {
-                using (var stream = new MemoryStream())
-                {
-                    if (Download($"https://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml", stream) != HttpStatusCode.OK) return null;
-                    stream.Position = 0;
-                    return XDocument.Load(stream).Root.Elements("assembly").First(x => x.Attribute("prefered").Value.Equals("True")).Attribute("id").Value;
-                }
+                using var stream = new MemoryStream();
+                if (Download($"https://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml", stream) != HttpStatusCode.OK) return null;
+                stream.Position = 0;
+                return XDocument.Load(stream).Root.Elements("assembly").First(x => x.Attribute("prefered").Value.Equals("True")).Attribute("id").Value;
             }
             catch (Exception)
             { return null; }
         }
 
 
-        private static readonly HttpClient http = new HttpClient(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(15) })
+        private static readonly HttpClient http = new(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(15) })
         {
             Timeout = Timeout.InfiniteTimeSpan // handled in Download
         };
@@ -277,24 +275,20 @@ namespace Mole.API.Models
         /// <returns>HTTP status code of the response, target is written only for OK</returns>
         private static HttpStatusCode Download(string url, Stream target)
         {
-            using (var cts = new CancellationTokenSource(ResponseTimeout))
-            using (var response = http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token).GetAwaiter().GetResult())
-            {
-                if (response.StatusCode != HttpStatusCode.OK) return response.StatusCode;
+            using var cts = new CancellationTokenSource(ResponseTimeout);
+            using var response = http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token).GetAwaiter().GetResult();
+            if (response.StatusCode != HttpStatusCode.OK) return response.StatusCode;
 
-                using (var body = response.Content.ReadAsStream(cts.Token))
-                {
-                    var buffer = new byte[81920];
-                    while (true)
-                    {
-                        cts.CancelAfter(IdleTimeout);
-                        var read = body.ReadAsync(buffer, 0, buffer.Length, cts.Token).GetAwaiter().GetResult();
-                        if (read == 0) break;
-                        target.Write(buffer, 0, read);
-                    }
-                }
-                return HttpStatusCode.OK;
+            using var body = response.Content.ReadAsStream(cts.Token);
+            var buffer = new byte[81920];
+            while (true)
+            {
+                cts.CancelAfter(IdleTimeout);
+                var read = body.ReadAsync(buffer, 0, buffer.Length, cts.Token).GetAwaiter().GetResult();
+                if (read == 0) break;
+                target.Write(buffer, 0, read);
             }
+            return HttpStatusCode.OK;
         }
 
 
@@ -311,8 +305,8 @@ namespace Mole.API.Models
             if (errorLine == null) return string.Empty;
             else
             {
-                var temp = errorLine.Substring(36).Trim();
-                return temp.Substring(1, temp.Length - 2);
+                var temp = errorLine[36..].Trim();
+                return temp[1..^1];
             }
         }
 

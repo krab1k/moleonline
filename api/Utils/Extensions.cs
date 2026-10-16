@@ -27,11 +27,9 @@ namespace Mole.API.Utils
         /// <param name="path"></param>
         /// <returns>Zip archive content</returns>
         public static byte[] ZipDirectory(string path) {
-            using (var stream = new MemoryStream())
-            {
-                ZipFile.CreateFromDirectory(path, stream);
-                return stream.ToArray();
-            }
+            using var stream = new MemoryStream();
+            ZipFile.CreateFromDirectory(path, stream);
+            return stream.ToArray();
         }
 
 
@@ -41,23 +39,19 @@ namespace Mole.API.Utils
         /// <param name="path"></param>
         /// <param name="molecule">Path to the structure file, added to the archive</param>
         public static void ZipDirectories(string path, string molecule) {
-            using (FileStream zipToOpen = new FileStream(Path.Combine(path, MoleApiFiles.Report), FileMode.Create))
+            using FileStream zipToOpen = new(Path.Combine(path, MoleApiFiles.Report), FileMode.Create);
+            using ZipArchive archive = new(zipToOpen, ZipArchiveMode.Create);
+            ZipArchiveEntry readmeEntry;
+            DirectoryInfo d = new(path);
+            foreach (var item in d.GetDirectories("*"))
             {
-                using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create))
+                FileInfo[] Files = item.GetFiles("*");
+                foreach (FileInfo file in Files)
                 {
-                    ZipArchiveEntry readmeEntry;
-                    DirectoryInfo d = new DirectoryInfo(path);
-                    foreach (var item in d.GetDirectories("*"))
-                    {
-                        FileInfo[] Files = item.GetFiles("*");
-                        foreach (FileInfo file in Files)
-                        {
-                            readmeEntry = archive.CreateEntryFromFile(Path.Combine(path, item.Name, file.Name), Path.Combine(item.Name, file.Name));
-                        }
-                    }
-                    archive.CreateEntryFromFile(molecule, Path.GetFileName(molecule));
-                }                
+                    readmeEntry = archive.CreateEntryFromFile(Path.Combine(path, item.Name, file.Name), Path.Combine(item.Name, file.Name));
+                }
             }
+            archive.CreateEntryFromFile(molecule, Path.GetFileName(molecule));
 
         }
     }

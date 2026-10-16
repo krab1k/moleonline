@@ -11,16 +11,16 @@ namespace Mole.API.Models
 
         public CSA(string pathToCSA)
         {
-            Database = new Dictionary<string, List<ActiveSite>>();
+            Database = [];
 
             var temp = File.ReadAllLines(pathToCSA).
                 Skip(1).
-                GroupBy(x => x.Substring(0, 4));
+                GroupBy(x => x[..4]);
 
             foreach (var protein in temp)
             {
-                Database.Add(protein.Key, new List<ActiveSite>());
-                var sites = protein.GroupBy(x => x.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)[1]);
+                Database.Add(protein.Key, []);
+                var sites = protein.GroupBy(x => x.Split([','], StringSplitOptions.RemoveEmptyEntries)[1]);
 
                 foreach (var site in sites)
                 {
@@ -44,7 +44,7 @@ namespace Mole.API.Models
 
         public ActiveSite()
         {
-            Residues = new List<CSAResidue>();
+            Residues = [];
         }
 
     }
@@ -57,7 +57,7 @@ namespace Mole.API.Models
 
         public CSAResidue(string line)
         {
-            var splitted = line.Split(new char[] { ',' }, StringSplitOptions.None);
+            var splitted = line.Split([','], StringSplitOptions.None);
             Name = splitted[2];
             SequenceNumber = int.Parse(splitted[4]);
             Chain = splitted[3];
