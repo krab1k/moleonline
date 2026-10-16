@@ -143,10 +143,3 @@ public class APIPoresParameters {
     public double InteriorThreshold { get; set; }
     public double ProbeRadius { get; set; }
 }
-
-public class MailParameters {
-    public string From { get; set; }
-    public string ComputationId { get; set; }
-    public int SubmitId { get; set; }
-    public string Msg { get; set; }
-}
