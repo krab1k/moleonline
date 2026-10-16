@@ -257,14 +257,7 @@ namespace Mole.API.Models
 
             File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));
 
-            try
-            {
-                Task.Run(() => RunPores(computation, input));
-            }
-            catch (Exception e)
-            {
-                computation.ChangeStatus(ComputationStatus.Error, e.Message);
-            }
+            RunPores(computation, input);
 
             return computation.GetComputationReport();
         }
@@ -296,7 +289,7 @@ namespace Mole.API.Models
                 var xmlPath = BuildXML(c, param);
                 File.WriteAllText(Path.Combine(c.SubmitDirectory(c.ComputationUnits.Count), MoleApiFiles.MoleParams), JsonConvert.SerializeObject(param, Formatting.Indented));
 
-                Task.Run(() => RunMole(c, xmlPath, false));
+                RunMole(c, xmlPath, false);
 
                 return c.GetComputationReport();
             }
