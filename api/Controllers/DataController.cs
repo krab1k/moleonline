@@ -21,7 +21,7 @@ public class DataController(ComputationManager manager) : Controller
 
         try
         {
-            (Stream, string) data = manager.QueryFile(computationId, submitId, format); // the result disposes the stream
+            (Stream, string) data = manager.QueryFile(cpt, submitId, format); // the result disposes the stream
 
             if (System.IO.Path.GetExtension(data.Item2) == ".json") return File(data.Item1, "application/json", data.Item2);
             if (System.IO.Path.GetExtension(data.Item2) == ".zip") return File(data.Item1, "application/zip", data.Item2);

@@ -12,8 +12,8 @@ namespace Mole.API.Models;
 public class ComputationUnit
 {
     public int SubmitId { get; set; }
-    public string Status { get; set; }
-    public string ErrorMsg { get; set; }
+    public string Status { get; set; } = "";
+    public string ErrorMsg { get; set; } = "";
 
     public static ComputationUnit Initialize()
     {
@@ -38,15 +38,13 @@ public class ComputationUnit
 /// </summary>
 public class ComputationReport
 {
-    public string ComputationId { get; set; }
+    public string? ComputationId { get; set; } // null when no computation was created (a refused upload)
     public int SubmitId { get; set; }
     public string Status { get; set; }
     public string ErrorMsg { get; set; }
 
-    public ComputationReport() { }
 
-
-    public ComputationReport(string computationId, int id, string status, string errorMsg)
+    public ComputationReport(string? computationId, int id, string status, string errorMsg)
     {
         ComputationId = computationId;
         SubmitId = id;
@@ -77,22 +75,22 @@ public partial class Computation
     [GeneratedRegex("[/+=]")]
     private static partial Regex Base64Symbols();
 
-    public string ComputationId { get; set; }
-    public string BaseDir { get; set; }
+    public string ComputationId { get; set; } = "";
+    public string BaseDir { get; set; } = "";
     public bool UserStructure { get; set; }
-    public string PdbId { get; set; }
-    public string AssemblyId { get; set; }
+    public string PdbId { get; set; } = ""; // empty for uploaded structures
+    public string? AssemblyId { get; set; } // null: the full structure
     public bool DbModePores { get; set; }
     /// <summary>
     /// File name of the structure in the computation folder, set once the file is complete (downloaded or uploaded)
     /// </summary>
-    public string StructureFile { get; set; }
-    public List<ComputationUnit> ComputationUnits { get; set; }
+    public string? StructureFile { get; set; }
+    public List<ComputationUnit> ComputationUnits { get; set; } = [];
 
     /// <summary>
     /// API process that wrote the status last. Running/Initializing written by another process was interrupted by a restart.
     /// </summary>
-    public string ApiInstance { get; set; }
+    public string? ApiInstance { get; set; }
 
     public static readonly string CurrentApiInstance = Guid.NewGuid().ToString("N");
 
@@ -107,7 +105,7 @@ public partial class Computation
     /// <param name="baseDir">Working directory of the API</param>
     /// <param name="pdbId">PDB id to be downloaded</param>
     /// <param name="bioUnit">Optional biological assembly to be downloaded</param>
-    public Computation(string baseDir, string pdbId = "", string bioUnit = "")
+    public Computation(string baseDir, string pdbId = "", string? bioUnit = "")
     {
         ComputationId = Base64Symbols().Replace(Convert.ToBase64String(Guid.NewGuid().ToByteArray()), "");
         ComputationUnits = [ComputationUnit.Initialize()];
@@ -256,14 +254,14 @@ public partial class Computation
         }
     }
 
-    public async Task<string> GetBioAssemblyIdAsync()
+    public async Task<string?> GetBioAssemblyIdAsync()
     {
         try
         {
             using var stream = new MemoryStream();
             if (await DownloadAsync($"https://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml", stream) != HttpStatusCode.OK) return null;
             stream.Position = 0;
-            return XDocument.Load(stream).Root.Elements("assembly").First(x => x.Attribute("prefered").Value.Equals("True")).Attribute("id").Value;
+            return XDocument.Load(stream).Root?.Elements("assembly").FirstOrDefault(x => (string?)x.Attribute("prefered") == "True")?.Attribute("id")?.Value;
         }
         catch (Exception)
         { return null; }

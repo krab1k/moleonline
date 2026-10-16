@@ -4,12 +4,12 @@ namespace Mole.API;
 
 public class Config
 {
-    public string WorkingDirectory { get; set; }
-    public string CSA { get; set; }
+    public string WorkingDirectory { get; set; } = ""; // the paths are checked at startup (ConfigValidation)
+    public string CSA { get; set; } = "";
     public int MaxConcurentComputations { get; set; }
     public int MaxComputationMinutes { get; set; } // one run (all its processes), the queue not included
-    public string MOLE { get; set; }
-    public string Pores { get; set; }
+    public string MOLE { get; set; } = "";
+    public string Pores { get; set; } = "";
 }
 
 /// <summary>
@@ -17,7 +17,7 @@ public class Config
 /// </summary>
 public class ConfigValidation : IValidateOptions<Config>
 {
-    public ValidateOptionsResult Validate(string name, Config config)
+    public ValidateOptionsResult Validate(string? name, Config config)
     {
         List<string> errors = [];
 

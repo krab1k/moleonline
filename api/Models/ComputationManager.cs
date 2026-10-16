@@ -30,7 +30,7 @@ public class ComputationManager(IOptions<Config> options)
     /// </summary>
     private class RunningJob
     {
-        public Process Process;
+        public Process? Process;
         public volatile bool Killed;
     }
 
@@ -112,12 +112,12 @@ public class ComputationManager(IOptions<Config> options)
     /// <param name="workingDirectory">Working directory of this API.</param>
     /// <param name="computationId">user provided computation id</param>
     /// <returns>Computation object representing a single user computation folder</returns>
-    public Computation LoadComputation(string computationId)
+    public Computation? LoadComputation(string computationId)
     {
         var file = Path.Combine(Config.WorkingDirectory, computationId, MoleApiFiles.ComputationStatus);
         if (File.Exists(file))
         {
-            var computation = JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file));
+            var computation = JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file)) ?? throw new InvalidDataException($"{file} is empty.");
             var status = computation.ComputationUnits.Last().Status;
             if ((status == ComputationStatus.Running || status == ComputationStatus.Initializing) && computation.ApiInstance != Computation.CurrentApiInstance)
                 computation.ChangeStatus(status == ComputationStatus.Running ? ComputationStatus.Error : ComputationStatus.FailedInitialization,
@@ -203,7 +203,7 @@ public class ComputationManager(IOptions<Config> options)
                 s.unit.Status,
                 s.unit.ErrorMsg,
                 MoleConfig = File.Exists(s.mole) ? JsonConvert.DeserializeObject(File.ReadAllText(s.mole)) : new object(),
-                PoresConfig = File.Exists(s.pores) ? JsonConvert.DeserializeObject<PoresParameters>(File.ReadAllText(s.pores)).UserParameters() : new object()
+                PoresConfig = File.Exists(s.pores) ? JsonConvert.DeserializeObject<PoresParameters>(File.ReadAllText(s.pores))?.UserParameters() ?? new object() : new object()
             })
         }, Formatting.Indented);
     }
@@ -253,7 +253,7 @@ public class ComputationManager(IOptions<Config> options)
     /// </summary>
     private void RunPores(Computation computation, string inputJson)
     {
-        var submitDirectory = Path.GetDirectoryName(inputJson);
+        var submitDirectory = computation.SubmitDirectory();
         ProcessStartInfo info = new()
         {
             FileName = Config.Pores,
@@ -314,7 +314,7 @@ public class ComputationManager(IOptions<Config> options)
 
 
 
-    private void RunComputation(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory = true, Func<string> check = null)
+    private void RunComputation(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory = true, Func<string?>? check = null)
     {
         Task.Run(() => RunComputationAsync(c, steps, init, zipDirectory, check));
     }
@@ -326,7 +326,7 @@ public class ComputationManager(IOptions<Config> options)
     /// exits with a non-zero code, the check after the last one fails or the API itself fails (e.g. a process cannot be started),
     /// otherwise Initialized/Finished. A computation killed by the user keeps the Aborted status set by KillComputation.
     /// </summary>
-    private async Task RunComputationAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string> check)
+    private async Task RunComputationAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string?>? check)
     {
         var job = new RunningJob();
         RunningProcesses[c.ComputationId] = job; // registered while waiting, so that KillComputation can abort it
@@ -341,7 +341,7 @@ public class ComputationManager(IOptions<Config> options)
     }
 
 
-    private async Task RunJobAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string> check, RunningJob job)
+    private async Task RunJobAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string?>? check, RunningJob job)
     {
         await slots.WaitAsync();
         var failed = init ? ComputationStatus.FailedInitialization : ComputationStatus.Error; // nothing can run on a structure that did not load
@@ -397,7 +397,7 @@ public class ComputationManager(IOptions<Config> options)
     /// Runs one process of a computation. Returns whether the user killed it, or the error when it failed.
     /// When the time limit expires, the process is killed (the caller reports it).
     /// </summary>
-    private static async Task<(bool killed, string error)> RunProcessAsync(ProcessStartInfo info, RunningJob job, CancellationToken timeLimit)
+    private static async Task<(bool killed, string? error)> RunProcessAsync(ProcessStartInfo info, RunningJob job, CancellationToken timeLimit)
     {
         StringBuilder sb = new();
 
@@ -447,21 +447,11 @@ public class ComputationManager(IOptions<Config> options)
 
 
 
-    internal ComputationReport DeleteComputation(string id)
+    internal ComputationReport DeleteComputation(Computation cpt)
     {
-        var cpt = LoadComputation(id);
-        if (cpt.ComputationId != null)
-        {
-            KillComputation(cpt);
-
-            cpt.ChangeStatus(ComputationStatus.Deleted);
-
-            var report = cpt.GetComputationReport();
-            report.Status = ComputationStatus.Deleted;
-            return report;
-        }
-        return Computation.NotExists(id);
-
+        KillComputation(cpt);
+        cpt.ChangeStatus(ComputationStatus.Deleted);
+        return cpt.GetComputationReport();
     }
 
 
@@ -515,8 +505,9 @@ public class ComputationManager(IOptions<Config> options)
     /// <returns></returns>
     internal static readonly string[] DataFormats = ["json", "report", "molecule", "pymol", "chimera", "vmd", "pdb", "membrane"];
 
-    internal (Stream, string) QueryFile(string computationId, int submitId, string type)
+    internal (Stream, string) QueryFile(Computation cpt, int submitId, string type)
     {
+        var computationId = cpt.ComputationId;
         Stream stream; // files are streamed, not read into memory
         switch (type)
         {
@@ -528,7 +519,7 @@ public class ComputationManager(IOptions<Config> options)
                 stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), MoleApiFiles.Report));
                 return (stream, $"mole_channels_{computationId}_{submitId}.zip");
             case "molecule":
-                var molecule = LoadComputation(computationId).StructurePath();
+                var molecule = cpt.StructurePath();
                 return (File.OpenRead(molecule), Path.GetFileName(molecule));
             case "pymol":
                 stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pymol", MoleApiFiles.PythonScript));
@@ -590,7 +581,7 @@ public class ComputationManager(IOptions<Config> options)
         var input = new XElement("Input",
             new XAttribute("SpecificChains", param.Input.SpecificChains),
             new XAttribute("ReadAllModels", param.Input.ReadAllModels ? "1" : "0"), structure);
-        var WD = new XElement("WorkingDirectory", Path.Combine(Path.GetDirectoryName(structure), c.GetComputationReport().SubmitId.ToString()));
+        var WD = new XElement("WorkingDirectory", c.SubmitDirectory());
 
         var nonActive = new XElement("NonActiveParts");
 
@@ -674,7 +665,7 @@ public class ComputationManager(IOptions<Config> options)
 
         var root = new XElement("Tunnels");
         var input = new XElement("Input", structure);
-        var WD = new XElement("WorkingDirectory", Path.Combine(Path.GetDirectoryName(structure), "0"));
+        var WD = new XElement("WorkingDirectory", c.SubmitDirectory(0));
 
         var par = new XElement("Params",
             new XElement("Cavity",
@@ -722,7 +713,7 @@ public class ComputationManager(IOptions<Config> options)
     /// </summary>
     /// <param name="o">Origin parameter</param>
     /// <returns>XElement for the MOLE input XML</returns>
-    private XElement BuildOriginElement(Origin o, string key, string subKey)
+    private XElement BuildOriginElement(Origin? o, string key, string subKey)
     {
         if (o == null) return new XElement("Origins", new XAttribute("Auto", "1"));
 

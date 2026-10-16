@@ -12,7 +12,7 @@ internal static class Reports
     public static ContentResult Json(ComputationReport report, int statusCode = StatusCodes.Status200OK) =>
         new() { Content = report.ToJson(), ContentType = "application/json", StatusCode = statusCode };
 
-    public static ContentResult Error(string computationId, int statusCode, string message, int submitId = 0) =>
+    public static ContentResult Error(string? computationId, int statusCode, string message, int submitId = 0) =>
         Json(new ComputationReport(computationId, submitId, ComputationStatus.Error, message), statusCode);
 
     public static ContentResult NotFound(string computationId) =>

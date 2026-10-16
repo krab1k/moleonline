@@ -7,19 +7,19 @@ namespace Mole.API.Models;
 public class ComputationParameters
 {
     [JsonProperty]
-    public Input Input { get; set; }
+    public Input Input { get; set; } = new();
     [JsonProperty]
     public Cavity Cavity { get; set; } = new Cavity();
     [JsonProperty]
-    public Tunnel Tunnel { get; set; }
+    public Tunnel Tunnel { get; set; } = new();
     [JsonProperty]
-    public Residue[] NonActiveResidues { get; set; }
+    public Residue[] NonActiveResidues { get; set; } = [];
     [JsonProperty]
-    public string QueryFilter { get; set; }
+    public string QueryFilter { get; set; } = "";
     [JsonProperty]
-    public Origin Origin { get; set; }
+    public Origin Origin { get; set; } = new();
     [JsonProperty]
-    public Origin CustomExits { get; set; }
+    public Origin CustomExits { get; set; } = new();
     [JsonProperty]
     public bool PoresMerged { get; set; } = false;
     [JsonProperty]
@@ -29,7 +29,7 @@ public class ComputationParameters
     public ComputationParameters() { }
 
     [JsonConstructor]
-    public ComputationParameters(Input input, Cavity cavity, Tunnel tunnel, Residue[] nonActiveResidue, string queryFilter, Origin origin, Origin customExits, bool poresMerged, bool poresAuto)
+    public ComputationParameters(Input? input, Cavity? cavity, Tunnel? tunnel, Residue[]? nonActiveResidue, string? queryFilter, Origin? origin, Origin? customExits, bool poresMerged, bool poresAuto)
     {
         Input = input ?? new Input();
         Cavity = cavity ?? new Cavity();
@@ -50,7 +50,7 @@ public class ComputationParameters
     /// The ranges of the web, so that a request cannot start an unreasonable computation
     /// </summary>
     /// <returns>What is wrong, null when the parameters are valid</returns>
-    public string Validate()
+    public string? Validate()
     {
         List<string> errors = [];
         Limits.Check(errors, "Probe radius", Cavity.ProbeRadius, 1.4, 45);
@@ -72,7 +72,7 @@ internal static class Limits
         if (!(value >= min && value <= max)) errors.Add($"{name} must be between {min} and {max}."); // also NaN
     }
 
-    public static string Message(List<string> errors) => errors.Count == 0 ? null : "Invalid parameters. " + string.Join(" ", errors);
+    public static string? Message(List<string> errors) => errors.Count == 0 ? null : "Invalid parameters. " + string.Join(" ", errors);
 }
 
 
@@ -112,9 +112,9 @@ public class Tunnel
 
 public class Origin
 {
-    public Point3D[] Points { get; set; }
-    public string QueryExpression { get; set; }
-    public List<Residue[]> Residues { get; set; }
+    public Point3D[]? Points { get; set; } // each part is optional
+    public string? QueryExpression { get; set; }
+    public List<Residue[]>? Residues { get; set; }
 
     public bool IsEmpty()
     {
@@ -131,7 +131,7 @@ public class Point3D
 
 public class Residue
 {
-    public string Chain { get; set; }
+    public string Chain { get; set; } = "";
     public int SequenceNumber { get; set; }
 }
 #endregion
@@ -143,10 +143,10 @@ public class Residue
 /// </summary>
 public class PoresParameters
 {
-    public string Structure { get; set; }
-    public string PdbId { get; set; } // OPM entry to use; null when the structure is not the PDB entry as OPM has it
-    public string WorkingDirectory { get; set; } // the submit directory, MOLE input and results
-    public string Membrane { get; set; } // where the tool writes membrane.json
+    public string Structure { get; set; } = "";
+    public string? PdbId { get; set; } // OPM entry to use; null when the structure is not the PDB entry as OPM has it
+    public string WorkingDirectory { get; set; } = ""; // the submit directory, MOLE input and results
+    public string Membrane { get; set; } = ""; // where the tool writes membrane.json
 
     public bool InMembrane { get; set; } // the pore only between the membrane planes
     public bool IsBetaBarrel { get; set; }
@@ -171,12 +171,12 @@ public class PoresRequest
 
     public bool InMembrane { get; set; }
     public bool IsBetaBarrel { get; set; }
-    public string[] Chains { get; set; } // null or empty: all chains
+    public string[]? Chains { get; set; } // null or empty: all chains
     public double? ProbeRadius { get; set; } // null: the default
     public double? InteriorThreshold { get; set; }
 
     /// <returns>What is wrong, null when the request is valid</returns>
-    public string Validate()
+    public string? Validate()
     {
         List<string> errors = [];
         if (ProbeRadius is double probe) Limits.Check(errors, "Probe radius", probe, 1.4, 45);

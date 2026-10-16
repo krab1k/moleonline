@@ -48,7 +48,7 @@ public class ActiveSite
 
 public class CSAResidue : Residue
 {
-    public string Name { get; set; }
+    public string Name { get; set; } = "";
 
     public CSAResidue(string line)
     {
