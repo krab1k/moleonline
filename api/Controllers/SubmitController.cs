@@ -12,6 +12,7 @@ public class SubmitController(ComputationManager manager) : Controller
     {
         LogIp();
 
+        using var submitting = manager.SubmitLock.EnterScope();
         var cpt = manager.LoadComputation(computationId);
         if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
         if (param == null) return Content(new ComputationReport()
@@ -50,6 +51,7 @@ public class SubmitController(ComputationManager manager) : Controller
     {
         LogIp();
 
+        using var submitting = manager.SubmitLock.EnterScope();
         var cpt = manager.LoadComputation(computationId);
         if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
         if (parameters == null) return Content(new ComputationReport()

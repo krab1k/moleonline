@@ -19,6 +19,11 @@ public class ComputationManager(IOptions<Config> options)
     private readonly SemaphoreSlim slots = new(Math.Max(1, options.Value.MaxConcurentComputations)); // MaxConcurentComputations processes at once, initializations included
 
     /// <summary>
+    /// Held by a submission from loading the computation until it is Running, so that parallel requests cannot all see it idle
+    /// </summary>
+    public Lock SubmitLock { get; } = new();
+
+    /// <summary>
     /// One run of MOLE/Pores. Submissions of a computation share its id, so the kill flag must belong to the run.
     /// Process is null while the run waits for a slot. Lock the job to start or kill its process.
     /// </summary>
