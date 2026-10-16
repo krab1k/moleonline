@@ -194,7 +194,10 @@ public class ComputationManager(IOptions<Config> options)
         var cpt = LoadComputation(computationId);
         if (cpt == null) return Computation.NotExists(computationId).ToJson();
 
-        var directories = Directory.GetDirectories(Path.Combine(Config.WorkingDirectory, computationId)).Where(x => Path.GetFileNameWithoutExtension(x) != "0").ToArray();
+        // submissions with a folder, each with its own status (directories are not listed in any particular order)
+        var submissions = cpt.ComputationUnits
+            .Select(u => (unit: u, dir: Path.Combine(Config.WorkingDirectory, computationId, u.SubmitId.ToString())))
+            .Where(x => Directory.Exists(x.dir));
 
         return JsonConvert.SerializeObject(new
         {
@@ -202,12 +205,12 @@ public class ComputationManager(IOptions<Config> options)
             cpt.UserStructure,
             cpt.PdbId,
             cpt.AssemblyId,
-            Submissions = directories.Select((x, i) => new
+            Submissions = submissions.Select(s => new
             {
-                SubmitId = Path.GetFileName(x),
-                cpt.ComputationUnits[i].Status,
-                MoleConfig = File.Exists(Path.Combine(x, MoleApiFiles.MoleParams)) ? JsonConvert.DeserializeObject(File.ReadAllText(Path.Combine(x, MoleApiFiles.MoleParams))) : new object(),
-                PoresConfig = File.Exists(Path.Combine(x, MoleApiFiles.PoreParams)) ? JsonConvert.DeserializeObject<PoresParameters>(File.ReadAllText(Path.Combine(x, MoleApiFiles.PoreParams))).UserParameters() : new object()
+                SubmitId = s.unit.SubmitId.ToString(),
+                s.unit.Status,
+                MoleConfig = File.Exists(Path.Combine(s.dir, MoleApiFiles.MoleParams)) ? JsonConvert.DeserializeObject(File.ReadAllText(Path.Combine(s.dir, MoleApiFiles.MoleParams))) : new object(),
+                PoresConfig = File.Exists(Path.Combine(s.dir, MoleApiFiles.PoreParams)) ? JsonConvert.DeserializeObject<PoresParameters>(File.ReadAllText(Path.Combine(s.dir, MoleApiFiles.PoreParams))).UserParameters() : new object()
             })
         }, Formatting.Indented);
     }
