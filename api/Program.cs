@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.ResponseCompression;
 using Mole.API;
 using Mole.API.Models;
@@ -23,10 +24,22 @@ builder.Services.AddCors(options =>
             WithExposedHeaders("Content-Disposition"));
 }); // allow Cross-origin resource sharing (credentials cannot be combined with any origin)
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // nginx runs in another container with an address of the Docker network, not known in advance;
+    // public addresses cannot pass a client address, only loopback and private networks
+    options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("10.0.0.0/8"));
+    options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("172.16.0.0/12"));
+    options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("192.168.0.0/16"));
+    options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("fc00::/7"));
+}); // the client address from the reverse proxy (nginx)
+
 builder.Services.AddControllersWithViews().AddNewtonsoftJson(); // keep Newtonsoft.Json for request bodies
 
 var app = builder.Build();
 
+app.UseForwardedHeaders(); // first, everything after it sees the client address
 app.UseExceptionHandler("/Index/Error");
 app.UseCors("CorsPolicy"); // before UseStaticFiles, the web fetches inputs/cofactors.json cross-origin
 app.UseStaticFiles(); // allow download files from wwwroot
