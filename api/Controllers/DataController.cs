@@ -36,8 +36,9 @@ namespace Mole.API.Controllers
 
                 return File(data.Item1, MediaTypeNames.Text.Plain, data.Item2);
             }
-            catch (Exception e) {
-                return new JsonResult(e);
+            catch (Exception) {
+                // 200 with a JSON body, the web loads the data of all submissions and skips those without channels
+                return Content(new ComputationReport(computationId, submitId, ComputationStatus.Error, $"Data in format '{format}' are not available.").ToJson(), "application/json");
             }
         }
     }
