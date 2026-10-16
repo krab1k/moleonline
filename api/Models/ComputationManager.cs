@@ -85,6 +85,8 @@ public class ComputationManager(IOptions<Config> options)
         {
             file.CopyTo(fileStream);
         }
+        computation.StructureFile = Path.GetFileName(savePath);
+        computation.SaveStatus();
 
         Init(computation);
 
@@ -217,7 +219,7 @@ public class ComputationManager(IOptions<Config> options)
 
             var json = new PoresParameters
             {
-                Structure = StructurePath(computation.ComputationId),
+                Structure = computation.StructurePath(),
                 PdbId = computation.DbModePores ? computation.PdbId : null,
                 WorkingDirectory = computation.SubmitDirectory(),
                 Membrane = Path.Combine(Config.WorkingDirectory, computation.ComputationId, MoleApiFiles.Membrane),
@@ -358,7 +360,7 @@ public class ComputationManager(IOptions<Config> options)
                 c.ChangeStatus(ComputationStatus.Error, checkError);
                 return;
             }
-            if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()), StructurePath(c.ComputationId));
+            if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()), c.StructurePath());
 
             if (init)
             {
@@ -500,7 +502,7 @@ public class ComputationManager(IOptions<Config> options)
                 stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), MoleApiFiles.Report));
                 return (stream, $"mole_channels_{computationId}_{submitId}.zip");
             case "molecule":
-                var molecule = StructurePath(computationId);
+                var molecule = LoadComputation(computationId).StructurePath();
                 return (File.OpenRead(molecule), Path.GetFileName(molecule));
             case "pymol":
                 stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pymol", MoleApiFiles.PythonScript));
@@ -542,13 +544,6 @@ public class ComputationManager(IOptions<Config> options)
 
 
     #region Helpers
-    /// <summary>
-    /// Path to the structure file of the computation: the first non-.json file in its folder
-    /// </summary>
-    /// <param name="computationId">Id of computation</param>
-    /// <returns>Complete path to the structure file</returns>
-    private string StructurePath(string computationId) =>
-        Directory.GetFiles(Path.Combine(Config.WorkingDirectory, computationId)).First(x => Path.GetExtension(x) != ".json");
 
 
     /// <summary>
@@ -562,7 +557,7 @@ public class ComputationManager(IOptions<Config> options)
         var hasOrigin = !param.Origin?.IsEmpty() ?? false;
         var hasExits = !param.CustomExits?.IsEmpty() ?? false;
 
-        var structure = StructurePath(c.ComputationId);
+        var structure = c.StructurePath();
         var structureName = Path.GetFileNameWithoutExtension(structure);
 
         var root = new XElement("Tunnels");
@@ -649,7 +644,7 @@ public class ComputationManager(IOptions<Config> options)
     {
         var param = new ComputationParameters();
 
-        var structure = StructurePath(c.ComputationId);
+        var structure = c.StructurePath();
 
         var root = new XElement("Tunnels");
         var input = new XElement("Input", structure);

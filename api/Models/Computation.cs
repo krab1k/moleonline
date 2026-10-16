@@ -83,6 +83,10 @@ public partial class Computation
     public string PdbId { get; set; }
     public string AssemblyId { get; set; }
     public bool DbModePores { get; set; }
+    /// <summary>
+    /// File name of the structure in the computation folder, set once the file is complete (downloaded or uploaded)
+    /// </summary>
+    public string StructureFile { get; set; }
     public List<ComputationUnit> ComputationUnits { get; set; }
 
     /// <summary>
@@ -227,6 +231,7 @@ public partial class Computation
             }
 
             File.Move(temp, file);
+            StructureFile = Path.GetFileName(file);
             var error = CheckDownloadedStructure(file);
             if (!String.IsNullOrEmpty(error))
             {
@@ -322,6 +327,10 @@ public partial class Computation
     /// </summary>
     /// <param name="submitId"></param>
     /// <returns>Complete path to the submit directory folder</returns>
+    public string StructurePath() => StructureFile != null
+        ? Path.Combine(BaseDir, ComputationId, StructureFile)
+        : throw new InvalidOperationException($"Computation {ComputationId} has no structure.");
+
     public string SubmitDirectory(int submitId = -1) => Path.Combine(BaseDir, ComputationId, submitId == -1 ? this.ComputationUnits.Last().SubmitId.ToString() : submitId.ToString());
 
 
@@ -341,7 +350,6 @@ public partial class Computation
     public void SaveStatus()
     {
         // write a temporary file first and rename it, so that concurrent readers (status polling) never see a partially written file
-        // (.json extension: the structure is selected as the first non-.json file in the computation folder)
         ApiInstance = CurrentApiInstance;
         var temp = $"{StatusPath()}.{Guid.NewGuid():N}.tmp.json";
         File.WriteAllText(temp, JsonConvert.SerializeObject(this, Formatting.Indented));
