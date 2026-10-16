@@ -453,7 +453,7 @@ namespace Mole.API.Models
                 try
                 {
                     job.Killed = true;
-                    job.Process.Kill();
+                    job.Process.Kill(entireProcessTree: true); // Pores starts PyMOL and MEMEMBED
                     RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(cpt.ComputationId, job));
 
                     cpt.ChangeStatus(ComputationStatus.Aborted);
