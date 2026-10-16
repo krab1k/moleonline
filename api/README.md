@@ -73,11 +73,12 @@ from the environment; the image sets both. `TZ` (in `compose.yaml`) sets the tim
 ## Endpoints
 
 All responses are JSON, errors are reported in the body (`Status: "Error"`, `ErrorMsg`).
+`/Init/{pdbId}`, `/Init/Pores/{pdbId}`, `/Kill` and `/Delete` still accept GET until the web is updated.
 
 | Endpoint | |
 |---|---|
-| `GET /Init/{pdbId}?assemblyId=` | load a PDB entry from PDBe and compute its cavities |
-| `GET /Init/Pores/{pdbId}` | load the preferred biological assembly of a PDB entry, for a pore computation |
+| `POST /Init/{pdbId}?assemblyId=` | load a PDB entry from PDBe and compute its cavities |
+| `POST /Init/Pores/{pdbId}` | load the preferred biological assembly of a PDB entry, for a pore computation |
 | `POST /Init` | load an uploaded structure (`multipart/form-data`, `.pdb`, `.cif`, `.pdbN`, `.gz`) |
 | `POST /Submit/Mole/{id}` | compute tunnels, body: MOLE parameters |
 | `POST /Submit/Pores/{id}` | compute a pore across the membrane, body: `InMembrane`, `IsBetaBarel`, `Chains`, `ProbeRadius`, `InteriorThreshold` |
@@ -85,8 +86,8 @@ All responses are JSON, errors are reported in the body (`Status: "Error"`, `Err
 | `GET /CompInfo/{id}` | the computation and the parameters of all submissions |
 | `GET /Data/{id}?submitId=&format=` | results: `json`, `report` (zip), `molecule`, `pymol`, `chimera`, `vmd`, `pdb`, `membrane` |
 | `GET /CSA/{id}` | catalytic active sites of the PDB entry, starting points for tunnels |
-| `GET /Kill/{id}` | stop the running submission |
-| `GET /Delete/{id}` | delete the computation |
+| `POST /Kill/{id}` | stop the running submission |
+| `DELETE /Delete/{id}` | delete the computation |
 | `GET /EBI/{pdbId}?ignoreHet=` | load and compute tunnels in one call, for PDBe |
 | `GET /Version` | versions of the API, MOLE and Pores |
 

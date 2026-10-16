@@ -7,8 +7,9 @@ namespace Mole.API.Controllers;
 [Route("[controller]")]
 public class KillController(ComputationManager manager) : Controller
 {
-    [HttpGet("{computationId}")]
-    public ContentResult Get(string computationId)
+    [HttpPost("{computationId}")]
+    [HttpGet("{computationId}")] // old method, until the web uses POST
+    public ContentResult Post(string computationId)
     {
         var computation = manager.LoadComputation(computationId);
         if (computation != null)

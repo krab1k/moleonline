@@ -7,8 +7,9 @@ namespace Mole.API.Controllers;
 [Route("[controller]")]
 public class DeleteController(ComputationManager manager) : Controller
 {
-    [HttpGet("{id}")]
-    public ContentResult Get(string id)
+    [HttpDelete("{id}")]
+    [HttpGet("{id}")] // old method, until the web uses DELETE
+    public ContentResult Delete(string id)
     {
         var cpt = manager.LoadComputation(id);
 

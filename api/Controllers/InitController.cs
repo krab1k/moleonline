@@ -11,16 +11,18 @@ public partial class InitController(ComputationManager manager) : Controller
     [GeneratedRegex(@"(\.pdb|\.cif|\.gz|\.pdb[0-9]+)$")]
     private static partial Regex StructureExtension();
 
-    [HttpGet("{id}")]
-    public ContentResult Get(string id, string assemblyId)
+    [HttpPost("{id}")]
+    [HttpGet("{id}")] // old method, until the web uses POST
+    public ContentResult Pdb(string id, string assemblyId)
     {
         var result = manager.CreatePDBComputation(id.ToLower(), assemblyId);
         return Content(result.ToJson(), "application/json");
     }
 
 
-    [HttpGet("Pores/{id}", Name = "Init/Pores")]
-    public ContentResult Get(string id)
+    [HttpPost("Pores/{id}", Name = "Init/Pores")]
+    [HttpGet("Pores/{id}")] // old method, until the web uses POST
+    public ContentResult Pores(string id)
     {
         var result = manager.CreatePoreComputation(id.ToLower());
         return Content(result.ToJson(), "application/json");
