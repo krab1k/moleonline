@@ -37,21 +37,23 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("fc00::/7"));
 }); // the client address from the reverse proxy (nginx)
 
-builder.Services.AddControllersWithViews().AddNewtonsoftJson(); // keep Newtonsoft.Json for request bodies
+builder.Services.AddControllers().AddNewtonsoftJson(); // keep Newtonsoft.Json for request bodies
 
 var app = builder.Build();
 
 app.UseForwardedHeaders(); // first, everything after it sees the client address
-app.UseExceptionHandler("/Index/Error");
+app.UseExceptionHandler(error => error.Run(context => // the middleware has logged the exception
+{
+    context.Response.ContentType = "application/json";
+    return context.Response.WriteAsync(new ComputationReport(null, 0, ComputationStatus.Error, "An unexpected error occurred on the server. Please, try again later.").ToJson());
+}));
 app.UseCors("CorsPolicy"); // before UseStaticFiles, the web fetches inputs/cofactors.json cross-origin
+app.UseDefaultFiles(); // / serves index.html, the API documentation
 app.UseStaticFiles(); // allow download files from wwwroot
 app.UseResponseCompression();
 app.UseRouting();
 
 app.MapControllers();
-app.MapControllerRoute(
-    name: "Index",
-    pattern: "{controller=Index}/{action=Index}");
 
 try
 {
