@@ -344,6 +344,7 @@ public class ComputationManager(IOptions<Config> options)
     private async Task RunJobAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string> check, RunningJob job)
     {
         await slots.WaitAsync();
+        var failed = init ? ComputationStatus.FailedInitialization : ComputationStatus.Error; // nothing can run on a structure that did not load
 
         try
         {
@@ -356,12 +357,12 @@ public class ComputationManager(IOptions<Config> options)
                 if (killed) return; // killed by the user, status set by KillComputation
                 if (timeLimit.IsCancellationRequested)
                 {
-                    c.ChangeStatus(ComputationStatus.Error, $"The computation exceeded the time limit of {Config.MaxComputationMinutes} minute{(Config.MaxComputationMinutes == 1 ? "" : "s")}.");
+                    c.ChangeStatus(failed, $"The computation exceeded the time limit of {Config.MaxComputationMinutes} minute{(Config.MaxComputationMinutes == 1 ? "" : "s")}.");
                     return;
                 }
                 if (error != null)
                 {
-                    c.ChangeStatus(ComputationStatus.Error, error);
+                    c.ChangeStatus(failed, error);
                     return;
                 }
             }
@@ -370,7 +371,7 @@ public class ComputationManager(IOptions<Config> options)
             var checkError = check?.Invoke();
             if (checkError != null)
             {
-                c.ChangeStatus(ComputationStatus.Error, checkError);
+                c.ChangeStatus(failed, checkError);
                 return;
             }
             if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()), c.StructurePath());
@@ -383,7 +384,7 @@ public class ComputationManager(IOptions<Config> options)
         }
         catch (Exception e)
         {
-            try { c.ChangeStatus(ComputationStatus.Error, e.Message); } catch (Exception) { } // never leave the computation running
+            try { c.ChangeStatus(failed, e.Message); } catch (Exception) { } // never leave the computation running
         }
         finally
         {
