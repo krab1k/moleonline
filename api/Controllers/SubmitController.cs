@@ -2,6 +2,7 @@ using System;
 using Mole.API;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -29,7 +30,7 @@ namespace Mole.API.Controllers
         [HttpPost("Mole/{computationId}", Name = "Submit/Mole")]
         public ContentResult Post(string computationId, [FromBody] ComputationParameters param)
         {
-            Task.Run(() => LogIp());
+            LogIp();
 
             var cpt = manager.LoadComputation(computationId);
             if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
@@ -67,7 +68,7 @@ namespace Mole.API.Controllers
         [HttpPost("Pores/{computationId}", Name = "Submit/Pores")]
         public ContentResult Pores(string computationId, [FromBody] APIPoresParameters parameters)
         {
-            Task.Run(() => LogIp());
+            LogIp();
 
             var cpt = manager.LoadComputation(computationId);
             if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
@@ -101,9 +102,12 @@ namespace Mole.API.Controllers
         }
 
 
+        private static readonly Lock ipLogLock = new Lock(); // concurrent appends to the same file fail
+
         private void LogIp()
         {
-            System.IO.File.AppendAllText("Mole_api_IP_log.csv", $"{DateTime.Now} Submit - {Request.HttpContext.Connection.RemoteIpAddress.ToString()}\n");
+            var line = $"{DateTime.Now} Submit - {Request.HttpContext.Connection.RemoteIpAddress}\n"; // read while the request is still alive
+            Task.Run(() => { lock (ipLogLock) System.IO.File.AppendAllText("Mole_api_IP_log.csv", line); });
         }
     }
 }
