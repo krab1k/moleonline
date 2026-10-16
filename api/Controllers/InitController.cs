@@ -29,6 +29,16 @@ public class InitController(ComputationManager manager) : Controller
     [Consumes("multipart/form-data")]
     public ContentResult Post(IFormFile file)
     {
+        if (file == null || file.Length == 0)
+        {
+            return Content(new ComputationReport()
+            {
+                ComputationId = null,
+                ErrorMsg = "No structure file was uploaded or the file is empty.",
+                Status = ComputationStatus.Error,
+                SubmitId = 0
+            }.ToJson(), "application/json");
+        }
         if (!Regex.Match(file.FileName.ToLower(), "(\\.pdb|\\.cif|\\.gz|\\.pdb[0-9]+)$").Success)
         {
             return Content(new ComputationReport()
