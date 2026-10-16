@@ -70,3 +70,21 @@ def test_curved_membrane_in_membrane_region_reported(tmp_path):
     """Production finished 2VV5 with InMembrane=true without any path; we say why instead."""
     with pytest.raises(PathError, match="curved"):
         compute("2vv5", True, 13.0, tmp_path)
+
+
+def test_selected_chains(tmp_path):
+    """1k4c without the Fab antibodies: the pore ends where the channel ends and only the channel lines it."""
+    structure_path = tmp_path / "1k4c.cif"
+    shutil.copy(REFERENCE / "1k4c" / "data_molecule", structure_path)
+    structure = read_structure(structure_path)
+    membrane = membrane_from_opm(structure, (REFERENCE / "1k4c" / "opm_1k4c.pdb").read_text())
+    chains = ["C", "C_2", "C_3", "C_4"]
+    working_directory = tmp_path / "1"
+    working_directory.mkdir()
+    start, end = end_points(structure, membrane, False, chains)
+    (working_directory / "input.xml").write_text(mole_input(structure_path, working_directory, start, end, 13.0, 0.8, chains))
+    path = run_mole(working_directory / "input.xml", working_directory)["Channels"]["Paths"][0]
+
+    assert {residue.split()[2] for residue in path["Layers"]["ResidueFlow"]} <= set(chains)
+    top = membrane.to_membrane_frame([path["Profile"][-1][k] for k in "XYZ"])[2]
+    assert top < 25  # the channel ends at about 24 Å, the Fab antibodies reach 45 Å

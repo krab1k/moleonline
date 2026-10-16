@@ -26,11 +26,16 @@ def run(parameters_path: Path) -> None:
     parameters = json.loads(parameters_path.read_text())
     working_directory = Path(parameters["WorkingDirectory"])  # the submit directory
     computation_dir = working_directory.parent
-    chains = list(parameters.get("Chains") or [])
+    chains = [name.strip() for name in parameters.get("Chains") or [] if name.strip()]  # the API splits "A, B" at commas
 
     pdb_id = parameters.get("PdbId")  # set when the structure is the PDB entry as OPM has it
     structure_path = Path(parameters["UserStructure"]) if parameters.get("UserStructure") else computation_dir / f"{pdb_id}.cif"
     structure = read_structure(structure_path)
+    available = list(dict.fromkeys(chain.name for chain in structure[0]))
+    unknown = [name for name in chains if name not in available]
+    if unknown:
+        raise PoresError(f"Chain{'s' if len(unknown) > 1 else ''} {', '.join(unknown)} {'are' if len(unknown) > 1 else 'is'} not in the structure. "
+                         f"Available chains: {', '.join(available)}.")
 
     cache = os.environ.get("PORES_OPM_CACHE")  # directory for downloaded OPM files, no cache when unset
     opm = download_opm(pdb_id, Path(cache) if cache else None) if pdb_id else None
