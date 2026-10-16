@@ -462,20 +462,16 @@ public class ComputationManager(IOptions<Config> options)
             catch (Exception)
             {
                 job.Killed = false;
-                return new ComputationReport()
-                {
-                    ComputationId = cpt.ComputationId,
-                    SubmitId = cpt.ComputationUnits.Count,
-                    Status = ComputationStatus.Finished,
-                    ErrorMsg = "Something went wrong during the process termination."
-                };
+                var running = cpt.GetComputationReport(); // still running
+                running.ErrorMsg = "The computation could not be stopped. Please, try again.";
+                return running;
             }
             return cpt.GetComputationReport();
         }
         else
         {
             var report = cpt.GetComputationReport();
-            report.ErrorMsg = $"Cannot kill computation with the stuatus \"{report.Status}\"";
+            report.ErrorMsg = $"Cannot kill computation with the status \"{report.Status}\"";
 
             return report;
 
