@@ -277,6 +277,9 @@ public class ComputationManager(IOptions<Config> options)
         {
             c.ChangeStatus(ComputationStatus.Running);
 
+            // only the first model is used (the web shows only that one); MOLE parses mmCIF as PDB with this option.
+            // Still accepted and stored (as false), the web requires it in imported parameters.
+            param.Input.ReadAllModels = false;
             var xmlPath = BuildXML(c, param);
             File.WriteAllText(Path.Combine(c.SubmitDirectory(c.ComputationUnits.Count), MoleApiFiles.MoleParams), JsonConvert.SerializeObject(param, Formatting.Indented));
 
