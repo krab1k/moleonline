@@ -1,68 +1,67 @@
-namespace Mole.API.Models
+namespace Mole.API.Models;
+
+public class CSA
 {
-    public class CSA
+    public Dictionary<string, List<ActiveSite>> Database { get; set; }
+
+    public CSA(string pathToCSA)
     {
-        public Dictionary<string, List<ActiveSite>> Database { get; set; }
+        Database = [];
 
-        public CSA(string pathToCSA)
+        var temp = File.ReadAllLines(pathToCSA).
+            Skip(1).
+            GroupBy(x => x[..4]);
+
+        foreach (var protein in temp)
         {
-            Database = [];
+            Database.Add(protein.Key, []);
+            var sites = protein.GroupBy(x => x.Split([','], StringSplitOptions.RemoveEmptyEntries)[1]);
 
-            var temp = File.ReadAllLines(pathToCSA).
-                Skip(1).
-                GroupBy(x => x[..4]);
-
-            foreach (var protein in temp)
+            foreach (var site in sites)
             {
-                Database.Add(protein.Key, []);
-                var sites = protein.GroupBy(x => x.Split([','], StringSplitOptions.RemoveEmptyEntries)[1]);
-
-                foreach (var site in sites)
+                var activeSite = new ActiveSite();
+                foreach (var residue in site)
                 {
-                    var activeSite = new ActiveSite();
-                    foreach (var residue in site)
-                    {
-                        var r = new CSAResidue(residue);
-                        activeSite.Residues.Add(r);
-                    }
-                    Database[protein.Key].Add(activeSite);
+                    var r = new CSAResidue(residue);
+                    activeSite.Residues.Add(r);
                 }
+                Database[protein.Key].Add(activeSite);
             }
         }
     }
+}
 
 
 
-    public class ActiveSite
+public class ActiveSite
+{
+    public List<CSAResidue> Residues { get; set; }
+
+    public ActiveSite()
     {
-        public List<CSAResidue> Residues { get; set; }
-
-        public ActiveSite()
-        {
-            Residues = [];
-        }
-
+        Residues = [];
     }
 
+}
 
 
-    public class CSAResidue : Residue
+
+public class CSAResidue : Residue
+{
+    public string Name { get; set; }
+
+    public CSAResidue(string line)
     {
-        public string Name { get; set; }
+        var splitted = line.Split([','], StringSplitOptions.None);
+        Name = splitted[2];
+        SequenceNumber = int.Parse(splitted[4]);
+        Chain = splitted[3];
+    }
 
-        public CSAResidue(string line)
-        {
-            var splitted = line.Split([','], StringSplitOptions.None);
-            Name = splitted[2];
-            SequenceNumber = int.Parse(splitted[4]);
-            Chain = splitted[3];
-        }
+    public CSAResidue() { }
 
-        public CSAResidue() { }
-
-        public override string ToString()
-        {
-            return $"{SequenceNumber} {Chain}";
-        }
+    public override string ToString()
+    {
+        return $"{SequenceNumber} {Chain}";
     }
 }

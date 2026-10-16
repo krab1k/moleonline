@@ -5,81 +5,80 @@ using Mole.API.Utils;
 using Newtonsoft.Json;
 using Mole.API.ViewModels;
 
-namespace Mole.API.Controllers
+namespace Mole.API.Controllers;
+
+public class IndexController(ComputationManager manager) : Controller
 {
-    public class IndexController(ComputationManager manager) : Controller
+    private readonly Config config = manager.Config;
+
+    public IActionResult Index()
     {
-        private readonly Config config = manager.Config;
+        Utils.Version v = new();
 
-        public IActionResult Index()
+        ViewBag.PoresVersion = v.PoresVersion;
+        ViewBag.MoleVersion = v.MoleVersion;
+        ViewBag.APIVersion = v.APIVersion;
+        ViewBag.Build = v.Build;
+
+        return View();
+    }
+
+
+    public IActionResult Error()
+    {
+        var ex = HttpContext.Features.Get<IExceptionHandlerPathFeature>();
+
+        if (ex != null)
         {
-            Utils.Version v = new();
-
-            ViewBag.PoresVersion = v.PoresVersion;
-            ViewBag.MoleVersion = v.MoleVersion;
-            ViewBag.APIVersion = v.APIVersion;
-            ViewBag.Build = v.Build;
-
-            return View();
-        }
-
-
-        public IActionResult Error()
-        {
-            var ex = HttpContext.Features.Get<IExceptionHandlerPathFeature>();
-
-            if (ex != null)
-            {
-                var err = new string[] {
-                    $"Error: {DateTime.Now}",
-                    $"Path: {ex.Path}",
-                    $"Type: {ex.Error.GetType()}",
-                    $"Message: {ex.Error.Message}",
-                    $"Exception: {ex.Error}",
-                    $"========================================================="
-                };
-
-                System.IO.File.AppendAllLines("ErrorLog.log", err);
-            }
-
-            var report = new ComputationReport(null, 0, ComputationStatus.Error, "An unexpected error occurred on the server. Please, try again later.");
-            return new ContentResult() { Content = report.ToJson(), ContentType = "application/json", StatusCode = 500 };
-        }
-
-        [Route("__computations")]
-        public IActionResult Computations()
-        {
-            var statuses = new List<string>() {
-                ComputationStatus.Initialized,
-                ComputationStatus.FailedInitialization
-
+            var err = new string[] {
+                $"Error: {DateTime.Now}",
+                $"Path: {ex.Path}",
+                $"Type: {ex.Error.GetType()}",
+                $"Message: {ex.Error.Message}",
+                $"Exception: {ex.Error}",
+                $"========================================================="
             };
-            var data = Directory.GetDirectories(config.WorkingDirectory)
-                            .Where(x => System.IO.File.Exists(Path.Combine(config.WorkingDirectory, x, MoleApiFiles.ComputationStatus)))
-                            .Select(x =>
-                            {
-                                var file = Path.Combine(config.WorkingDirectory, x, MoleApiFiles.ComputationStatus);
-                                var time = Directory.GetCreationTime(Path.Combine(config.WorkingDirectory, x));
-                                var obj = JsonConvert.DeserializeObject<Computation>(System.IO.File.ReadAllText(file));
-                                return (time, obj);
-                            })
-                            .GroupBy(x => new DateTime(x.time.Year, x.time.Month, x.time.Day))
-                            .OrderByDescending(x => x.Key)
-                            .Select(x => new ComputationsSummary()
-                            {
-                                Date = $"{x.Key.Day}/{x.Key.Month}/{x.Key.Year}",
-                                Count = x.Count(),
-                                Summaries = x.Select(y => new Summary()
-                                {
-                                    Id = y.obj.ComputationId,
-                                    Structure = y.obj.PdbId == string.Empty ? "UserStructure" : y.obj.PdbId,
-                                    Computations = y.obj.ComputationUnits.Count(q => !statuses.Contains(q.Status))
-                                })
-                            });
 
-            ViewBag.Data = data;
-
-            return View();
+            System.IO.File.AppendAllLines("ErrorLog.log", err);
         }
+
+        var report = new ComputationReport(null, 0, ComputationStatus.Error, "An unexpected error occurred on the server. Please, try again later.");
+        return new ContentResult() { Content = report.ToJson(), ContentType = "application/json", StatusCode = 500 };
+    }
+
+    [Route("__computations")]
+    public IActionResult Computations()
+    {
+        var statuses = new List<string>() {
+            ComputationStatus.Initialized,
+            ComputationStatus.FailedInitialization
+
+        };
+        var data = Directory.GetDirectories(config.WorkingDirectory)
+                        .Where(x => System.IO.File.Exists(Path.Combine(config.WorkingDirectory, x, MoleApiFiles.ComputationStatus)))
+                        .Select(x =>
+                        {
+                            var file = Path.Combine(config.WorkingDirectory, x, MoleApiFiles.ComputationStatus);
+                            var time = Directory.GetCreationTime(Path.Combine(config.WorkingDirectory, x));
+                            var obj = JsonConvert.DeserializeObject<Computation>(System.IO.File.ReadAllText(file));
+                            return (time, obj);
+                        })
+                        .GroupBy(x => new DateTime(x.time.Year, x.time.Month, x.time.Day))
+                        .OrderByDescending(x => x.Key)
+                        .Select(x => new ComputationsSummary()
+                        {
+                            Date = $"{x.Key.Day}/{x.Key.Month}/{x.Key.Year}",
+                            Count = x.Count(),
+                            Summaries = x.Select(y => new Summary()
+                            {
+                                Id = y.obj.ComputationId,
+                                Structure = y.obj.PdbId == string.Empty ? "UserStructure" : y.obj.PdbId,
+                                Computations = y.obj.ComputationUnits.Count(q => !statuses.Contains(q.Status))
+                            })
+                        });
+
+        ViewBag.Data = data;
+
+        return View();
     }
 }

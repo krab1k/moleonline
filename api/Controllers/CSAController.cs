@@ -2,22 +2,21 @@ using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
 using Newtonsoft.Json;
 
-namespace Mole.API.Controllers
+namespace Mole.API.Controllers;
+
+[Produces("application/json")]
+[Route("[controller]")]
+public class CSAController(ComputationManager manager) : Controller
 {
-    [Produces("application/json")]
-    [Route("[controller]")]
-    public class CSAController(ComputationManager manager) : Controller
+    [HttpGet("{compId}")]
+    public ContentResult Get(string compId)
     {
-        [HttpGet("{compId}")]
-        public ContentResult Get(string compId)
-        {
-            var cpt = manager.LoadComputation(compId);
+        var cpt = manager.LoadComputation(compId);
 
-            if (cpt == null || cpt.UserStructure) return Content("[]", "application/json");
+        if (cpt == null || cpt.UserStructure) return Content("[]", "application/json");
 
-            var residues = manager.GetActiveSite(cpt.PdbId);
+        var residues = manager.GetActiveSite(cpt.PdbId);
 
-            return Content(JsonConvert.SerializeObject(residues, Formatting.Indented), "application/json");
-            }
-    }
+        return Content(JsonConvert.SerializeObject(residues, Formatting.Indented), "application/json");
+        }
 }

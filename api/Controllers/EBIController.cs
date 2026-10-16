@@ -1,28 +1,27 @@
 using Microsoft.AspNetCore.Mvc;
 using Mole.API.Models;
 
-namespace Mole.API.Controllers
+namespace Mole.API.Controllers;
+
+[Produces("application/json")]
+[Route("[controller]")]
+public class EBIController(ComputationManager manager) : Controller
 {
-    [Produces("application/json")]
-    [Route("[controller]")]
-    public class EBIController(ComputationManager manager) : Controller
+    [HttpGet("{pdbId}")]
+    public ContentResult Get(string pdbId, bool ignoreHet)
     {
-        [HttpGet("{pdbId}")]
-        public ContentResult Get(string pdbId, bool ignoreHet)
+        var para = new ComputationParameters()
         {
-            var para = new ComputationParameters()
+            Input = new Input(),
+            Cavity = new Cavity()
             {
-                Input = new Input(),
-                Cavity = new Cavity()
-                {
-                    IgnoreHETAtoms = ignoreHet,
-                },
-                Tunnel = new Tunnel()
-            };
-            var result = manager.InitAndRunEBI(pdbId, para);
+                IgnoreHETAtoms = ignoreHet,
+            },
+            Tunnel = new Tunnel()
+        };
+        var result = manager.InitAndRunEBI(pdbId, para);
 
-            return Content(result.ToJson(), "application/json");
+        return Content(result.ToJson(), "application/json");
 
-        }
     }
 }

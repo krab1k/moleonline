@@ -1,13 +1,12 @@
-namespace Mole.API
+namespace Mole.API;
+
+public class Config
 {
-    public class Config
-    {
-        public string WorkingDirectory { get; set; }
-        public string CSA { get; set; }
-        public int MaxConcurentComputations { get; set; }
-        public string MOLE { get; set; }
-        public string MEMBED { get; set; }
-        public string Pores { get; set; }
-        public string PyMOL { get; set; }
-    }
+    public string WorkingDirectory { get; set; }
+    public string CSA { get; set; }
+    public int MaxConcurentComputations { get; set; }
+    public string MOLE { get; set; }
+    public string MEMBED { get; set; }
+    public string Pores { get; set; }
+    public string PyMOL { get; set; }
 }
