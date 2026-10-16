@@ -114,7 +114,12 @@ public class ComputationManager(IOptions<Config> options)
         var file = Path.Combine(Config.WorkingDirectory, computationId, MoleApiFiles.ComputationStatus);
         if (File.Exists(file))
         {
-            return JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file));
+            var computation = JsonConvert.DeserializeObject<Computation>(File.ReadAllText(file));
+            var status = computation.ComputationUnits.Last().Status;
+            if ((status == ComputationStatus.Running || status == ComputationStatus.Initializing) && computation.ApiInstance != Computation.CurrentApiInstance)
+                computation.ChangeStatus(status == ComputationStatus.Running ? ComputationStatus.Error : ComputationStatus.FailedInitialization,
+                    "The computation was interrupted by a restart of the server. Please, run it again.");
+            return computation;
         }
 
         return null;
