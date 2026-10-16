@@ -236,30 +236,38 @@ namespace Mole.API.Models
 
         internal ComputationReport PrepareAndRunPores(Computation computation, APIPoresParameters p)
         {
-            computation.ChangeStatus(ComputationStatus.Running);
-
-            var input = Path.Combine(computation.SubmitDirectory(-1), MoleApiFiles.PoreParams);
-
-            var json = new PoresParameters
+            try
             {
-                WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
-                InMembrane = p.InMembrane,
-                Chains = string.IsNullOrEmpty(p.Chains) ? new string[0] : p.Chains.Split(new char[] { ',' }),
-                InteriorThreshold = p.InteriorThreshold == 0 ? 0.8 : p.InteriorThreshold,
-                ProbeRadius = p.ProbeRadius == 0 ? 13.0 : p.ProbeRadius,
-                PyMolLocation = Config.PyMOL,
-                MemEmbedLocation = Config.MEMBED,
-                IsBetaBarel = p.IsBetaBarel
-            };
+                computation.ChangeStatus(ComputationStatus.Running);
 
-            if (computation.DbModePores) json.PdbId = computation.PdbId;
-            else json.UserStructure = StructurePath(computation.ComputationId);
+                var input = Path.Combine(computation.SubmitDirectory(-1), MoleApiFiles.PoreParams);
 
-            File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));
+                var json = new PoresParameters
+                {
+                    WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
+                    InMembrane = p.InMembrane,
+                    Chains = string.IsNullOrEmpty(p.Chains) ? new string[0] : p.Chains.Split(new char[] { ',' }),
+                    InteriorThreshold = p.InteriorThreshold == 0 ? 0.8 : p.InteriorThreshold,
+                    ProbeRadius = p.ProbeRadius == 0 ? 13.0 : p.ProbeRadius,
+                    PyMolLocation = Config.PyMOL,
+                    MemEmbedLocation = Config.MEMBED,
+                    IsBetaBarel = p.IsBetaBarel
+                };
 
-            RunPores(computation, input);
+                if (computation.DbModePores) json.PdbId = computation.PdbId;
+                else json.UserStructure = StructurePath(computation.ComputationId);
 
-            return computation.GetComputationReport();
+                File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));
+
+                RunPores(computation, input);
+
+                return computation.GetComputationReport();
+            }
+            catch (Exception e)
+            {
+                computation.ChangeStatus(ComputationStatus.Error, e.Message);
+                return computation.GetComputationReport();
+            }
         }
 
 
