@@ -234,7 +234,6 @@ public class ComputationManager(IOptions<Config> options)
                 Chains = string.IsNullOrEmpty(p.Chains) ? [] : p.Chains.Split([',']),
                 InteriorThreshold = p.InteriorThreshold == 0 ? 0.8 : p.InteriorThreshold,
                 ProbeRadius = p.ProbeRadius == 0 ? 13.0 : p.ProbeRadius,
-                PyMolLocation = Config.PyMOL,
                 MemEmbedLocation = Config.MEMBED,
                 IsBetaBarel = p.IsBetaBarel
             };
@@ -463,7 +462,7 @@ public class ComputationManager(IOptions<Config> options)
                 lock (job)
                 {
                     job.Killed = true;
-                    job.Process?.Kill(entireProcessTree: true); // Pores starts PyMOL and MEMEMBED; no process yet: still waiting, it will not start
+                    job.Process?.Kill(entireProcessTree: true); // Pores may start MEMEMBED; no process: waiting or between processes, the next one will not start
                 }
                 RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(cpt.ComputationId, job));
 

@@ -8,5 +8,4 @@ public class Config
     public string MOLE { get; set; }
     public string MEMBED { get; set; }
     public string Pores { get; set; }
-    public string PyMOL { get; set; }
 }

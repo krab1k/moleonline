@@ -120,7 +120,6 @@ public class PoresParameters
     public string PdbId { get; set; }    // PdbId to be processed e.g. "1tqn"
     public string WorkingDirectory { get; set; }
     public string[] Chains { get; set; } // chains to be processed
-    public string PyMolLocation { get; set; }
     public string MemEmbedLocation { get; set; }
 
     public dynamic UserParameters()
