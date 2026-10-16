@@ -12,6 +12,7 @@ public class CompInfoController(ComputationManager manager) : Controller
     {
         var cpt = manager.LoadComputation(computationId);
         if (cpt == null) return Reports.NotFound(computationId);
+        if (cpt.IsDeleted()) return Reports.Gone(computationId);
         return Content(manager.ComputationInfos(cpt), "application/json");
     }
 }

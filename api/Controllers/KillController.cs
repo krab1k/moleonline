@@ -12,6 +12,7 @@ public class KillController(ComputationManager manager) : Controller
     {
         var computation = manager.LoadComputation(computationId);
         if (computation == null) return Reports.NotFound(computationId);
+        if (computation.IsDeleted()) return Reports.Gone(computationId);
 
         var (report, statusCode) = manager.KillComputation(computation);
         return Reports.Json(report, statusCode);

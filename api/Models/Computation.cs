@@ -154,7 +154,7 @@ public partial class Computation
     /// <param name="error"></param>
     public void ChangeStatus(string status, string error = "")
     {
-        if (ComputationUnits.Last().Status == ComputationStatus.Deleted) return;
+        if (IsDeleted()) return;
 
         ComputationUnits.Last().ChangeStatus(status, error);
         SaveStatus();
@@ -327,6 +327,11 @@ public partial class Computation
     /// </summary>
     /// <param name="submitId"></param>
     /// <returns>Complete path to the submit directory folder</returns>
+    /// <summary>
+    /// Deleting a computation marks its last submission; the computation as a whole is gone
+    /// </summary>
+    public bool IsDeleted() => ComputationUnits.Last().Status == ComputationStatus.Deleted;
+
     public string StructurePath() => StructureFile != null
         ? Path.Combine(BaseDir, ComputationId, StructureFile)
         : throw new InvalidOperationException($"Computation {ComputationId} has no structure.");

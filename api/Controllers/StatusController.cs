@@ -12,6 +12,7 @@ public class StatusController(ComputationManager manager) : Controller
     {
         var cpt = manager.LoadComputation(computationId);
         if (cpt == null) return Reports.NotFound(computationId);
+        if (cpt.IsDeleted()) return Reports.Gone(computationId);
 
         var report = cpt.GetComputationReport(submitId);
         if (!cpt.ComputationUnits.Any(u => u.SubmitId == report.SubmitId)) return Reports.Json(report, StatusCodes.Status404NotFound); // "SubmitId N not found."

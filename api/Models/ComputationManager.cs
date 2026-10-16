@@ -348,7 +348,7 @@ public class ComputationManager(IOptions<Config> options)
 
         try
         {
-            if (LoadComputation(c.ComputationId)?.ComputationUnits.Last().Status == ComputationStatus.Deleted) return; // deleted while waiting
+            if (LoadComputation(c.ComputationId)?.IsDeleted() == true) return; // deleted while waiting
 
             using var timeLimit = new CancellationTokenSource(TimeSpan.FromMinutes(Config.MaxComputationMinutes)); // from now, the queue does not count
             foreach (var info in steps)

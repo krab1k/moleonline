@@ -17,4 +17,7 @@ internal static class Reports
 
     public static ContentResult NotFound(string computationId) =>
         Json(Computation.NotExists(computationId), StatusCodes.Status404NotFound);
+
+    public static ContentResult Gone(string computationId) =>
+        Error(computationId, StatusCodes.Status410Gone, "The computation has been deleted.");
 }

@@ -12,6 +12,7 @@ public class DeleteController(ComputationManager manager) : Controller
     {
         var cpt = manager.LoadComputation(id);
         if (cpt == null) return Reports.NotFound(id);
+        if (cpt.IsDeleted()) return Reports.Gone(id);
 
         return Reports.Json(manager.DeleteComputation(id));
     }

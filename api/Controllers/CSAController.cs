@@ -13,6 +13,7 @@ public class CSAController(ComputationManager manager) : Controller
     {
         var cpt = manager.LoadComputation(compId);
         if (cpt == null) return Reports.NotFound(compId);
+        if (cpt.IsDeleted()) return Reports.Gone(compId);
         if (cpt.UserStructure) return Content("[]", "application/json"); // CSA knows PDB entries only
 
         var residues = manager.GetActiveSite(cpt.PdbId);

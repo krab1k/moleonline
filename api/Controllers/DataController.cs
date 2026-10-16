@@ -12,9 +12,9 @@ public class DataController(ComputationManager manager) : Controller
     {
         var cpt = manager.LoadComputation(computationId);
         if (cpt == null) return Reports.NotFound(computationId);
+        if (cpt.IsDeleted()) return Reports.Gone(computationId);
 
         var c = cpt.GetComputationReport();
-        if (c.Status == ComputationStatus.Deleted) return Reports.Error(computationId, StatusCodes.Status410Gone, "The computation has been deleted.", submitId);
         if (submitId < -1 || submitId > c.SubmitId) return Reports.Error(computationId, StatusCodes.Status404NotFound, $"Submission {submitId} does not exist.", submitId);
         if (!ComputationManager.DataFormats.Contains(format))
             return Reports.Error(computationId, StatusCodes.Status400BadRequest, $"Unknown format '{format}', the formats are {string.Join(", ", ComputationManager.DataFormats)}.", submitId);
