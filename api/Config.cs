@@ -6,6 +6,5 @@ public class Config
     public string CSA { get; set; }
     public int MaxConcurentComputations { get; set; }
     public string MOLE { get; set; }
-    public string MEMBED { get; set; }
     public string Pores { get; set; }
 }

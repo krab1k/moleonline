@@ -1,9 +1,19 @@
 """Command line entry point, replacing Pores.exe: `pores <pores.json>`.
 
-The MOLE API writes pores.json into the submit directory and runs this program with its path.
-The membrane comes from OPM for PDB entries it has, otherwise from MEMEMBED. It writes membrane.json
-into the computation directory and the MOLE input (input.xml) into the submit directory; the API then
-runs MOLE with it, MOLE is never run from here.
+The MOLE API writes pores.json into the submit directory and runs this program with its path:
+
+    Structure          the structure file of the computation
+    PdbId              the PDB entry to look up in OPM, null when the structure is not the entry as
+                       OPM has it (uploaded files, other assemblies)
+    WorkingDirectory   the submit directory: input.xml is written there and MOLE writes its results there
+    Membrane           where to write the membrane (membrane.json)
+    InMembrane, IsBetaBarel, Chains, ProbeRadius, InteriorThreshold
+                       what the user submitted, chains as a list of names
+
+The membrane comes from OPM for PDB entries it has, otherwise from MEMEMBED. The API then runs MOLE
+with input.xml, MOLE is never run from here.
+Settings of the installation are environment variables: MEMEMBED (the memembed executable) and
+PORES_OPM_CACHE (directory for downloaded OPM files, no cache when unset).
 Errors are reported on stderr (the API shows them to the user) with a non-zero exit code.
 """
 
@@ -24,12 +34,10 @@ class PoresError(Exception):
 
 def run(parameters_path: Path) -> None:
     parameters = json.loads(parameters_path.read_text())
-    working_directory = Path(parameters["WorkingDirectory"])  # the submit directory
-    computation_dir = working_directory.parent
-    chains = [name.strip() for name in parameters.get("Chains") or [] if name.strip()]  # the API splits "A, B" at commas
+    structure_path = Path(parameters["Structure"])
+    working_directory = Path(parameters["WorkingDirectory"])
+    chains = parameters["Chains"]
 
-    pdb_id = parameters.get("PdbId")  # set when the structure is the PDB entry as OPM has it
-    structure_path = Path(parameters["UserStructure"]) if parameters.get("UserStructure") else computation_dir / f"{pdb_id}.cif"
     structure = read_structure(structure_path)
     available = list(dict.fromkeys(chain.name for chain in structure[0]))
     unknown = [name for name in chains if name not in available]
@@ -37,20 +45,21 @@ def run(parameters_path: Path) -> None:
         raise PoresError(f"Chain{'s' if len(unknown) > 1 else ''} {', '.join(unknown)} {'are' if len(unknown) > 1 else 'is'} not in the structure. "
                          f"Available chains: {', '.join(available)}.")
 
-    cache = os.environ.get("PORES_OPM_CACHE")  # directory for downloaded OPM files, no cache when unset
+    pdb_id = parameters.get("PdbId")
+    cache = os.environ.get("PORES_OPM_CACHE")
     opm = download_opm(pdb_id, Path(cache) if cache else None) if pdb_id else None
     if opm is not None:
         membrane = membrane_from_opm(structure, opm)
     else:
-        memembed = parameters.get("MemEmbedLocation")
+        memembed = os.environ.get("MEMEMBED")
         if not memembed:
             raise PoresError("MEMEMBED is not configured, the membrane position cannot be predicted.")
-        membrane = membrane_from_memembed(structure, memembed, bool(parameters.get("IsBetaBarel")), chains)
-    (computation_dir / "membrane.json").write_text(json.dumps(membrane_json(membrane), separators=(",", ":")))
+        membrane = membrane_from_memembed(structure, memembed, parameters["IsBetaBarel"], chains)
+    Path(parameters["Membrane"]).write_text(json.dumps(membrane_json(membrane), separators=(",", ":")))
 
-    start, end = end_points(structure, membrane, bool(parameters.get("InMembrane")), chains)
+    start, end = end_points(structure, membrane, parameters["InMembrane"], chains)
     (working_directory / "input.xml").write_text(mole_input(structure_path, working_directory, start, end,
-                                                          parameters.get("ProbeRadius") or 13.0, parameters.get("InteriorThreshold") or 0.8, chains))
+                                                          parameters["ProbeRadius"], parameters["InteriorThreshold"], chains))
 
 
 def main() -> None:

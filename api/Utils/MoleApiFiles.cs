@@ -9,6 +9,7 @@ public static class MoleApiFiles
     public const string PythonScript = "complex.py";
     public const string MoleParams = "mole.json";
     public const string PoreParams = "pores.json";
+    public const string Membrane = "membrane.json";
     public const string VMDScript = "complex";
 
 

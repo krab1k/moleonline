@@ -229,17 +229,16 @@ public class ComputationManager(IOptions<Config> options)
 
             var json = new PoresParameters
             {
-                WorkingDirectory = Path.Combine(computation.SubmitDirectory()),
+                Structure = StructurePath(computation.ComputationId),
+                PdbId = computation.DbModePores ? computation.PdbId : null,
+                WorkingDirectory = computation.SubmitDirectory(),
+                Membrane = Path.Combine(Config.WorkingDirectory, computation.ComputationId, MoleApiFiles.Membrane),
                 InMembrane = p.InMembrane,
-                Chains = string.IsNullOrEmpty(p.Chains) ? [] : p.Chains.Split([',']),
-                InteriorThreshold = p.InteriorThreshold == 0 ? 0.8 : p.InteriorThreshold,
+                IsBetaBarel = p.IsBetaBarel,
+                Chains = p.Chains?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) ?? [],
                 ProbeRadius = p.ProbeRadius == 0 ? 13.0 : p.ProbeRadius,
-                MemEmbedLocation = Config.MEMBED,
-                IsBetaBarel = p.IsBetaBarel
+                InteriorThreshold = p.InteriorThreshold == 0 ? 0.8 : p.InteriorThreshold,
             };
-
-            if (computation.DbModePores) json.PdbId = computation.PdbId;
-            else json.UserStructure = StructurePath(computation.ComputationId);
 
             File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));
 
@@ -529,8 +528,8 @@ public class ComputationManager(IOptions<Config> options)
                 stream = new MemoryStream(Utils.Extensions.ZipDirectory(zipDir));
                 return (stream, $"mole_channels_{computationId}_{submitId}_pdb.zip");
             case "membrane":
-                stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, "membrane.json"));
-                return (stream, "membrane.json");
+                stream = File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, MoleApiFiles.Membrane));
+                return (stream, MoleApiFiles.Membrane);
 
             default:
                 return (File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "json", MoleApiFiles.DataJson)), $"mole_channels_{computationId}_{submitId}.json");

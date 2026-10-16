@@ -108,19 +108,23 @@ public class Residue
 
 #endregion
 
+/// <summary>
+/// pores.json: the input of the pores tool (tools/pores) and the record of what the user submitted.
+/// Older computations have UserStructure and MemEmbedLocation instead of Structure and Membrane, the
+/// submitted parameters are the same.
+/// </summary>
 public class PoresParameters
 {
-    public bool InMembrane { get; set; } // Decides whether or not the pore will be calculated in the membrane region only. => Valid only in case OPM structure is present
+    public string Structure { get; set; }
+    public string PdbId { get; set; } // OPM entry to use; null when the structure is not the PDB entry as OPM has it
+    public string WorkingDirectory { get; set; } // the submit directory, MOLE input and results
+    public string Membrane { get; set; } // where the tool writes membrane.json
+
+    public bool InMembrane { get; set; } // the pore only between the membrane planes
     public bool IsBetaBarel { get; set; }
-
-    public double InteriorThreshold { get; set; }
+    public string[] Chains { get; set; } = [];
     public double ProbeRadius { get; set; }
-
-    public string UserStructure { get; set; } // Path to the input protein
-    public string PdbId { get; set; }    // PdbId to be processed e.g. "1tqn"
-    public string WorkingDirectory { get; set; }
-    public string[] Chains { get; set; } // chains to be processed
-    public string MemEmbedLocation { get; set; }
+    public double InteriorThreshold { get; set; }
 
     public dynamic UserParameters()
     {
