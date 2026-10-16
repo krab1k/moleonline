@@ -194,14 +194,14 @@ public partial class Computation
     public async Task DownloadBioStructureAsync()
     {
         AssemblyId = await GetBioAssemblyIdAsync();
-        await DownloadStructureAsync();
+        await DownloadStructureAsync(isBioAssembly: true);
     }
 
 
     /// <summary>
     /// Downloads Protein Data Bank file from Model Server https://www.ebi.ac.uk/pdbe/model-server
     /// </summary>
-    public async Task DownloadStructureAsync()
+    public async Task DownloadStructureAsync(bool isBioAssembly = false)
     {
         var url = AssemblyId != null ? $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/assembly?name={AssemblyId}" : $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/full";
 
@@ -233,7 +233,8 @@ public partial class Computation
                 ChangeStatus(ComputationStatus.FailedInitialization, error);
                 return;
             }
-            DbModePores = AssemblyId == await GetBioAssemblyIdAsync();
+            // the preferred assembly, the one OPM has; unknown when the lookup failed, then the full structure was downloaded
+            DbModePores = AssemblyId != null && (isBioAssembly || AssemblyId == await GetBioAssemblyIdAsync());
             SaveStatus();
         }
         catch (Exception e) when (e is HttpRequestException || e is OperationCanceledException || e is IOException)
