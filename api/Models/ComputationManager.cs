@@ -196,12 +196,14 @@ public class ComputationManager(IOptions<Config> options)
             cpt.UserStructure,
             cpt.PdbId,
             cpt.AssemblyId,
-            Submissions = submissions.Select(s => new
+            Submissions = submissions.Select(s => (s.unit, mole: Path.Combine(s.dir, MoleApiFiles.MoleParams), pores: Path.Combine(s.dir, MoleApiFiles.PoreParams))).Select(s => new
             {
-                SubmitId = s.unit.SubmitId.ToString(),
+                s.unit.SubmitId,
+                Mode = File.Exists(s.mole) ? "Mole" : File.Exists(s.pores) ? "Pores" : null, // as in Submit/Mole and Submit/Pores
                 s.unit.Status,
-                MoleConfig = File.Exists(Path.Combine(s.dir, MoleApiFiles.MoleParams)) ? JsonConvert.DeserializeObject(File.ReadAllText(Path.Combine(s.dir, MoleApiFiles.MoleParams))) : new object(),
-                PoresConfig = File.Exists(Path.Combine(s.dir, MoleApiFiles.PoreParams)) ? JsonConvert.DeserializeObject<PoresParameters>(File.ReadAllText(Path.Combine(s.dir, MoleApiFiles.PoreParams))).UserParameters() : new object()
+                s.unit.ErrorMsg,
+                MoleConfig = File.Exists(s.mole) ? JsonConvert.DeserializeObject(File.ReadAllText(s.mole)) : new object(),
+                PoresConfig = File.Exists(s.pores) ? JsonConvert.DeserializeObject<PoresParameters>(File.ReadAllText(s.pores)).UserParameters() : new object()
             })
         }, Formatting.Indented);
     }
