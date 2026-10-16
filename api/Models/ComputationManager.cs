@@ -251,8 +251,6 @@ public class ComputationManager(IOptions<Config> options)
             Arguments = inputJson,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
         };
         RunComputation(computation, info, false);
     }
@@ -289,8 +287,6 @@ public class ComputationManager(IOptions<Config> options)
             Arguments = xmlPath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
         };
         RunComputation(c, info, init, zipDirectory);
 
