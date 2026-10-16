@@ -10,6 +10,6 @@ public class VersionController : Controller
     [HttpGet()]
     public ActionResult Get()
     {
-        return Content(JsonConvert.SerializeObject(new Utils.Version()));
+        return Content(JsonConvert.SerializeObject(new Utils.Version()), "application/json");
     }
 }
