@@ -261,7 +261,7 @@ public class ComputationManager(IOptions<Config> options)
         ProcessStartInfo info = new()
         {
             FileName = Config.Pores,
-            Arguments = inputJson,
+            ArgumentList = { inputJson }, // one argument even with spaces in the path
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
@@ -297,7 +297,7 @@ public class ComputationManager(IOptions<Config> options)
         ProcessStartInfo info = new()
         {
             FileName = Config.MOLE,
-            Arguments = xmlPath,
+            ArgumentList = { xmlPath }, // one argument even with spaces in the path
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
