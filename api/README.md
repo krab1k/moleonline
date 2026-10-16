@@ -87,7 +87,6 @@ All responses are JSON, errors are reported in the body (`Status: "Error"`, `Err
 | `GET /CSA/{id}` | catalytic active sites of the PDB entry, starting points for tunnels |
 | `POST /Kill/{id}` | stop the running submission |
 | `DELETE /Delete/{id}` | delete the computation |
-| `GET /EBI/{pdbId}?ignoreHet=` | load and compute tunnels in one call, for PDBe |
 | `GET /Version` | versions of the API, MOLE and Pores |
 
 ## Development

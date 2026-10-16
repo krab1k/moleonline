@@ -173,18 +173,6 @@ public class ComputationManager(IOptions<Config> options)
 
 
 
-    internal ComputationReport InitAndRunEBI(string pdbId, ComputationParameters pars)
-    {
-        var computation = new Computation(Config.WorkingDirectory, pdbId);
-        computation.DownloadStructure();
-        if (computation.ComputationUnits.Last().Status == ComputationStatus.FailedInitialization) return computation.GetComputationReport();
-
-        Directory.CreateDirectory(computation.SubmitDirectory(1));
-
-        return PrepareAndRunMole(computation, pars);
-    }
-
-
     /// <summary>
     /// Returns information about all computations carried out so far
     /// </summary>

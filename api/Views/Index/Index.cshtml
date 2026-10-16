@@ -656,27 +656,6 @@
             </div>
         </div>
         <div class="mole-api-docs-query-wrap">
-            <h2 onclick='javascript:toggle("moleapi-documentation-ebi-body", event)'>
-                EBI calls <span>/EBI/&lt;pdbId&gt;?&lt;ignoreHet&gt;</span><br>
-                <small>Endpoint for backward compatibility with EBI environment.</small>
-            </h2>
-            <div id="moleapi-documentation-ebi-body" style="display:none; margin: 24px 24px 0 24px">
-                <h4>Examples</h4>
-                <a href="@Url.Action("1tqn", "EBI", new { ignoreHet = true})" class="cs-docs-template-link" target="_blank" rel="nofollow">/EBI/1tqn?ignoreHet=true</a><br>
-                <h4>URL Parameters</h4>
-                <table cellpadding="0" cellspacing="0" style='width: 100%'>
-                    <tbody>
-                        <tr><th>Name</th><th>Type</th><th>Description</th></tr>
-                        <tr>
-                            <td style="font-weight: bold">ignoreHet</td>
-                            <td><span style="font-weight: 100; font-style:italic">bool</span></td>
-                            <td>Determine if HET atoms will be neglected in a channel computation.</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-delete-body", event)'>
                 Delete computation <span>/Delete/&lt;computationId&gt;</span><br>
                 <small>Delete entire computation folder from our server.</small>
