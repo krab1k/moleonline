@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from pores.membrane import membrane_from_opm, read_structure
+from pores.membrane import read_structure
+from pores.opm import membrane_from_opm
 from pores.path import PathError, end_points, mole_input
 
 REFERENCE = Path(__file__).parent.parent / "reference"

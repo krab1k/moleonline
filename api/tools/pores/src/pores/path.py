@@ -1,6 +1,6 @@
 """The pore: input for a MOLE path along the membrane normal (the MOLE API runs MOLE with it).
 
-The pore axis is the z axis of the OPM frame (OPM centres the protein on it). The path runs between
+The pore axis is the z axis of the membrane frame (x = y = 0, see Membrane). The path runs between
 two points on the axis, from the N side of the membrane to the O side:
 - in the membrane: on the two membrane planes,
 - otherwise: where the protein ends along the axis (atoms within AXIS_RADIUS of it).
@@ -37,7 +37,7 @@ def end_points(structure: gemmi.Structure, membrane: Membrane, in_membrane: bool
             raise PathError("The membrane of this structure is curved (OPM), the pore in the membrane region is not supported yet.")
         bottom, top = membrane.heights["N"].mean(), membrane.heights["O"].mean()
     else:
-        xyz = np.array([membrane.to_opm(p) for p in _protein_atoms(structure, chains)]).reshape(-1, 3)
+        xyz = np.array([membrane.to_membrane_frame(p) for p in _protein_atoms(structure, chains)]).reshape(-1, 3)
         near = xyz[np.hypot(xyz[:, 0], xyz[:, 1]) < AXIS_RADIUS]
         if len(near) == 0:
             raise PathError("The protein does not surround the membrane normal, no pore can pass through it.")

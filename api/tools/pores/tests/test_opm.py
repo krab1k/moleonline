@@ -7,7 +7,8 @@ import gemmi
 import numpy as np
 import pytest
 
-from pores.membrane import _kabsch, membrane_from_opm, membrane_json, read_structure
+from pores.membrane import kabsch, membrane_json, read_structure
+from pores.opm import membrane_from_opm
 
 REFERENCE = Path(__file__).parent.parent / "reference"
 
@@ -41,7 +42,7 @@ def test_1k4c_same_membrane_up_to_symmetry():
     assert ours_sides == theirs_sides
 
     # the same OPM dots under two transformations: one rigid motion maps ours exactly onto theirs
-    rotation, translation = _kabsch(ours, theirs)
+    rotation, translation = kabsch(ours, theirs)
     assert np.linalg.norm(ours @ rotation.T + translation - theirs, axis=1).max() < 0.01
 
     # and it is a rotation around the membrane normal, so the membrane planes are the same

@@ -1,8 +1,9 @@
 """Command line entry point, replacing Pores.exe: `pores <pores.json>`.
 
 The MOLE API writes pores.json into the submit directory and runs this program with its path.
-It writes membrane.json into the computation directory and the MOLE input (input.xml) into the
-submit directory; the API then runs MOLE with it, MOLE is never run from here.
+The membrane comes from OPM for PDB entries it has, otherwise from MEMEMBED. It writes membrane.json
+into the computation directory and the MOLE input (input.xml) into the submit directory; the API then
+runs MOLE with it, MOLE is never run from here.
 Errors are reported on stderr (the API shows them to the user) with a non-zero exit code.
 """
 
@@ -10,7 +11,9 @@ import json
 import sys
 from pathlib import Path
 
-from pores.membrane import MembraneError, download_opm, membrane_from_opm, membrane_json, read_structure
+from pores.membrane import MembraneError, membrane_json, read_structure
+from pores.memembed import membrane_from_memembed
+from pores.opm import download_opm, membrane_from_opm
 from pores.path import PathError, end_points, mole_input
 
 
@@ -24,16 +27,18 @@ def run(parameters_path: Path) -> None:
     computation_dir = working_directory.parent
     chains = list(parameters.get("Chains") or [])
 
-    pdb_id = parameters.get("PdbId")
-    if not pdb_id:
-        raise PoresError("Pores for uploaded structures are not available yet.")
+    pdb_id = parameters.get("PdbId")  # set when the structure is the PDB entry as OPM has it
     structure_path = Path(parameters["UserStructure"]) if parameters.get("UserStructure") else computation_dir / f"{pdb_id}.cif"
     structure = read_structure(structure_path)
 
-    opm = download_opm(pdb_id)
-    if opm is None:
-        raise PoresError(f"The membrane position of {pdb_id} is not available in OPM.")
-    membrane = membrane_from_opm(structure, opm)
+    opm = download_opm(pdb_id) if pdb_id else None
+    if opm is not None:
+        membrane = membrane_from_opm(structure, opm)
+    else:
+        memembed = parameters.get("MemEmbedLocation")
+        if not memembed:
+            raise PoresError("MEMEMBED is not configured, the membrane position cannot be predicted.")
+        membrane = membrane_from_memembed(structure, memembed, bool(parameters.get("IsBetaBarel")), chains)
     (computation_dir / "membrane.json").write_text(json.dumps(membrane_json(membrane), separators=(",", ":")))
 
     start, end = end_points(structure, membrane, bool(parameters.get("InMembrane")), chains)
@@ -50,6 +55,6 @@ def main() -> None:
     except (PoresError, MembraneError, PathError) as e:
         print(e, file=sys.stderr)
         sys.exit(1)
-    except OSError as e:  # network (OPM) and file errors
+    except OSError as e:  # network (OPM), file errors, MEMEMBED not found
         print(f"The pore computation failed: {e}", file=sys.stderr)
         sys.exit(1)
