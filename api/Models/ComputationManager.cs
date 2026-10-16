@@ -253,7 +253,7 @@ namespace Mole.API.Models
             };
 
             if (computation.DbModePores) json.PdbId = computation.PdbId;
-            else json.UserStructure = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, computation.ComputationId)).First(x => Path.GetExtension(x) != ".json");
+            else json.UserStructure = StructurePath(computation.ComputationId);
 
             File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));
 
@@ -402,7 +402,7 @@ namespace Mole.API.Models
                             : $"The computation failed with exit code {p.ExitCode}.");
                         return;
                     }
-                    if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()));
+                    if (zipDirectory) Utils.Extensions.ZipDirectories(Path.Combine(Config.WorkingDirectory, c.ComputationId, c.GetComputationReport().SubmitId.ToString()), StructurePath(c.ComputationId));
 
                     if (init)
                     {
@@ -503,7 +503,7 @@ namespace Mole.API.Models
                     bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), MoleApiFiles.Report));
                     return (bytes, $"mole_channels_{computationId}_{submitId}.zip");
                 case "molecule":
-                    var molecule = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, computationId)).First(x => Path.GetExtension(x) != ".json");
+                    var molecule = StructurePath(computationId);
                     return (File.ReadAllBytes(molecule), Path.GetFileName(molecule));
                 case "pymol":
                     bytes = File.ReadAllBytes(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "pymol", MoleApiFiles.PythonScript));
@@ -547,6 +547,15 @@ namespace Mole.API.Models
 
         #region Helpers
         /// <summary>
+        /// Path to the structure file of the computation: the first non-.json file in its folder
+        /// </summary>
+        /// <param name="computationId">Id of computation</param>
+        /// <returns>Complete path to the structure file</returns>
+        private string StructurePath(string computationId) =>
+            Directory.GetFiles(Path.Combine(Config.WorkingDirectory, computationId)).First(x => Path.GetExtension(x) != ".json");
+
+
+        /// <summary>
         /// Builds input XML for complex MOLE computation
         /// </summary>
         /// <param name="c">Parrent computation </param>
@@ -557,8 +566,7 @@ namespace Mole.API.Models
             var hasOrigin = !param.Origin?.IsEmpty() ?? false;
             var hasExits = !param.CustomExits?.IsEmpty() ?? false;
 
-            var structure = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, c.ComputationId)).
-                        Where(x => Path.GetExtension(x) != ".json").First();
+            var structure = StructurePath(c.ComputationId);
             var structureName = Path.GetFileNameWithoutExtension(structure);
 
             var root = new XElement("Tunnels");
@@ -645,8 +653,7 @@ namespace Mole.API.Models
         {
             var param = new ComputationParameters();
 
-            var structure = Directory.GetFiles(Path.Combine(Config.WorkingDirectory, c.ComputationId)).
-                        Where(x => Path.GetExtension(x) != ".json").First();
+            var structure = StructurePath(c.ComputationId);
             var structureName = Path.GetFileNameWithoutExtension(structure);
 
             var root = new XElement("Tunnels");

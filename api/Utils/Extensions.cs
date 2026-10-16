@@ -46,7 +46,8 @@ namespace Mole.API.Utils
         /// Compress entire direct to the 
         /// </summary>
         /// <param name="path"></param>
-        public static void ZipDirectories(string path) {
+        /// <param name="molecule">Path to the structure file, added to the archive</param>
+        public static void ZipDirectories(string path, string molecule) {
             using (FileStream zipToOpen = new FileStream(Path.Combine(path, MoleApiFiles.Report), FileMode.Create))
             {
                 using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create))
@@ -61,9 +62,6 @@ namespace Mole.API.Utils
                             readmeEntry = archive.CreateEntryFromFile(Path.Combine(path, item.Name, file.Name), Path.Combine(item.Name, file.Name));
                         }
                     }
-                    var parent = Directory.GetParent(path).FullName;
-                    var molecule = Directory.GetFiles(parent).First(x => Path.GetExtension(x) != ".json");
-
                     archive.CreateEntryFromFile(molecule, Path.GetFileName(molecule));
                 }                
             }
