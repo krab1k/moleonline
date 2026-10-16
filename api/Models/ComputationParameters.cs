@@ -143,6 +143,6 @@ public class APIPoresParameters {
     public bool InMembrane { get; set; }
     public bool IsBetaBarel { get; set; }
     public string Chains { get; set; }
-    public double InteriorThreshold { get; set; }
-    public double ProbeRadius { get; set; }
+    public double? InteriorThreshold { get; set; } // null or 0: the default
+    public double? ProbeRadius { get; set; }
 }

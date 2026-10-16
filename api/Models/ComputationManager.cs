@@ -226,8 +226,8 @@ public class ComputationManager(IOptions<Config> options)
                 InMembrane = p.InMembrane,
                 IsBetaBarel = p.IsBetaBarel,
                 Chains = p.Chains?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) ?? [],
-                ProbeRadius = p.ProbeRadius == 0 ? 13.0 : p.ProbeRadius,
-                InteriorThreshold = p.InteriorThreshold == 0 ? 0.8 : p.InteriorThreshold,
+                ProbeRadius = p.ProbeRadius is null or 0 ? 13.0 : p.ProbeRadius.Value,
+                InteriorThreshold = p.InteriorThreshold is null or 0 ? 0.8 : p.InteriorThreshold.Value,
             };
 
             File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));
