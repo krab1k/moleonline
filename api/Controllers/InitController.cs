@@ -8,7 +8,7 @@ namespace Mole.API.Controllers;
 [Route("[controller]")]
 public partial class InitController(ComputationManager manager) : Controller
 {
-    [GeneratedRegex(@"(\.pdb|\.cif|\.gz|\.pdb[0-9]+)$")]
+    [GeneratedRegex(@"\.(pdb|cif)(\.gz)?$")] // one structure, PDB or mmCIF; MOLE and the web use its first model
     private static partial Regex StructureExtension();
 
     private const int MaxUploadMB = 30;
@@ -40,7 +40,7 @@ public partial class InitController(ComputationManager manager) : Controller
             return Content(new ComputationReport()
             {
                 ComputationId = null,
-                ErrorMsg = $"The file is too large, at most {MaxUploadMB} MB can be uploaded. Compressed files (*.gz) are accepted.",
+                ErrorMsg = $"The file is too large, at most {MaxUploadMB} MB can be uploaded. Gzipped files (*.pdb.gz, *.cif.gz) are accepted.",
                 Status = ComputationStatus.Error,
                 SubmitId = 0
             }.ToJson(), "application/json");
@@ -60,7 +60,7 @@ public partial class InitController(ComputationManager manager) : Controller
             return Content(new ComputationReport()
             {
                 ComputationId = null,
-                ErrorMsg = "Unsupported file type. Supported extensions are *.pdb, *.cif, *.pdbX (e.g. *.pdb1) and *.gz",
+                ErrorMsg = "Unsupported file type. Supported are PDB (*.pdb) and mmCIF (*.cif) files, also gzipped (*.pdb.gz, *.cif.gz).",
                 Status = ComputationStatus.Error,
                 SubmitId = 0
             }.ToJson(), "application/json");

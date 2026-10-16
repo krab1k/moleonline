@@ -79,7 +79,7 @@ All responses are JSON, errors are reported in the body (`Status: "Error"`, `Err
 |---|---|
 | `POST /Init/{pdbId}?assemblyId=` | load a PDB entry from PDBe and compute its cavities |
 | `POST /Init/Pores/{pdbId}` | load the preferred biological assembly of a PDB entry, for a pore computation |
-| `POST /Init` | load an uploaded structure (`multipart/form-data`, `.pdb`, `.cif`, `.pdbN`, `.gz`) |
+| `POST /Init` | load an uploaded structure (`multipart/form-data`, `.pdb`, `.cif`, `.pdb.gz`, `.cif.gz`) |
 | `POST /Submit/Mole/{id}` | compute tunnels, body: MOLE parameters |
 | `POST /Submit/Pores/{id}` | compute a pore across the membrane, body: `InMembrane`, `IsBetaBarel`, `Chains`, `ProbeRadius`, `InteriorThreshold` |
 | `GET /Status/{id}?submitId=` | status of a computation or one submission |
