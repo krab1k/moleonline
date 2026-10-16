@@ -56,7 +56,8 @@ namespace Mole.API.Controllers
                 System.IO.File.AppendAllLines("ErrorLog.log", err);
             }
 
-            return View();
+            var report = new ComputationReport(null, 0, ComputationStatus.Error, "An unexpected error occurred on the server. Please, try again later.");
+            return new ContentResult() { Content = report.ToJson(), ContentType = "application/json", StatusCode = 500 };
         }
 
         [Route("__computations")]
