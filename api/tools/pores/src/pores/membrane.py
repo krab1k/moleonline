@@ -33,6 +33,19 @@ class Membrane:
     points: list[tuple[np.ndarray, str]]  # position and side (N or O), in the structure's frame
     rmsd: float  # of the superposition, Å
     paired: int  # number of alpha carbons used
+    rotation: np.ndarray  # OPM frame -> structure frame; in OPM the membrane normal is the z axis
+    translation: np.ndarray
+    heights: dict[str, np.ndarray]  # z of the points of each side in the OPM frame
+
+    def to_structure(self, opm_xyz) -> np.ndarray:
+        return self.rotation @ np.asarray(opm_xyz, dtype=float) + self.translation
+
+    def to_opm(self, xyz) -> np.ndarray:
+        return self.rotation.T @ (np.asarray(xyz, dtype=float) - self.translation)
+
+    def is_flat(self) -> bool:
+        """Two parallel planes; OPM models some membranes as curved surfaces."""
+        return all(np.ptp(h) < 0.01 for h in self.heights.values())
 
 
 def download_opm(pdb_id: str, timeout: float = 60) -> str | None:
@@ -142,16 +155,17 @@ def superpose(structure: gemmi.Structure, opm: gemmi.Structure) -> tuple[np.ndar
 def membrane_from_opm(structure: gemmi.Structure, opm_text: str) -> Membrane:
     opm = gemmi.read_pdb_string(opm_text)
     rotation, translation, rmsd, paired = superpose(structure, opm)
-    points = []
+    points, heights = [], {"N": [], "O": []}
     for chain in opm[0]:
         for residue in chain:
             if residue.name == "DUM":
                 for atom in residue:
                     position = rotation @ np.array(atom.pos.tolist()) + translation
                     points.append((position, atom.name))
-    if not points:
+                    heights.setdefault(atom.name, []).append(atom.pos.z)
+    if not heights["N"] or not heights["O"]:
         raise MembraneError("The OPM entry contains no membrane.")
-    return Membrane(points, rmsd, paired)
+    return Membrane(points, rmsd, paired, rotation, translation, {side: np.array(h) for side, h in heights.items()})
 
 
 def membrane_json(membrane: Membrane) -> list[dict]:
