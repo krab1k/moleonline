@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+.pytest_cache/
+# production results of Pores.exe, kept locally until trimmed test fixtures are committed
+reference/
