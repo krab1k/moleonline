@@ -73,7 +73,10 @@ from the environment; the image sets both. `TZ` (in `compose.yaml`) sets the tim
 
 ## Endpoints
 
-All responses are JSON, errors are reported in the body (`Status: "Error"`, `ErrorMsg`).
+All responses are JSON. A request that fails has an HTTP error status and a report with `Status: "Error"` and `ErrorMsg`:
+400 invalid request (parameters, file type, data format), 404 no such computation, submission or data, 409 the computation
+is busy or could not be loaded, 410 deleted, 413 upload too large, 503 all slots busy, 500 server error. A report about a
+computation that failed (e.g. `Status` of a failed submission) is a successful request, 200.
 
 | Endpoint | |
 |---|---|

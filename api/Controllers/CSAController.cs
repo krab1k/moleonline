@@ -12,11 +12,11 @@ public class CSAController(ComputationManager manager) : Controller
     public ContentResult Get(string compId)
     {
         var cpt = manager.LoadComputation(compId);
-
-        if (cpt == null || cpt.UserStructure) return Content("[]", "application/json");
+        if (cpt == null) return Reports.NotFound(compId);
+        if (cpt.UserStructure) return Content("[]", "application/json"); // CSA knows PDB entries only
 
         var residues = manager.GetActiveSite(cpt.PdbId);
 
         return Content(JsonConvert.SerializeObject(residues, Formatting.Indented), "application/json");
-        }
+    }
 }

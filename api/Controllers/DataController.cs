@@ -10,13 +10,14 @@ public class DataController(ComputationManager manager) : Controller
     [HttpGet("{computationId}")]
     public ActionResult Get(string computationId, int submitId = -1, string format = "json")
     {
+        var cpt = manager.LoadComputation(computationId);
+        if (cpt == null) return Reports.NotFound(computationId);
 
-        var c = manager.GetComputationReport(computationId);
-
-        if (c.ComputationId == null) return StatusCode(404);
-        if (submitId < -1 || submitId > c.SubmitId) return StatusCode(404);
-        if (c.Status == ComputationStatus.Deleted) return StatusCode(410);
-
+        var c = cpt.GetComputationReport();
+        if (c.Status == ComputationStatus.Deleted) return Reports.Error(computationId, StatusCodes.Status410Gone, "The computation has been deleted.", submitId);
+        if (submitId < -1 || submitId > c.SubmitId) return Reports.Error(computationId, StatusCodes.Status404NotFound, $"Submission {submitId} does not exist.", submitId);
+        if (!ComputationManager.DataFormats.Contains(format))
+            return Reports.Error(computationId, StatusCodes.Status400BadRequest, $"Unknown format '{format}', the formats are {string.Join(", ", ComputationManager.DataFormats)}.", submitId);
 
         try
         {
@@ -27,9 +28,10 @@ public class DataController(ComputationManager manager) : Controller
 
             return File(data.Item1, MediaTypeNames.Text.Plain, data.Item2);
         }
-        catch (Exception) {
-            // 200 with a JSON body, the web loads the data of all submissions and skips those without channels
-            return Content(new ComputationReport(computationId, submitId, ComputationStatus.Error, $"Data in format '{format}' are not available.").ToJson(), "application/json");
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException or InvalidOperationException)
+        {
+            // no results (yet): a running or failed submission, no membrane outside pore computations
+            return Reports.Error(computationId, StatusCodes.Status404NotFound, $"Data in format '{format}' are not available.", submitId);
         }
     }
 }

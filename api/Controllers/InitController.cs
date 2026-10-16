@@ -16,16 +16,14 @@ public partial class InitController(ComputationManager manager) : Controller
     [HttpPost("{id}")]
     public ContentResult Pdb(string id, string assemblyId)
     {
-        var result = manager.CreatePDBComputation(id.ToLower(), assemblyId);
-        return Content(result.ToJson(), "application/json");
+        return Reports.Json(manager.CreatePDBComputation(id.ToLower(), assemblyId)); // loads in the background, see Status
     }
 
 
     [HttpPost("Pores/{id}", Name = "Init/Pores")]
     public ContentResult Pores(string id)
     {
-        var result = manager.CreatePoreComputation(id.ToLower());
-        return Content(result.ToJson(), "application/json");
+        return Reports.Json(manager.CreatePoreComputation(id.ToLower()));
     }
 
 
@@ -37,37 +35,17 @@ public partial class InitController(ComputationManager manager) : Controller
     {
         if (Request.ContentLength > MaxUploadMB * 1024 * 1024) // the file is then not read at all, it would look like no file
         {
-            return Content(new ComputationReport()
-            {
-                ComputationId = null,
-                ErrorMsg = $"The file is too large, at most {MaxUploadMB} MB can be uploaded. Gzipped files (*.pdb.gz, *.cif.gz) are accepted.",
-                Status = ComputationStatus.Error,
-                SubmitId = 0
-            }.ToJson(), "application/json");
+            return Reports.Error(null, StatusCodes.Status413PayloadTooLarge, $"The file is too large, at most {MaxUploadMB} MB can be uploaded. Gzipped files (*.pdb.gz, *.cif.gz) are accepted.");
         }
         if (file == null || file.Length == 0)
         {
-            return Content(new ComputationReport()
-            {
-                ComputationId = null,
-                ErrorMsg = "No structure file was uploaded or the file is empty.",
-                Status = ComputationStatus.Error,
-                SubmitId = 0
-            }.ToJson(), "application/json");
+            return Reports.Error(null, StatusCodes.Status400BadRequest, "No structure file was uploaded or the file is empty.");
         }
         if (!StructureExtension().IsMatch(file.FileName.ToLower()))
         {
-            return Content(new ComputationReport()
-            {
-                ComputationId = null,
-                ErrorMsg = "Unsupported file type. Supported are PDB (*.pdb) and mmCIF (*.cif) files, also gzipped (*.pdb.gz, *.cif.gz).",
-                Status = ComputationStatus.Error,
-                SubmitId = 0
-            }.ToJson(), "application/json");
+            return Reports.Error(null, StatusCodes.Status400BadRequest, "Unsupported file type. Supported are PDB (*.pdb) and mmCIF (*.cif) files, also gzipped (*.pdb.gz, *.cif.gz).");
         }
-        var result = manager.CreateUserComputation(file);
-
-        return Content(result.ToJson(), "application/json");
+        return Reports.Json(manager.CreateUserComputation(file));
     }
 
 

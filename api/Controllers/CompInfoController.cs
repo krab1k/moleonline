@@ -8,7 +8,10 @@ namespace Mole.API.Controllers;
 public class CompInfoController(ComputationManager manager) : Controller
 {
     [HttpGet("{computationId}")]
-    public ContentResult Get(string computationId) {
-        return Content(manager.ComputationInfos(computationId), "application/json");
+    public ContentResult Get(string computationId)
+    {
+        var cpt = manager.LoadComputation(computationId);
+        if (cpt == null) return Reports.NotFound(computationId);
+        return Content(manager.ComputationInfos(cpt), "application/json");
     }
 }

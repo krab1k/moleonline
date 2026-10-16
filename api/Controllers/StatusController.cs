@@ -11,12 +11,10 @@ public class StatusController(ComputationManager manager) : Controller
     public ContentResult Get(string computationId, int submitId)
     {
         var cpt = manager.LoadComputation(computationId);
+        if (cpt == null) return Reports.NotFound(computationId);
 
-        if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
-
-        return Content(cpt.GetComputationReport(submitId).ToJson(), "application/json");
-
-
-
+        var report = cpt.GetComputationReport(submitId);
+        if (!cpt.ComputationUnits.Any(u => u.SubmitId == report.SubmitId)) return Reports.Json(report, StatusCodes.Status404NotFound); // "SubmitId N not found."
+        return Reports.Json(report);
     }
 }

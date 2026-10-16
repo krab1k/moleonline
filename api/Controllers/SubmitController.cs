@@ -14,35 +14,15 @@ public class SubmitController(ComputationManager manager) : Controller
 
         using var submitting = manager.SubmitLock.EnterScope();
         var cpt = manager.LoadComputation(computationId);
-        if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
-        if (param == null) return Content(new ComputationReport()
-        {
-            ComputationId = cpt.ComputationId,
-            Status = ComputationStatus.Error,
-            ErrorMsg = "Input format error. Request's body could not be serialized, please fix the error and try again."
-        }.ToJson(), "application/json");
-        if (param.Validate() is string invalid) return Content(new ComputationReport(cpt.ComputationId, 0, ComputationStatus.Error, invalid).ToJson(), "application/json");
-
-
-        var canRunMsg = manager.CanRun(cpt);
-
-        if (!String.IsNullOrEmpty(canRunMsg))
-        {
-            return Content(
-                new ComputationReport()
-                {
-                    ComputationId = computationId,
-                    SubmitId = 0,
-                    Status = ComputationStatus.Error,
-                    ErrorMsg = canRunMsg
-                }.ToJson(), "application/json");
-        }
+        if (cpt == null) return Reports.NotFound(computationId);
+        if (param == null) return Reports.Error(cpt.ComputationId, StatusCodes.Status400BadRequest, "Input format error. Request's body could not be serialized, please fix the error and try again.");
+        if (param.Validate() is string invalid) return Reports.Error(cpt.ComputationId, StatusCodes.Status400BadRequest, invalid);
+        if (manager.CanRun(cpt) is (int statusCode, string reason)) return Reports.Error(cpt.ComputationId, statusCode, reason);
 
         cpt.AddCalculation();
 
-        var report = manager.PrepareAndRunMole(cpt, param);
-
-        return Content(report.ToJson(), "application/json");
+        var (report, started) = manager.PrepareAndRunMole(cpt, param);
+        return Reports.Json(report, started ? StatusCodes.Status200OK : StatusCodes.Status500InternalServerError);
     }
 
 
@@ -54,35 +34,15 @@ public class SubmitController(ComputationManager manager) : Controller
 
         using var submitting = manager.SubmitLock.EnterScope();
         var cpt = manager.LoadComputation(computationId);
-        if (cpt == null) return Content(Computation.NotExists(computationId).ToJson(), "application/json");
-        if (parameters == null) return Content(new ComputationReport()
-        {
-            ComputationId = cpt.ComputationId,
-            Status = ComputationStatus.Error,
-            ErrorMsg = "Input format error. Request's body could not be serialized, please fix the error and try again."
-        }.ToJson(), "application/json");
-        if (parameters.Validate() is string invalid) return Content(new ComputationReport(cpt.ComputationId, 0, ComputationStatus.Error, invalid).ToJson(), "application/json");
-
-        var canRunMsg = manager.CanRun(cpt);
-
-        if (!String.IsNullOrEmpty(canRunMsg))
-        {
-            return Content(
-                new ComputationReport()
-                {
-                    ComputationId = computationId,
-                    SubmitId = 0,
-                    Status = ComputationStatus.Error,
-                    ErrorMsg = canRunMsg
-                }.ToJson(), "application/json");
-        }
+        if (cpt == null) return Reports.NotFound(computationId);
+        if (parameters == null) return Reports.Error(cpt.ComputationId, StatusCodes.Status400BadRequest, "Input format error. Request's body could not be serialized, please fix the error and try again.");
+        if (parameters.Validate() is string invalid) return Reports.Error(cpt.ComputationId, StatusCodes.Status400BadRequest, invalid);
+        if (manager.CanRun(cpt) is (int statusCode, string reason)) return Reports.Error(cpt.ComputationId, statusCode, reason);
 
         cpt.AddCalculation();
 
-        var result = manager.PrepareAndRunPores(cpt, parameters);
-
-        return Content(result.ToJson(), "application/json");
-
+        var (report, started) = manager.PrepareAndRunPores(cpt, parameters);
+        return Reports.Json(report, started ? StatusCodes.Status200OK : StatusCodes.Status500InternalServerError);
     }
 
 

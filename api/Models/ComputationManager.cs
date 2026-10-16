@@ -151,26 +151,27 @@ public class ComputationManager(IOptions<Config> options)
 
 
 
-    internal string CanRun(Computation c)
+    /// <returns>Why a new submission cannot start, with the HTTP status; null when it can</returns>
+    internal (int StatusCode, string Message)? CanRun(Computation c)
     {
         var cpt = c.GetComputationReport();
 
         if (string.Equals(cpt.Status, ComputationStatus.Running))
-            return "Previous computation is still running. This one has not been started. Please, try again later.";
+            return (StatusCodes.Status409Conflict, "Previous computation is still running. This one has not been started. Please, try again later.");
 
         if (string.Equals(cpt.Status, ComputationStatus.Initializing))
-            return "The structure is still being initialized. This computation has not been started. Please, try again later.";
+            return (StatusCodes.Status409Conflict, "The structure is still being initialized. This computation has not been started. Please, try again later.");
 
+        if (string.Equals(cpt.Status, ComputationStatus.Deleted))
+            return (StatusCodes.Status410Gone, "The computation has been deleted.");
 
-        if (string.Equals(cpt.Status, ComputationStatus.Deleted) | string.Equals(cpt.Status, ComputationStatus.FailedInitialization))
-            return $"{cpt.Status}... cannot proceed.";
-
+        if (string.Equals(cpt.Status, ComputationStatus.FailedInitialization))
+            return (StatusCodes.Status409Conflict, "The structure could not be loaded, no computation can run on it.");
 
         if (RunningProcesses.Count >= Config.MaxConcurentComputations)
-            return "Server is under heavy load, computation has not started. Please try again later";
+            return (StatusCodes.Status503ServiceUnavailable, "Server is under heavy load, computation has not started. Please try again later");
 
-
-        return string.Empty;
+        return null;
     }
 
 
@@ -180,10 +181,9 @@ public class ComputationManager(IOptions<Config> options)
     /// </summary>
     /// <param name="computationId"></param>
     /// <returns></returns>
-    internal string ComputationInfos(string computationId)
+    internal string ComputationInfos(Computation cpt)
     {
-        var cpt = LoadComputation(computationId);
-        if (cpt == null) return Computation.NotExists(computationId).ToJson();
+        var computationId = cpt.ComputationId;
 
         // submissions with a folder, each with its own status (directories are not listed in any particular order)
         var submissions = cpt.ComputationUnits
@@ -211,7 +211,8 @@ public class ComputationManager(IOptions<Config> options)
 
 
 
-    internal ComputationReport PrepareAndRunPores(Computation computation, APIPoresParameters p)
+    /// <returns>The report when started (taken before the run can change it), or the error; Started tells which</returns>
+    internal (ComputationReport Report, bool Started) PrepareAndRunPores(Computation computation, APIPoresParameters p)
     {
         try
         {
@@ -234,14 +235,14 @@ public class ComputationManager(IOptions<Config> options)
 
             File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));
 
+            var started = computation.GetComputationReport();
             RunPores(computation, input);
-
-            return computation.GetComputationReport();
+            return (started, true);
         }
         catch (Exception e)
         {
             computation.ChangeStatus(ComputationStatus.Error, e.Message);
-            return computation.GetComputationReport();
+            return (computation.GetComputationReport(), false);
         }
     }
 
@@ -271,7 +272,8 @@ public class ComputationManager(IOptions<Config> options)
 
 
 
-    internal ComputationReport PrepareAndRunMole(Computation c, ComputationParameters param)
+    /// <returns>The report when started (taken before the run can change it), or the error; Started tells which</returns>
+    internal (ComputationReport Report, bool Started) PrepareAndRunMole(Computation c, ComputationParameters param)
     {
         try
         {
@@ -283,14 +285,14 @@ public class ComputationManager(IOptions<Config> options)
             var xmlPath = BuildXML(c, param);
             File.WriteAllText(Path.Combine(c.SubmitDirectory(c.ComputationUnits.Count), MoleApiFiles.MoleParams), JsonConvert.SerializeObject(param, Formatting.Indented));
 
+            var started = c.GetComputationReport();
             RunMole(c, xmlPath, false);
-
-            return c.GetComputationReport();
+            return (started, true);
         }
         catch (Exception e)
         {
             c.ChangeStatus(ComputationStatus.Error, e.Message);
-            return c.GetComputationReport();
+            return (c.GetComputationReport(), false);
         }
     }
 
@@ -463,7 +465,8 @@ public class ComputationManager(IOptions<Config> options)
 
 
 
-    internal ComputationReport KillComputation(Computation cpt)
+    /// <returns>The report, with the HTTP status of the request</returns>
+    internal (ComputationReport Report, int StatusCode) KillComputation(Computation cpt)
     {
 
         if (RunningProcesses.TryGetValue(cpt.ComputationId, out var job))
@@ -482,18 +485,20 @@ public class ComputationManager(IOptions<Config> options)
             catch (Exception)
             {
                 job.Killed = false;
-                var running = cpt.GetComputationReport(); // still running
-                running.ErrorMsg = "The computation could not be stopped. Please, try again.";
-                return running;
+                var failed = cpt.GetComputationReport(); // still running
+                failed.Status = ComputationStatus.Error;
+                failed.ErrorMsg = "The computation could not be stopped. Please, try again.";
+                return (failed, StatusCodes.Status500InternalServerError);
             }
-            return cpt.GetComputationReport();
+            return (cpt.GetComputationReport(), StatusCodes.Status200OK);
         }
         else
         {
             var report = cpt.GetComputationReport();
             report.ErrorMsg = $"Cannot kill computation with the status \"{report.Status}\"";
+            report.Status = ComputationStatus.Error;
 
-            return report;
+            return (report, StatusCodes.Status409Conflict);
 
         }
     }
@@ -507,6 +512,8 @@ public class ComputationManager(IOptions<Config> options)
     /// <param name="submitId">Submit</param>
     /// <param name="type">Type of data to be downloaded: pymol/chimera/vmd/pdb/json/report default:json</param>
     /// <returns></returns>
+    internal static readonly string[] DataFormats = ["json", "report", "molecule", "pymol", "chimera", "vmd", "pdb", "membrane"];
+
     internal (Stream, string) QueryFile(string computationId, int submitId, string type)
     {
         Stream stream; // files are streamed, not read into memory
@@ -540,7 +547,7 @@ public class ComputationManager(IOptions<Config> options)
                 return (stream, MoleApiFiles.Membrane);
 
             default:
-                return (File.OpenRead(Path.Combine(Config.WorkingDirectory, computationId, submitId.ToString(), "json", MoleApiFiles.DataJson)), $"mole_channels_{computationId}_{submitId}.json");
+                throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown data format.");
         }
 
 

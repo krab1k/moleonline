@@ -11,11 +11,9 @@ public class KillController(ComputationManager manager) : Controller
     public ContentResult Post(string computationId)
     {
         var computation = manager.LoadComputation(computationId);
-        if (computation != null)
-        {
-            return Content(manager.KillComputation(computation).ToJson(), "application/json");
-        }
+        if (computation == null) return Reports.NotFound(computationId);
 
-        return Content(Computation.NotExists(computationId).ToJson(), "application/json");
+        var (report, statusCode) = manager.KillComputation(computation);
+        return Reports.Json(report, statusCode);
     }
 }
