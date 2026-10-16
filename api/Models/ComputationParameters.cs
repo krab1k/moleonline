@@ -139,9 +139,7 @@ public class Residue
 #endregion
 
 /// <summary>
-/// pores.json: the input of the pores tool (tools/pores) and the record of what the user submitted.
-/// Older computations have UserStructure and MemEmbedLocation instead of Structure and Membrane, the
-/// submitted parameters are the same.
+/// pores.json: the input of the pores tool (tools/pores) and the record of what the user submitted
 /// </summary>
 public class PoresParameters
 {
@@ -151,37 +149,39 @@ public class PoresParameters
     public string Membrane { get; set; } // where the tool writes membrane.json
 
     public bool InMembrane { get; set; } // the pore only between the membrane planes
-    public bool IsBetaBarel { get; set; }
+    public bool IsBetaBarrel { get; set; }
     public string[] Chains { get; set; } = [];
     public double ProbeRadius { get; set; }
     public double InteriorThreshold { get; set; }
 
-    public dynamic UserParameters()
-    {
-        return new
-        {
-            InMembrane,
-            InteriorThreshold,
-            ProbeRadius,
-            IsBetaBarel,
-            Chains,
-        };
-    }
+    /// <summary>
+    /// What the user submitted, as CompInfo reports it; the same names and types as PoresRequest
+    /// </summary>
+    public object UserParameters() => new { InMembrane, IsBetaBarrel, Chains, ProbeRadius, InteriorThreshold };
 }
 
-public class APIPoresParameters {
-    public bool InMembrane { get; set; }
-    public bool IsBetaBarel { get; set; }
-    public string Chains { get; set; }
-    public double? InteriorThreshold { get; set; } // null or 0: the default
-    public double? ProbeRadius { get; set; }
+/// <summary>
+/// Body of Submit/Pores. Unknown fields are an error, a misspelled one would otherwise be ignored silently
+/// </summary>
+[JsonObject(MissingMemberHandling = MissingMemberHandling.Error)]
+public class PoresRequest
+{
+    public const double DefaultProbeRadius = 13.0;
+    public const double DefaultInteriorThreshold = 0.8;
 
-    /// <returns>What is wrong, null when the parameters are valid</returns>
+    public bool InMembrane { get; set; }
+    public bool IsBetaBarrel { get; set; }
+    public string[] Chains { get; set; } // null or empty: all chains
+    public double? ProbeRadius { get; set; } // null: the default
+    public double? InteriorThreshold { get; set; }
+
+    /// <returns>What is wrong, null when the request is valid</returns>
     public string Validate()
     {
         List<string> errors = [];
-        if (ProbeRadius is not (null or 0)) Limits.Check(errors, "Probe radius", ProbeRadius.Value, 1.4, 45);
-        if (InteriorThreshold is not (null or 0)) Limits.Check(errors, "Interior threshold", InteriorThreshold.Value, 0.3, 3);
+        if (ProbeRadius is double probe) Limits.Check(errors, "Probe radius", probe, 1.4, 45);
+        if (InteriorThreshold is double threshold) Limits.Check(errors, "Interior threshold", threshold, 0.3, 3);
+        if (Chains?.Any(c => string.IsNullOrWhiteSpace(c) || c.Any(char.IsWhiteSpace)) == true) errors.Add("Chain names must not be empty or contain spaces.");
         return Limits.Message(errors);
     }
 }

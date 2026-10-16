@@ -84,7 +84,7 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 | `POST /Init/Pores/{pdbId}` | load the preferred biological assembly of a PDB entry, for a pore computation |
 | `POST /Init` | load an uploaded structure (`multipart/form-data`, `.pdb`, `.cif`, `.pdb.gz`, `.cif.gz`) |
 | `POST /Submit/Mole/{id}` | compute tunnels, body: MOLE parameters |
-| `POST /Submit/Pores/{id}` | compute a pore across the membrane, body: `InMembrane`, `IsBetaBarel`, `Chains`, `ProbeRadius`, `InteriorThreshold` |
+| `POST /Submit/Pores/{id}` | compute a pore across the membrane, body: `InMembrane`, `IsBetaBarrel`, `Chains` (list of chain names, empty: all), `ProbeRadius`, `InteriorThreshold` (`null`: the default) |
 | `GET /Status/{id}?submitId=` | status of a computation or one submission |
 | `GET /CompInfo/{id}` | the computation and the parameters of all submissions |
 | `GET /Data/{id}?submitId=&format=` | results: `json`, `report` (zip), `molecule`, `pymol`, `chimera`, `vmd`, `pdb`, `membrane` |

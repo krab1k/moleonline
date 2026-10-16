@@ -271,24 +271,24 @@
                                     <td>Compute pore only in the transmembrane region.</td>
                                 </tr>
                                 <tr>
-                                    <td class="mole-api-docs-param-name">IsBetaBarel</td>
+                                    <td class="mole-api-docs-param-name">IsBetaBarrel</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Bool</span></td>
                                     <td>Determine if submitted structure is formed by β-sheets in its transmembrane part.</td>
                                 </tr>
                                 <tr>
                                     <td class="mole-api-docs-param-name">Chains</td>
-                                    <td><span style="font-weight: 100; font-style:italic ">String</span></td>
-                                    <td>One or more characters that specify which chains should participate in the computation. If empty or not present, all chains are loaded. Case sensitive!</td>
+                                    <td><span style="font-weight: 100; font-style:italic ">String[]</span></td>
+                                    <td>Names of the chains that participate in the computation, e.g. ["A", "B"]. If empty or not present, all chains are used. Case sensitive!</td>
                                 </tr>
                                 <tr>
                                     <td class="mole-api-docs-param-name">InteriorThreshold</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double?</span></td>
-                                    <td>Minimum radius of void inside the protein structure. Approximation of minimal channel radius.</td>
+                                    <td>Minimum radius of void inside the protein structure. Approximation of minimal channel radius. 0.3&ndash;3, null or not present: 0.8.</td>
                                 </tr>
                                 <tr>
                                     <td class="mole-api-docs-param-name">ProbeRadius</td>
                                     <td><span style="font-weight: 100; font-style:italic ">Double?</span></td>
-                                    <td>Regulates level of detail of the molecular surface. Approximation of maximal channel radius.</td>
+                                    <td>Regulates level of detail of the molecular surface. Approximation of maximal channel radius. 1.4&ndash;45, null or not present: 13.</td>
                                 </tr>
 
                             </tbody>

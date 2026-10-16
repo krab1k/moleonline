@@ -212,7 +212,7 @@ public class ComputationManager(IOptions<Config> options)
 
 
     /// <returns>The report when started (taken before the run can change it), or the error; Started tells which</returns>
-    internal (ComputationReport Report, bool Started) PrepareAndRunPores(Computation computation, APIPoresParameters p)
+    internal (ComputationReport Report, bool Started) PrepareAndRunPores(Computation computation, PoresRequest p)
     {
         try
         {
@@ -227,10 +227,10 @@ public class ComputationManager(IOptions<Config> options)
                 WorkingDirectory = computation.SubmitDirectory(),
                 Membrane = Path.Combine(Config.WorkingDirectory, computation.ComputationId, MoleApiFiles.Membrane),
                 InMembrane = p.InMembrane,
-                IsBetaBarel = p.IsBetaBarel,
-                Chains = p.Chains?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) ?? [],
-                ProbeRadius = p.ProbeRadius is null or 0 ? 13.0 : p.ProbeRadius.Value,
-                InteriorThreshold = p.InteriorThreshold is null or 0 ? 0.8 : p.InteriorThreshold.Value,
+                IsBetaBarrel = p.IsBetaBarrel,
+                Chains = p.Chains ?? [],
+                ProbeRadius = p.ProbeRadius ?? PoresRequest.DefaultProbeRadius,
+                InteriorThreshold = p.InteriorThreshold ?? PoresRequest.DefaultInteriorThreshold,
             };
 
             File.WriteAllText(input, JsonConvert.SerializeObject(json, Formatting.Indented));

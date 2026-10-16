@@ -7,7 +7,7 @@ The MOLE API writes pores.json into the submit directory and runs this program w
                        OPM has it (uploaded files, other assemblies)
     WorkingDirectory   the submit directory: input.xml is written there and MOLE writes its results there
     Membrane           where to write the membrane (membrane.json)
-    InMembrane, IsBetaBarel, Chains, ProbeRadius, InteriorThreshold
+    InMembrane, IsBetaBarrel, Chains, ProbeRadius, InteriorThreshold
                        what the user submitted, chains as a list of names
 
 The membrane comes from OPM for PDB entries it has, otherwise from MEMEMBED. The API then runs MOLE
@@ -54,7 +54,7 @@ def run(parameters_path: Path) -> None:
         memembed = os.environ.get("MEMEMBED")
         if not memembed:
             raise PoresError("MEMEMBED is not configured, the membrane position cannot be predicted.")
-        membrane = membrane_from_memembed(structure, memembed, parameters["IsBetaBarel"], chains)
+        membrane = membrane_from_memembed(structure, memembed, parameters["IsBetaBarrel"], chains)
     Path(parameters["Membrane"]).write_text(json.dumps(membrane_json(membrane), separators=(",", ":")))
 
     start, end = end_points(structure, membrane, parameters["InMembrane"], chains)

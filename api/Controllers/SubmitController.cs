@@ -28,7 +28,7 @@ public class SubmitController(ComputationManager manager) : Controller
 
 
     [HttpPost("Pores/{computationId}", Name = "Submit/Pores")]
-    public ContentResult Pores(string computationId, [FromBody] APIPoresParameters parameters)
+    public ContentResult Pores(string computationId, [FromBody] PoresRequest parameters)
     {
         LogIp();
 
