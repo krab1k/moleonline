@@ -1,6 +1,6 @@
 [project]
 name = "pores"
-version = "0.1.0"
+version = "2.0.0"
 description = "Pore computation for MOLEonline: membrane position and a MOLE path across it"
 authors = [
     { name = "Tomáš Raček", email = "tom@krab1k.net" }
