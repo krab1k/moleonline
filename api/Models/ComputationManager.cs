@@ -73,7 +73,7 @@ public class ComputationManager(IOptions<Config> options)
     public ComputationReport CreateUserComputation(IFormFile file)
     {
         var computation = new Computation(Config.WorkingDirectory);
-        var savePath = Path.Combine(Config.WorkingDirectory, computation.ComputationId, file.FileName);
+        var savePath = Path.Combine(Config.WorkingDirectory, computation.ComputationId, Path.GetFileName(file.FileName)); // the name comes from the client, never let it leave the folder
 
         using (var fileStream = new FileStream(savePath, FileMode.Create))
         {
