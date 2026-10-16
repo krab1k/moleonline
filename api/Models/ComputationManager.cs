@@ -182,6 +182,9 @@ namespace Mole.API.Models
             if (string.Equals(cpt.Status, ComputationStatus.Running))
                 return "Previous computation is still running. This one has not been started. Please, try again later.";
 
+            if (string.Equals(cpt.Status, ComputationStatus.Initializing))
+                return "The structure is still being initialized. This computation has not been started. Please, try again later.";
+
 
             if (string.Equals(cpt.Status, ComputationStatus.Deleted) | string.Equals(cpt.Status, ComputationStatus.FailedInitialization))
                 return $"{cpt.Status}... cannot proceed.";
