@@ -197,37 +197,9 @@ namespace Mole.API.Models
             computation.DownloadStructure();
             if (computation.ComputationUnits.Last().Status == ComputationStatus.FailedInitialization) return computation.GetComputationReport();
 
-            Task.Run(() => RunEBIRoutine(computation, pars));
+            Directory.CreateDirectory(computation.SubmitDirectory(1));
 
-            return computation.GetComputationReport();
-        }
-
-
-
-
-        private void RunEBIRoutine(Computation cpt, ComputationParameters pars)
-        {
-            var attempts = 0;
-            string structure = null;
-
-            do
-            {
-                var files = Directory.GetFiles(Path.Combine(cpt.BaseDir, cpt.ComputationId));
-                structure = files.FirstOrDefault(x => x.EndsWith(".cif"));
-                attempts++;
-                Thread.Sleep(1000);
-
-                if (attempts > 30)
-                {
-                    LoadComputation(cpt.ComputationId).ChangeStatus(ComputationStatus.FailedInitialization);
-                    return;
-                }
-            } while (structure == null);
-
-
-            Directory.CreateDirectory(Path.Combine(cpt.BaseDir, cpt.ComputationId, "1"));
-
-            PrepareAndRunMole(cpt, pars);
+            return PrepareAndRunMole(computation, pars);
         }
 
 
