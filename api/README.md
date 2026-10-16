@@ -73,7 +73,6 @@ from the environment; the image sets both. `TZ` (in `compose.yaml`) sets the tim
 ## Endpoints
 
 All responses are JSON, errors are reported in the body (`Status: "Error"`, `ErrorMsg`).
-`/Init/{pdbId}`, `/Init/Pores/{pdbId}`, `/Kill` and `/Delete` still accept GET until the web is updated.
 
 | Endpoint | |
 |---|---|

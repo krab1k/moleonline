@@ -12,7 +12,6 @@ public partial class InitController(ComputationManager manager) : Controller
     private static partial Regex StructureExtension();
 
     [HttpPost("{id}")]
-    [HttpGet("{id}")] // old method, until the web uses POST
     public ContentResult Pdb(string id, string assemblyId)
     {
         var result = manager.CreatePDBComputation(id.ToLower(), assemblyId);
@@ -21,7 +20,6 @@ public partial class InitController(ComputationManager manager) : Controller
 
 
     [HttpPost("Pores/{id}", Name = "Init/Pores")]
-    [HttpGet("Pores/{id}")] // old method, until the web uses POST
     public ContentResult Pores(string id)
     {
         var result = manager.CreatePoreComputation(id.ToLower());

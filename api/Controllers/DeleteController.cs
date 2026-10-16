@@ -8,7 +8,6 @@ namespace Mole.API.Controllers;
 public class DeleteController(ComputationManager manager) : Controller
 {
     [HttpDelete("{id}")]
-    [HttpGet("{id}")] // old method, until the web uses DELETE
     public ContentResult Delete(string id)
     {
         var cpt = manager.LoadComputation(id);
