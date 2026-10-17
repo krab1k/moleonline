@@ -9,13 +9,13 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import UploadFile
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from . import computation, iplog, mole, pdbe, upload
+from . import computation, data, iplog, mole, pdbe, upload
 from .paths import AspNetPaths
 from .computation import Computation, Report, Status
 from .config import Settings
@@ -159,6 +159,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not any(u.SubmitId == report.SubmitId for u in found.ComputationUnits):
             return respond(report, 404)  # "SubmitId N not found."
         return report
+
+    @app.get("/Data/{computation_id}", responses={**errors(400, 404, 410), 200: {"description": "The file, as an attachment"}},
+             response_class=Response)
+    def get_data(request: Request, computation_id: str, submitId: int = -1, format: str = "json"):
+        """A result of a submission (-1: the last one, 0: the load) to download. Formats: json (MOLE's data.json, what
+        the web shows), report (zip of all), molecule (the structure), pymol, chimera, vmd (scripts), pdb (zip of the
+        tunnels' profiles), membrane (membrane.json of a pore computation)."""
+        found = find(request, computation_id)
+        if isinstance(found, JSONResponse):
+            return found
+        last = found.last.SubmitId
+        if submitId == -1:
+            submitId = last
+        if not 0 <= submitId <= last:
+            return error(computation_id, 404, f"Submission {submitId} does not exist.", submitId)
+        if format not in data.FORMATS:
+            return error(computation_id, 400, f"Unknown format '{format}', the formats are {', '.join(data.FORMATS)}.", submitId)
+        if (file := data.download(found, submitId, format)) is None:
+            return error(computation_id, 404, f"Data in format '{format}' are not available.", submitId)
+        return file
 
     @app.post("/Init", responses=errors(400, 413), openapi_extra=UPLOAD_FORM)
     async def init_upload(request: Request) -> Report:
