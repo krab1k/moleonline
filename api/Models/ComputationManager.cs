@@ -14,9 +14,9 @@ namespace Mole.API.Models;
 /// <summary>
 /// API logic
 /// </summary>
-public class ComputationManager(IOptions<Config> options, Utils.MoleVersion moleVersion)
+public class ComputationManager(IOptions<Config> options, Utils.ToolVersions versions)
 {
-    public string MoleVersion => moleVersion.Value;
+    public string MoleVersion => versions.Mole;
 
     public Config Config { get; } = options.Value;
     private readonly CSA csa = new(options.Value.CSA);

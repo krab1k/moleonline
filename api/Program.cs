@@ -8,8 +8,8 @@ var builder = WebApplication.CreateBuilder(args); // Kestrel, appsettings.json, 
 
 builder.Services.AddOptions<Config>().Bind(builder.Configuration.GetSection("Config")).ValidateOnStart(); // appsettings.json, environment variables Config__*
 builder.Services.AddSingleton<IValidateOptions<Config>, ConfigValidation>();
-builder.Services.AddSingleton<Mole.API.Utils.MoleVersion>();
-builder.Services.AddHostedService<Mole.API.Utils.MoleVersionReader>(); // after the configuration is checked
+builder.Services.AddSingleton<Mole.API.Utils.ToolVersions>();
+builder.Services.AddHostedService<Mole.API.Utils.ToolVersionReader>(); // after the configuration is checked
 builder.Services.AddSingleton<ComputationManager>();
 
 builder.Services.AddResponseCompression(x =>

@@ -1,4 +1,4 @@
-"""Command line entry point, replacing Pores.exe: `pores <pores.json>`.
+"""Command line entry point, replacing Pores.exe: `pores <pores.json>`, or `pores --version`.
 
 The MOLE API writes pores.json into the submit directory and runs this program with its path:
 
@@ -17,6 +17,8 @@ PORES_OPM_CACHE (directory for downloaded OPM files, no cache when unset).
 Errors are reported on stderr (the API shows them to the user) with a non-zero exit code.
 """
 
+import argparse
+import importlib.metadata
 import json
 import os
 import sys
@@ -63,11 +65,13 @@ def run(parameters_path: Path) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print("Usage: pores <pores.json>", file=sys.stderr)
-        sys.exit(2)
+    parser = argparse.ArgumentParser(prog="pores", description="Pore computation for MOLEonline, run by the MOLE API.")
+    parser.add_argument("parameters", type=Path, help="pores.json written by the MOLE API")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {importlib.metadata.version('pores')}",
+                        help="show the version and exit (the MOLE API reads it when it starts)")
+    arguments = parser.parse_args()
     try:
-        run(Path(sys.argv[1]))
+        run(arguments.parameters)
     except (PoresError, MembraneError, PathError) as e:
         print(e, file=sys.stderr)
         sys.exit(1)

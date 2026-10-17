@@ -138,18 +138,25 @@ public class RequestTests
         Assert.Equal("Error", (string)body["Status"]!);
     }
 
-    [Fact]
-    public async Task MOLE_without_a_version_stops_the_API()
+    [Theory]
+    [InlineData("not MOLE", "pores 1.0", "Config:MOLE", "not MOLE")]
+    [InlineData("WebChemistry Tunnels 2.5.1, (c)", "not pores", "Config:Pores", "not pores")]
+    public async Task Tool_without_a_version_stops_the_API(string moleLine, string poresLine, string setting, string line)
     {
         // the reader runs when the API starts; its error stops the start like a wrong setting (checked here directly,
         // a failed start in the test host shows only as a disposed object)
         var directory = Directory.CreateTempSubdirectory("mole-api-tests-").FullName;
-        var mole = Path.Combine(directory, "mole");
-        File.WriteAllText(mole, "#!/bin/sh\necho 'not MOLE'\n");
-        File.SetUnixFileMode(mole, UnixFileMode.UserRead | UnixFileMode.UserExecute);
-        var reader = new Utils.MoleVersionReader(Options.Create(new Config { MOLE = mole }), new Utils.MoleVersion());
+        string Tool(string name, string firstLine)
+        {
+            var path = Path.Combine(directory, name);
+            File.WriteAllText(path, $"#!/bin/sh\necho '{firstLine}'\n");
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+            return path;
+        }
+        var reader = new Utils.ToolVersionReader(Options.Create(new Config { MOLE = Tool("mole", moleLine), Pores = Tool("pores", poresLine) }), new Utils.ToolVersions());
         var error = await Assert.ThrowsAsync<OptionsValidationException>(() => reader.StartAsync(default));
-        Assert.Contains("did not report its version, its first line is \"not MOLE\"", error.Message);
+        Assert.Contains($"{setting} '", error.Message);
+        Assert.Contains($"did not report its version, its first line is \"{line}\"", error.Message);
         Directory.Delete(directory, recursive: true);
     }
 
@@ -162,5 +169,6 @@ public class RequestTests
         Assert.Equal(HttpStatusCode.OK, status);
         Assert.NotNull(version["APIVersion"]);
         Assert.Equal(Api.MoleVersion, (string)version["MoleVersion"]!);
+        Assert.Equal(Api.PoresVersion, (string)version["PoresVersion"]!);
     }
 }

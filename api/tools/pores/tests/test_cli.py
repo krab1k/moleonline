@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pores.cli import PoresError, run
+from pores.cli import PoresError, main, run
 
 REFERENCE = Path(__file__).parent / "data"
 
@@ -43,3 +43,12 @@ def test_writes_membrane_and_mole_input(tmp_path, monkeypatch):
     assert json.loads((computation / "membrane.json").read_text())
     mole_input = (computation / "1" / "input.xml").read_text()
     assert str(computation / "1k4c.cif") in mole_input and "C,C_2" in mole_input.replace(" ", "")
+
+
+def test_version(monkeypatch, capsys):
+    """The MOLE API reads the version when it starts."""
+    monkeypatch.setattr("sys.argv", ["pores", "--version"])
+    with pytest.raises(SystemExit) as exit:
+        main()
+    assert exit.value.code == 0
+    assert capsys.readouterr().out == "pores 2.0.0\n"
