@@ -13,7 +13,7 @@ from pores.membrane import read_structure
 from pores.opm import membrane_from_opm
 from pores.path import PathError, end_points
 
-REFERENCE = Path(__file__).parent.parent / "reference"
+REFERENCE = Path(__file__).parent / "data"
 
 
 def membrane(structure_path: Path, opm_path: Path):

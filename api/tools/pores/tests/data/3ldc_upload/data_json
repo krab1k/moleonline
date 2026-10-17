@@ -1,0 +1,4382 @@
+{
+ "Version": "2.5.18.1.14",
+ "Config": {
+  "InMembrane": true,
+  "IsBetaBarel": false,
+  "ProbeRadius": 10.0,
+  "InteriorThreshold": 0.8,
+  "PdbId": null,
+  "Chains": []
+ },
+ "Channels": {
+  "Paths": [
+   {
+    "Type": "Path",
+    "Id": "1",
+    "Fingerprint": "L33,26",
+    "Cavity": "0",
+    "Auto": false,
+    "Properties": {
+     "Charge": -4,
+     "Ionizable": 4,
+     "NumPositives": 0,
+     "NumNegatives": 4,
+     "Hydrophobicity": -0.67,
+     "Hydropathy": -0.24,
+     "Polarity": 5.4,
+     "LogP": -0.3,
+     "LogD": -0.46,
+     "LogS": 0.85,
+     "Mutability": 94
+    },
+    "Profile": [
+     {
+      "Radius": 5.871,
+      "FreeRadius": 6.932,
+      "BRadius": 7.171,
+      "T": 0.0,
+      "Distance": 0.0,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.755,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.857,
+      "FreeRadius": 6.924,
+      "BRadius": 7.045,
+      "T": 0.003759,
+      "Distance": 0.029,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.726,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.843,
+      "FreeRadius": 6.917,
+      "BRadius": 6.939,
+      "T": 0.007519,
+      "Distance": 0.057,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.699,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.83,
+      "FreeRadius": 6.911,
+      "BRadius": 6.875,
+      "T": 0.011278,
+      "Distance": 0.083,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.672,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.818,
+      "FreeRadius": 6.906,
+      "BRadius": 6.856,
+      "T": 0.015038,
+      "Distance": 0.107,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.648,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.807,
+      "FreeRadius": 6.9,
+      "BRadius": 6.858,
+      "T": 0.018797,
+      "Distance": 0.129,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.626,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.798,
+      "FreeRadius": 6.895,
+      "BRadius": 6.858,
+      "T": 0.022556,
+      "Distance": 0.147,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.608,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.792,
+      "FreeRadius": 6.89,
+      "BRadius": 6.849,
+      "T": 0.026316,
+      "Distance": 0.161,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.594,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.787,
+      "FreeRadius": 6.886,
+      "BRadius": 6.843,
+      "T": 0.030075,
+      "Distance": 0.17,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.585,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.786,
+      "FreeRadius": 6.885,
+      "BRadius": 6.845,
+      "T": 0.033835,
+      "Distance": 0.173,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.582,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.787,
+      "FreeRadius": 6.886,
+      "BRadius": 6.849,
+      "T": 0.037594,
+      "Distance": 0.176,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.585,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.792,
+      "FreeRadius": 6.89,
+      "BRadius": 6.843,
+      "T": 0.041353,
+      "Distance": 0.186,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.595,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.801,
+      "FreeRadius": 6.896,
+      "BRadius": 6.833,
+      "T": 0.045113,
+      "Distance": 0.204,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.613,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.814,
+      "FreeRadius": 6.903,
+      "BRadius": 6.851,
+      "T": 0.048872,
+      "Distance": 0.23,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.639,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.831,
+      "FreeRadius": 6.912,
+      "BRadius": 6.929,
+      "T": 0.052632,
+      "Distance": 0.266,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.674,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.854,
+      "FreeRadius": 6.923,
+      "BRadius": 7.055,
+      "T": 0.056391,
+      "Distance": 0.311,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.72,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.882,
+      "FreeRadius": 6.937,
+      "BRadius": 7.174,
+      "T": 0.06015,
+      "Distance": 0.367,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.775,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.914,
+      "FreeRadius": 6.954,
+      "BRadius": 7.24,
+      "T": 0.06391,
+      "Distance": 0.432,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.841,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.94,
+      "FreeRadius": 6.974,
+      "BRadius": 7.257,
+      "T": 0.067669,
+      "Distance": 0.504,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.912,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.946,
+      "FreeRadius": 6.994,
+      "BRadius": 7.244,
+      "T": 0.071429,
+      "Distance": 0.578,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.987,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.926,
+      "FreeRadius": 7.015,
+      "BRadius": 7.219,
+      "T": 0.075188,
+      "Distance": 0.652,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.06,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.894,
+      "FreeRadius": 7.035,
+      "BRadius": 7.191,
+      "T": 0.078947,
+      "Distance": 0.721,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.129,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.867,
+      "FreeRadius": 7.054,
+      "BRadius": 7.169,
+      "T": 0.082707,
+      "Distance": 0.782,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.191,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.85,
+      "FreeRadius": 7.069,
+      "BRadius": 7.154,
+      "T": 0.086466,
+      "Distance": 0.832,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.241,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.84,
+      "FreeRadius": 7.08,
+      "BRadius": 7.141,
+      "T": 0.090226,
+      "Distance": 0.868,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.276,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.831,
+      "FreeRadius": 7.086,
+      "BRadius": 7.126,
+      "T": 0.093985,
+      "Distance": 0.885,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.293,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.83,
+      "FreeRadius": 7.084,
+      "BRadius": 7.123,
+      "T": 0.097744,
+      "Distance": 0.89,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.288,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.848,
+      "FreeRadius": 7.074,
+      "BRadius": 7.15,
+      "T": 0.101504,
+      "Distance": 0.92,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.258,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.884,
+      "FreeRadius": 7.054,
+      "BRadius": 7.207,
+      "T": 0.105263,
+      "Distance": 0.979,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.198,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.917,
+      "FreeRadius": 7.027,
+      "BRadius": 7.239,
+      "T": 0.109023,
+      "Distance": 1.071,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 9.107,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.917,
+      "FreeRadius": 6.994,
+      "BRadius": 7.184,
+      "T": 0.112782,
+      "Distance": 1.199,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.979,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.873,
+      "FreeRadius": 6.952,
+      "BRadius": 7.038,
+      "T": 0.116541,
+      "Distance": 1.366,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.812,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.792,
+      "FreeRadius": 6.888,
+      "BRadius": 6.863,
+      "T": 0.120301,
+      "Distance": 1.576,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.602,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.682,
+      "FreeRadius": 6.793,
+      "BRadius": 6.718,
+      "T": 0.12406,
+      "Distance": 1.825,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.352,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.554,
+      "FreeRadius": 6.675,
+      "BRadius": 6.6,
+      "T": 0.12782,
+      "Distance": 2.11,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 8.068,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.421,
+      "FreeRadius": 6.55,
+      "BRadius": 6.476,
+      "T": 0.131579,
+      "Distance": 2.424,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 7.754,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.293,
+      "FreeRadius": 6.432,
+      "BRadius": 6.324,
+      "T": 0.135338,
+      "Distance": 2.762,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 7.416,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.177,
+      "FreeRadius": 6.324,
+      "BRadius": 6.168,
+      "T": 0.139098,
+      "Distance": 3.118,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 7.059,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.075,
+      "FreeRadius": 6.229,
+      "BRadius": 6.039,
+      "T": 0.142857,
+      "Distance": 3.488,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 6.69,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.989,
+      "FreeRadius": 6.147,
+      "BRadius": 5.951,
+      "T": 0.146617,
+      "Distance": 3.865,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 6.313,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.923,
+      "FreeRadius": 6.082,
+      "BRadius": 5.892,
+      "T": 0.150376,
+      "Distance": 4.244,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 5.933,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.878,
+      "FreeRadius": 6.036,
+      "BRadius": 5.852,
+      "T": 0.154135,
+      "Distance": 4.62,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 5.557,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.855,
+      "FreeRadius": 6.009,
+      "BRadius": 5.829,
+      "T": 0.157895,
+      "Distance": 4.988,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 5.19,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.856,
+      "FreeRadius": 5.998,
+      "BRadius": 5.827,
+      "T": 0.161654,
+      "Distance": 5.341,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.836,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.878,
+      "FreeRadius": 6.002,
+      "BRadius": 5.847,
+      "T": 0.165414,
+      "Distance": 5.675,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.502,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.909,
+      "FreeRadius": 6.02,
+      "BRadius": 5.872,
+      "T": 0.169173,
+      "Distance": 5.985,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.193,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.936,
+      "FreeRadius": 6.052,
+      "BRadius": 5.883,
+      "T": 0.172932,
+      "Distance": 6.263,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.914,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.943,
+      "FreeRadius": 6.086,
+      "BRadius": 5.864,
+      "T": 0.176692,
+      "Distance": 6.507,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.671,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.911,
+      "FreeRadius": 6.091,
+      "BRadius": 5.809,
+      "T": 0.180451,
+      "Distance": 6.71,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.467,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.826,
+      "FreeRadius": 6.034,
+      "BRadius": 5.713,
+      "T": 0.184211,
+      "Distance": 6.875,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.302,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.705,
+      "FreeRadius": 5.933,
+      "BRadius": 5.594,
+      "T": 0.18797,
+      "Distance": 7.004,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.173,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.593,
+      "FreeRadius": 5.834,
+      "BRadius": 5.484,
+      "T": 0.191729,
+      "Distance": 7.099,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.078,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.525,
+      "FreeRadius": 5.776,
+      "BRadius": 5.411,
+      "T": 0.195489,
+      "Distance": 7.163,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.014,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.498,
+      "FreeRadius": 5.755,
+      "BRadius": 5.375,
+      "T": 0.199248,
+      "Distance": 7.198,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 2.98,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.498,
+      "FreeRadius": 5.756,
+      "BRadius": 5.372,
+      "T": 0.203008,
+      "Distance": 7.205,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 2.972,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.515,
+      "FreeRadius": 5.769,
+      "BRadius": 5.395,
+      "T": 0.206767,
+      "Distance": 7.222,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 2.99,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.549,
+      "FreeRadius": 5.796,
+      "BRadius": 5.437,
+      "T": 0.210526,
+      "Distance": 7.262,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.029,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.599,
+      "FreeRadius": 5.843,
+      "BRadius": 5.493,
+      "T": 0.214286,
+      "Distance": 7.321,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.089,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.666,
+      "FreeRadius": 5.903,
+      "BRadius": 5.562,
+      "T": 0.218045,
+      "Distance": 7.399,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.166,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.754,
+      "FreeRadius": 5.97,
+      "BRadius": 5.647,
+      "T": 0.221805,
+      "Distance": 7.492,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.259,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.861,
+      "FreeRadius": 6.032,
+      "BRadius": 5.748,
+      "T": 0.225564,
+      "Distance": 7.598,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.365,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.959,
+      "FreeRadius": 6.078,
+      "BRadius": 5.844,
+      "T": 0.229323,
+      "Distance": 7.714,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.482,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.01,
+      "FreeRadius": 6.097,
+      "BRadius": 5.905,
+      "T": 0.233083,
+      "Distance": 7.84,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.607,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 5.0,
+      "FreeRadius": 6.085,
+      "BRadius": 5.919,
+      "T": 0.236842,
+      "Distance": 7.972,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.739,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.959,
+      "FreeRadius": 6.059,
+      "BRadius": 5.903,
+      "T": 0.240602,
+      "Distance": 8.107,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.874,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.922,
+      "FreeRadius": 6.037,
+      "BRadius": 5.881,
+      "T": 0.244361,
+      "Distance": 8.241,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.008,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.904,
+      "FreeRadius": 6.025,
+      "BRadius": 5.863,
+      "T": 0.24812,
+      "Distance": 8.37,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.137,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.895,
+      "FreeRadius": 6.018,
+      "BRadius": 5.849,
+      "T": 0.25188,
+      "Distance": 8.489,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.256,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.885,
+      "FreeRadius": 6.012,
+      "BRadius": 5.837,
+      "T": 0.255639,
+      "Distance": 8.595,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.362,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.876,
+      "FreeRadius": 6.006,
+      "BRadius": 5.829,
+      "T": 0.259398,
+      "Distance": 8.683,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.451,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.871,
+      "FreeRadius": 6.004,
+      "BRadius": 5.825,
+      "T": 0.263158,
+      "Distance": 8.75,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.517,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.871,
+      "FreeRadius": 6.004,
+      "BRadius": 5.826,
+      "T": 0.266917,
+      "Distance": 8.79,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.557,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.871,
+      "FreeRadius": 6.004,
+      "BRadius": 5.825,
+      "T": 0.270677,
+      "Distance": 8.8,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.567,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.864,
+      "FreeRadius": 5.999,
+      "BRadius": 5.817,
+      "T": 0.274436,
+      "Distance": 8.824,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.542,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.859,
+      "FreeRadius": 5.995,
+      "BRadius": 5.81,
+      "T": 0.278195,
+      "Distance": 8.888,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.479,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.877,
+      "FreeRadius": 6.006,
+      "BRadius": 5.829,
+      "T": 0.281955,
+      "Distance": 8.994,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.372,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.932,
+      "FreeRadius": 6.042,
+      "BRadius": 5.89,
+      "T": 0.285714,
+      "Distance": 9.147,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.219,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.983,
+      "FreeRadius": 6.077,
+      "BRadius": 5.945,
+      "T": 0.289474,
+      "Distance": 9.352,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 4.014,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.96,
+      "FreeRadius": 6.063,
+      "BRadius": 5.912,
+      "T": 0.293233,
+      "Distance": 9.613,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.754,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.811,
+      "FreeRadius": 5.967,
+      "BRadius": 5.735,
+      "T": 0.296992,
+      "Distance": 9.932,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.435,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.552,
+      "FreeRadius": 5.786,
+      "BRadius": 5.442,
+      "T": 0.300752,
+      "Distance": 10.305,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 3.061,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 4.208,
+      "FreeRadius": 5.524,
+      "BRadius": 5.076,
+      "T": 0.304511,
+      "Distance": 10.726,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 2.64,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 3.807,
+      "FreeRadius": 5.204,
+      "BRadius": 4.67,
+      "T": 0.308271,
+      "Distance": 11.186,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 2.181,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 3.377,
+      "FreeRadius": 4.869,
+      "BRadius": 4.244,
+      "T": 0.31203,
+      "Distance": 11.677,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 1.69,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 2.946,
+      "FreeRadius": 4.56,
+      "BRadius": 3.815,
+      "T": 0.315789,
+      "Distance": 12.191,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 1.175,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 2.53,
+      "FreeRadius": 4.277,
+      "BRadius": 3.399,
+      "T": 0.319549,
+      "Distance": 12.722,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 0.645,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 2.143,
+      "FreeRadius": 3.995,
+      "BRadius": 3.01,
+      "T": 0.323308,
+      "Distance": 13.26,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": 0.106,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.796,
+      "FreeRadius": 3.692,
+      "BRadius": 2.663,
+      "T": 0.327068,
+      "Distance": 13.798,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -0.432,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.508,
+      "FreeRadius": 3.356,
+      "BRadius": 2.375,
+      "T": 0.330827,
+      "Distance": 14.329,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -0.962,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.295,
+      "FreeRadius": 2.978,
+      "BRadius": 2.163,
+      "T": 0.334586,
+      "Distance": 14.844,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -1.477,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.171,
+      "FreeRadius": 2.569,
+      "BRadius": 2.039,
+      "T": 0.338346,
+      "Distance": 15.335,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -1.969,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.14,
+      "FreeRadius": 2.173,
+      "BRadius": 2.005,
+      "T": 0.342105,
+      "Distance": 15.796,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -2.429,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.204,
+      "FreeRadius": 1.834,
+      "BRadius": 2.059,
+      "T": 0.345865,
+      "Distance": 16.217,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -2.851,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.306,
+      "FreeRadius": 1.566,
+      "BRadius": 2.149,
+      "T": 0.349624,
+      "Distance": 16.592,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.226,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.353,
+      "FreeRadius": 1.36,
+      "BRadius": 2.187,
+      "T": 0.353383,
+      "Distance": 16.912,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.546,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.278,
+      "FreeRadius": 1.205,
+      "BRadius": 2.109,
+      "T": 0.357143,
+      "Distance": 17.173,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.807,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.134,
+      "FreeRadius": 1.095,
+      "BRadius": 1.966,
+      "T": 0.360902,
+      "Distance": 17.377,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.011,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.01,
+      "FreeRadius": 1.02,
+      "BRadius": 1.844,
+      "T": 0.364662,
+      "Distance": 17.53,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.163,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.954,
+      "FreeRadius": 0.973,
+      "BRadius": 1.788,
+      "T": 0.368421,
+      "Distance": 17.635,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.268,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.941,
+      "FreeRadius": 0.947,
+      "BRadius": 1.776,
+      "T": 0.37218,
+      "Distance": 17.696,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.33,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.942,
+      "FreeRadius": 0.938,
+      "BRadius": 1.776,
+      "T": 0.37594,
+      "Distance": 17.72,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.353,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.947,
+      "FreeRadius": 0.942,
+      "BRadius": 1.78,
+      "T": 0.379699,
+      "Distance": 17.73,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.343,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.959,
+      "FreeRadius": 0.959,
+      "BRadius": 1.793,
+      "T": 0.383459,
+      "Distance": 17.771,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.303,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.985,
+      "FreeRadius": 0.987,
+      "BRadius": 1.819,
+      "T": 0.387218,
+      "Distance": 17.836,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.238,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.024,
+      "FreeRadius": 1.025,
+      "BRadius": 1.859,
+      "T": 0.390977,
+      "Distance": 17.921,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.152,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.075,
+      "FreeRadius": 1.074,
+      "BRadius": 1.908,
+      "T": 0.394737,
+      "Distance": 18.023,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.05,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.134,
+      "FreeRadius": 1.133,
+      "BRadius": 1.966,
+      "T": 0.398496,
+      "Distance": 18.136,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.937,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.2,
+      "FreeRadius": 1.198,
+      "BRadius": 2.031,
+      "T": 0.402256,
+      "Distance": 18.256,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.817,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.266,
+      "FreeRadius": 1.269,
+      "BRadius": 2.105,
+      "T": 0.406015,
+      "Distance": 18.379,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.694,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.323,
+      "FreeRadius": 1.343,
+      "BRadius": 2.173,
+      "T": 0.409774,
+      "Distance": 18.5,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.573,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.353,
+      "FreeRadius": 1.415,
+      "BRadius": 2.214,
+      "T": 0.413534,
+      "Distance": 18.615,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.459,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.341,
+      "FreeRadius": 1.485,
+      "BRadius": 2.206,
+      "T": 0.417293,
+      "Distance": 18.72,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.353,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.303,
+      "FreeRadius": 1.549,
+      "BRadius": 2.166,
+      "T": 0.421053,
+      "Distance": 18.815,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.258,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.263,
+      "FreeRadius": 1.606,
+      "BRadius": 2.124,
+      "T": 0.424812,
+      "Distance": 18.899,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.175,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.239,
+      "FreeRadius": 1.656,
+      "BRadius": 2.1,
+      "T": 0.428571,
+      "Distance": 18.969,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.104,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.227,
+      "FreeRadius": 1.697,
+      "BRadius": 2.089,
+      "T": 0.432331,
+      "Distance": 19.026,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.047,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.221,
+      "FreeRadius": 1.727,
+      "BRadius": 2.083,
+      "T": 0.43609,
+      "Distance": 19.068,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.005,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.215,
+      "FreeRadius": 1.746,
+      "BRadius": 2.077,
+      "T": 0.43985,
+      "Distance": 19.094,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -2.979,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.212,
+      "FreeRadius": 1.752,
+      "BRadius": 2.074,
+      "T": 0.443609,
+      "Distance": 19.103,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -2.97,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.212,
+      "FreeRadius": 1.745,
+      "BRadius": 2.073,
+      "T": 0.447368,
+      "Distance": 19.113,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -2.98,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.218,
+      "FreeRadius": 1.724,
+      "BRadius": 2.079,
+      "T": 0.451128,
+      "Distance": 19.142,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.009,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.233,
+      "FreeRadius": 1.689,
+      "BRadius": 2.095,
+      "T": 0.454887,
+      "Distance": 19.191,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.058,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.258,
+      "FreeRadius": 1.638,
+      "BRadius": 2.122,
+      "T": 0.458647,
+      "Distance": 19.262,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.129,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.286,
+      "FreeRadius": 1.573,
+      "BRadius": 2.15,
+      "T": 0.462406,
+      "Distance": 19.356,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.223,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.308,
+      "FreeRadius": 1.492,
+      "BRadius": 2.166,
+      "T": 0.466165,
+      "Distance": 19.474,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.341,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.312,
+      "FreeRadius": 1.398,
+      "BRadius": 2.159,
+      "T": 0.469925,
+      "Distance": 19.617,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.484,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.281,
+      "FreeRadius": 1.294,
+      "BRadius": 2.117,
+      "T": 0.473684,
+      "Distance": 19.785,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.652,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.2,
+      "FreeRadius": 1.183,
+      "BRadius": 2.032,
+      "T": 0.477444,
+      "Distance": 19.977,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -3.844,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.085,
+      "FreeRadius": 1.072,
+      "BRadius": 1.918,
+      "T": 0.481203,
+      "Distance": 20.189,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.056,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.966,
+      "FreeRadius": 0.966,
+      "BRadius": 1.8,
+      "T": 0.484962,
+      "Distance": 20.418,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.285,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.869,
+      "FreeRadius": 0.874,
+      "BRadius": 1.7,
+      "T": 0.488722,
+      "Distance": 20.659,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.526,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.8,
+      "FreeRadius": 0.802,
+      "BRadius": 1.625,
+      "T": 0.492481,
+      "Distance": 20.91,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -4.777,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.758,
+      "FreeRadius": 0.757,
+      "BRadius": 1.579,
+      "T": 0.496241,
+      "Distance": 21.167,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -5.034,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.742,
+      "FreeRadius": 0.741,
+      "BRadius": 1.564,
+      "T": 0.5,
+      "Distance": 21.426,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -5.293,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.754,
+      "FreeRadius": 0.754,
+      "BRadius": 1.577,
+      "T": 0.503759,
+      "Distance": 21.685,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -5.552,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.793,
+      "FreeRadius": 0.793,
+      "BRadius": 1.614,
+      "T": 0.507519,
+      "Distance": 21.939,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -5.806,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.857,
+      "FreeRadius": 0.858,
+      "BRadius": 1.677,
+      "T": 0.511278,
+      "Distance": 22.185,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.052,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.948,
+      "FreeRadius": 0.948,
+      "BRadius": 1.766,
+      "T": 0.515038,
+      "Distance": 22.419,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.286,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.059,
+      "FreeRadius": 1.059,
+      "BRadius": 1.879,
+      "T": 0.518797,
+      "Distance": 22.639,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.505,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.165,
+      "FreeRadius": 1.165,
+      "BRadius": 1.985,
+      "T": 0.522556,
+      "Distance": 22.839,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.706,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.236,
+      "FreeRadius": 1.236,
+      "BRadius": 2.053,
+      "T": 0.526316,
+      "Distance": 23.018,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.885,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.255,
+      "FreeRadius": 1.256,
+      "BRadius": 2.065,
+      "T": 0.530075,
+      "Distance": 23.172,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.039,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.241,
+      "FreeRadius": 1.241,
+      "BRadius": 2.043,
+      "T": 0.533835,
+      "Distance": 23.298,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.165,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.21,
+      "FreeRadius": 1.21,
+      "BRadius": 2.009,
+      "T": 0.537594,
+      "Distance": 23.398,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.265,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.177,
+      "FreeRadius": 1.177,
+      "BRadius": 1.975,
+      "T": 0.541353,
+      "Distance": 23.473,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.34,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.148,
+      "FreeRadius": 1.148,
+      "BRadius": 1.948,
+      "T": 0.545113,
+      "Distance": 23.526,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.393,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.132,
+      "FreeRadius": 1.132,
+      "BRadius": 1.933,
+      "T": 0.548872,
+      "Distance": 23.559,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.426,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.127,
+      "FreeRadius": 1.127,
+      "BRadius": 1.928,
+      "T": 0.552632,
+      "Distance": 23.573,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.44,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.13,
+      "FreeRadius": 1.13,
+      "BRadius": 1.93,
+      "T": 0.556391,
+      "Distance": 23.576,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.438,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.138,
+      "FreeRadius": 1.138,
+      "BRadius": 1.938,
+      "T": 0.56015,
+      "Distance": 23.593,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.42,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.15,
+      "FreeRadius": 1.15,
+      "BRadius": 1.95,
+      "T": 0.56391,
+      "Distance": 23.623,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.39,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.165,
+      "FreeRadius": 1.165,
+      "BRadius": 1.965,
+      "T": 0.567669,
+      "Distance": 23.664,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.349,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.185,
+      "FreeRadius": 1.185,
+      "BRadius": 1.985,
+      "T": 0.571429,
+      "Distance": 23.714,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.299,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.213,
+      "FreeRadius": 1.213,
+      "BRadius": 2.013,
+      "T": 0.575188,
+      "Distance": 23.772,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.242,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.251,
+      "FreeRadius": 1.251,
+      "BRadius": 2.05,
+      "T": 0.578947,
+      "Distance": 23.834,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.179,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.287,
+      "FreeRadius": 1.287,
+      "BRadius": 2.086,
+      "T": 0.582707,
+      "Distance": 23.9,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.113,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.305,
+      "FreeRadius": 1.305,
+      "BRadius": 2.106,
+      "T": 0.586466,
+      "Distance": 23.968,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.046,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.294,
+      "FreeRadius": 1.294,
+      "BRadius": 2.101,
+      "T": 0.590226,
+      "Distance": 24.035,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.978,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.264,
+      "FreeRadius": 1.264,
+      "BRadius": 2.08,
+      "T": 0.593985,
+      "Distance": 24.1,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.913,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.23,
+      "FreeRadius": 1.23,
+      "BRadius": 2.05,
+      "T": 0.597744,
+      "Distance": 24.162,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.852,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.198,
+      "FreeRadius": 1.198,
+      "BRadius": 2.018,
+      "T": 0.601504,
+      "Distance": 24.219,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.795,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.169,
+      "FreeRadius": 1.169,
+      "BRadius": 1.988,
+      "T": 0.605263,
+      "Distance": 24.269,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.744,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.145,
+      "FreeRadius": 1.145,
+      "BRadius": 1.963,
+      "T": 0.609023,
+      "Distance": 24.312,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.701,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.127,
+      "FreeRadius": 1.127,
+      "BRadius": 1.945,
+      "T": 0.612782,
+      "Distance": 24.346,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.667,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.115,
+      "FreeRadius": 1.115,
+      "BRadius": 1.934,
+      "T": 0.616541,
+      "Distance": 24.37,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.644,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.111,
+      "FreeRadius": 1.111,
+      "BRadius": 1.93,
+      "T": 0.620301,
+      "Distance": 24.382,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.632,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.112,
+      "FreeRadius": 1.112,
+      "BRadius": 1.93,
+      "T": 0.62406,
+      "Distance": 24.383,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.633,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.116,
+      "FreeRadius": 1.116,
+      "BRadius": 1.934,
+      "T": 0.62782,
+      "Distance": 24.399,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.65,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.127,
+      "FreeRadius": 1.127,
+      "BRadius": 1.944,
+      "T": 0.631579,
+      "Distance": 24.432,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.682,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.158,
+      "FreeRadius": 1.158,
+      "BRadius": 1.976,
+      "T": 0.635338,
+      "Distance": 24.481,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.732,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.218,
+      "FreeRadius": 1.218,
+      "BRadius": 2.038,
+      "T": 0.639098,
+      "Distance": 24.55,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.8,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.285,
+      "FreeRadius": 1.285,
+      "BRadius": 2.105,
+      "T": 0.642857,
+      "Distance": 24.639,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.889,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.314,
+      "FreeRadius": 1.314,
+      "BRadius": 2.132,
+      "T": 0.646617,
+      "Distance": 24.749,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -6.999,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.279,
+      "FreeRadius": 1.279,
+      "BRadius": 2.09,
+      "T": 0.650376,
+      "Distance": 24.882,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.132,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.202,
+      "FreeRadius": 1.202,
+      "BRadius": 2.006,
+      "T": 0.654135,
+      "Distance": 25.036,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.286,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.119,
+      "FreeRadius": 1.119,
+      "BRadius": 1.918,
+      "T": 0.657895,
+      "Distance": 25.207,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.457,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.051,
+      "FreeRadius": 1.051,
+      "BRadius": 1.849,
+      "T": 0.661654,
+      "Distance": 25.393,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.643,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.996,
+      "FreeRadius": 0.996,
+      "BRadius": 1.796,
+      "T": 0.665414,
+      "Distance": 25.59,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -7.84,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.954,
+      "FreeRadius": 0.954,
+      "BRadius": 1.755,
+      "T": 0.669173,
+      "Distance": 25.796,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -8.047,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.926,
+      "FreeRadius": 0.926,
+      "BRadius": 1.727,
+      "T": 0.672932,
+      "Distance": 26.008,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -8.259,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.916,
+      "FreeRadius": 0.916,
+      "BRadius": 1.717,
+      "T": 0.676692,
+      "Distance": 26.223,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -8.473,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.927,
+      "FreeRadius": 0.927,
+      "BRadius": 1.727,
+      "T": 0.680451,
+      "Distance": 26.438,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -8.688,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.956,
+      "FreeRadius": 0.956,
+      "BRadius": 1.755,
+      "T": 0.684211,
+      "Distance": 26.649,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -8.899,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.0,
+      "FreeRadius": 1.0,
+      "BRadius": 1.798,
+      "T": 0.68797,
+      "Distance": 26.854,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.104,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.057,
+      "FreeRadius": 1.057,
+      "BRadius": 1.853,
+      "T": 0.691729,
+      "Distance": 27.05,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.301,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.125,
+      "FreeRadius": 1.125,
+      "BRadius": 1.921,
+      "T": 0.695489,
+      "Distance": 27.234,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.485,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.2,
+      "FreeRadius": 1.2,
+      "BRadius": 2.0,
+      "T": 0.699248,
+      "Distance": 27.403,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.653,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.267,
+      "FreeRadius": 1.267,
+      "BRadius": 2.072,
+      "T": 0.703008,
+      "Distance": 27.554,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.804,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.298,
+      "FreeRadius": 1.298,
+      "BRadius": 2.107,
+      "T": 0.706767,
+      "Distance": 27.684,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.934,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.274,
+      "FreeRadius": 1.274,
+      "BRadius": 2.084,
+      "T": 0.710526,
+      "Distance": 27.791,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.041,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.218,
+      "FreeRadius": 1.218,
+      "BRadius": 2.027,
+      "T": 0.714286,
+      "Distance": 27.877,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.127,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.165,
+      "FreeRadius": 1.165,
+      "BRadius": 1.974,
+      "T": 0.718045,
+      "Distance": 27.942,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.193,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.138,
+      "FreeRadius": 1.138,
+      "BRadius": 1.947,
+      "T": 0.721805,
+      "Distance": 27.989,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.24,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.13,
+      "FreeRadius": 1.13,
+      "BRadius": 1.938,
+      "T": 0.725564,
+      "Distance": 28.019,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.27,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.127,
+      "FreeRadius": 1.127,
+      "BRadius": 1.936,
+      "T": 0.729323,
+      "Distance": 28.033,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.283,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.128,
+      "FreeRadius": 1.128,
+      "BRadius": 1.936,
+      "T": 0.733083,
+      "Distance": 28.034,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.283,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.132,
+      "FreeRadius": 1.132,
+      "BRadius": 1.941,
+      "T": 0.736842,
+      "Distance": 28.047,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.27,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.143,
+      "FreeRadius": 1.143,
+      "BRadius": 1.951,
+      "T": 0.740602,
+      "Distance": 28.072,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.245,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.16,
+      "FreeRadius": 1.16,
+      "BRadius": 1.968,
+      "T": 0.744361,
+      "Distance": 28.107,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.21,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.182,
+      "FreeRadius": 1.182,
+      "BRadius": 1.991,
+      "T": 0.74812,
+      "Distance": 28.151,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.166,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.209,
+      "FreeRadius": 1.209,
+      "BRadius": 2.018,
+      "T": 0.75188,
+      "Distance": 28.202,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.115,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.238,
+      "FreeRadius": 1.238,
+      "BRadius": 2.048,
+      "T": 0.755639,
+      "Distance": 28.259,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.058,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.267,
+      "FreeRadius": 1.267,
+      "BRadius": 2.074,
+      "T": 0.759398,
+      "Distance": 28.32,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.997,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.289,
+      "FreeRadius": 1.289,
+      "BRadius": 2.091,
+      "T": 0.763158,
+      "Distance": 28.384,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.933,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.294,
+      "FreeRadius": 1.294,
+      "BRadius": 2.093,
+      "T": 0.766917,
+      "Distance": 28.45,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.867,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.277,
+      "FreeRadius": 1.277,
+      "BRadius": 2.073,
+      "T": 0.770677,
+      "Distance": 28.515,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.801,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.243,
+      "FreeRadius": 1.243,
+      "BRadius": 2.04,
+      "T": 0.774436,
+      "Distance": 28.579,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.738,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.207,
+      "FreeRadius": 1.207,
+      "BRadius": 2.005,
+      "T": 0.778195,
+      "Distance": 28.639,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.678,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.181,
+      "FreeRadius": 1.181,
+      "BRadius": 1.979,
+      "T": 0.781955,
+      "Distance": 28.694,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.623,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.162,
+      "FreeRadius": 1.162,
+      "BRadius": 1.96,
+      "T": 0.785714,
+      "Distance": 28.741,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.576,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.148,
+      "FreeRadius": 1.148,
+      "BRadius": 1.946,
+      "T": 0.789474,
+      "Distance": 28.779,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.537,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.137,
+      "FreeRadius": 1.137,
+      "BRadius": 1.935,
+      "T": 0.793233,
+      "Distance": 28.806,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.51,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.131,
+      "FreeRadius": 1.131,
+      "BRadius": 1.928,
+      "T": 0.796992,
+      "Distance": 28.821,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.495,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.128,
+      "FreeRadius": 1.128,
+      "BRadius": 1.926,
+      "T": 0.800752,
+      "Distance": 28.821,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.495,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.134,
+      "FreeRadius": 1.134,
+      "BRadius": 1.932,
+      "T": 0.804511,
+      "Distance": 28.837,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.511,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.151,
+      "FreeRadius": 1.151,
+      "BRadius": 1.948,
+      "T": 0.808271,
+      "Distance": 28.871,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.545,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.181,
+      "FreeRadius": 1.181,
+      "BRadius": 1.978,
+      "T": 0.81203,
+      "Distance": 28.925,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.599,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.216,
+      "FreeRadius": 1.216,
+      "BRadius": 2.012,
+      "T": 0.815789,
+      "Distance": 29.001,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.675,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.243,
+      "FreeRadius": 1.243,
+      "BRadius": 2.042,
+      "T": 0.819549,
+      "Distance": 29.1,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.773,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.251,
+      "FreeRadius": 1.251,
+      "BRadius": 2.055,
+      "T": 0.823308,
+      "Distance": 29.224,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -9.898,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.229,
+      "FreeRadius": 1.229,
+      "BRadius": 2.037,
+      "T": 0.827068,
+      "Distance": 29.374,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.048,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.168,
+      "FreeRadius": 1.168,
+      "BRadius": 1.977,
+      "T": 0.830827,
+      "Distance": 29.548,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.222,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.078,
+      "FreeRadius": 1.078,
+      "BRadius": 1.887,
+      "T": 0.834586,
+      "Distance": 29.743,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.417,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.987,
+      "FreeRadius": 0.987,
+      "BRadius": 1.796,
+      "T": 0.838346,
+      "Distance": 29.954,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.628,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.915,
+      "FreeRadius": 0.915,
+      "BRadius": 1.725,
+      "T": 0.842105,
+      "Distance": 30.178,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -10.852,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.867,
+      "FreeRadius": 0.867,
+      "BRadius": 1.68,
+      "T": 0.845865,
+      "Distance": 30.412,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -11.086,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.843,
+      "FreeRadius": 0.843,
+      "BRadius": 1.658,
+      "T": 0.849624,
+      "Distance": 30.652,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -11.326,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.843,
+      "FreeRadius": 0.843,
+      "BRadius": 1.658,
+      "T": 0.853383,
+      "Distance": 30.894,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -11.568,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.865,
+      "FreeRadius": 0.865,
+      "BRadius": 1.68,
+      "T": 0.857143,
+      "Distance": 31.136,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -11.81,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.908,
+      "FreeRadius": 0.908,
+      "BRadius": 1.722,
+      "T": 0.860902,
+      "Distance": 31.373,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -12.046,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 0.972,
+      "FreeRadius": 0.972,
+      "BRadius": 1.786,
+      "T": 0.864662,
+      "Distance": 31.601,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -12.275,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.057,
+      "FreeRadius": 1.057,
+      "BRadius": 1.87,
+      "T": 0.868421,
+      "Distance": 31.818,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -12.492,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.159,
+      "FreeRadius": 1.159,
+      "BRadius": 1.972,
+      "T": 0.87218,
+      "Distance": 32.02,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -12.694,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.255,
+      "FreeRadius": 1.255,
+      "BRadius": 2.068,
+      "T": 0.87594,
+      "Distance": 32.203,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -12.877,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.315,
+      "FreeRadius": 1.315,
+      "BRadius": 2.129,
+      "T": 0.879699,
+      "Distance": 32.364,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.038,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.326,
+      "FreeRadius": 1.326,
+      "BRadius": 2.141,
+      "T": 0.883459,
+      "Distance": 32.499,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.173,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.307,
+      "FreeRadius": 1.307,
+      "BRadius": 2.123,
+      "T": 0.887218,
+      "Distance": 32.607,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.281,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.278,
+      "FreeRadius": 1.278,
+      "BRadius": 2.095,
+      "T": 0.890977,
+      "Distance": 32.689,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.363,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.252,
+      "FreeRadius": 1.252,
+      "BRadius": 2.069,
+      "T": 0.894737,
+      "Distance": 32.748,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.422,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.233,
+      "FreeRadius": 1.233,
+      "BRadius": 2.05,
+      "T": 0.898496,
+      "Distance": 32.786,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.46,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.224,
+      "FreeRadius": 1.224,
+      "BRadius": 2.04,
+      "T": 0.902256,
+      "Distance": 32.806,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.48,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.223,
+      "FreeRadius": 1.223,
+      "BRadius": 2.039,
+      "T": 0.906015,
+      "Distance": 32.809,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.483,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.228,
+      "FreeRadius": 1.228,
+      "BRadius": 2.045,
+      "T": 0.909774,
+      "Distance": 32.82,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.472,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.238,
+      "FreeRadius": 1.238,
+      "BRadius": 2.055,
+      "T": 0.913534,
+      "Distance": 32.843,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.449,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.251,
+      "FreeRadius": 1.251,
+      "BRadius": 2.068,
+      "T": 0.917293,
+      "Distance": 32.875,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.417,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.267,
+      "FreeRadius": 1.267,
+      "BRadius": 2.084,
+      "T": 0.921053,
+      "Distance": 32.915,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.378,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.286,
+      "FreeRadius": 1.286,
+      "BRadius": 2.103,
+      "T": 0.924812,
+      "Distance": 32.959,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.333,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.309,
+      "FreeRadius": 1.309,
+      "BRadius": 2.126,
+      "T": 0.928571,
+      "Distance": 33.006,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.286,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.337,
+      "FreeRadius": 1.337,
+      "BRadius": 2.153,
+      "T": 0.932331,
+      "Distance": 33.054,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.238,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.362,
+      "FreeRadius": 1.362,
+      "BRadius": 2.179,
+      "T": 0.93609,
+      "Distance": 33.1,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.192,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.374,
+      "FreeRadius": 1.374,
+      "BRadius": 2.191,
+      "T": 0.93985,
+      "Distance": 33.143,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.15,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.369,
+      "FreeRadius": 1.369,
+      "BRadius": 2.184,
+      "T": 0.943609,
+      "Distance": 33.178,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.114,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.354,
+      "FreeRadius": 1.354,
+      "BRadius": 2.168,
+      "T": 0.947368,
+      "Distance": 33.208,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.085,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.339,
+      "FreeRadius": 1.339,
+      "BRadius": 2.152,
+      "T": 0.951128,
+      "Distance": 33.23,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.062,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.329,
+      "FreeRadius": 1.329,
+      "BRadius": 2.142,
+      "T": 0.954887,
+      "Distance": 33.247,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.045,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.323,
+      "FreeRadius": 1.323,
+      "BRadius": 2.137,
+      "T": 0.958647,
+      "Distance": 33.259,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.033,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.32,
+      "FreeRadius": 1.32,
+      "BRadius": 2.133,
+      "T": 0.962406,
+      "Distance": 33.265,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.027,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.319,
+      "FreeRadius": 1.319,
+      "BRadius": 2.132,
+      "T": 0.966165,
+      "Distance": 33.267,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.025,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.32,
+      "FreeRadius": 1.32,
+      "BRadius": 2.133,
+      "T": 0.969925,
+      "Distance": 33.269,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.027,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.323,
+      "FreeRadius": 1.323,
+      "BRadius": 2.136,
+      "T": 0.973684,
+      "Distance": 33.275,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.033,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.328,
+      "FreeRadius": 1.328,
+      "BRadius": 2.141,
+      "T": 0.977444,
+      "Distance": 33.284,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.042,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.335,
+      "FreeRadius": 1.335,
+      "BRadius": 2.148,
+      "T": 0.981203,
+      "Distance": 33.296,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.053,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.343,
+      "FreeRadius": 1.343,
+      "BRadius": 2.156,
+      "T": 0.984962,
+      "Distance": 33.309,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.067,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.352,
+      "FreeRadius": 1.352,
+      "BRadius": 2.165,
+      "T": 0.988722,
+      "Distance": 33.325,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.083,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.362,
+      "FreeRadius": 1.362,
+      "BRadius": 2.175,
+      "T": 0.992481,
+      "Distance": 33.342,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.1,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.372,
+      "FreeRadius": 1.372,
+      "BRadius": 2.187,
+      "T": 0.996241,
+      "Distance": 33.36,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.118,
+      "Charge": 0.0
+     },
+     {
+      "Radius": 1.383,
+      "FreeRadius": 1.383,
+      "BRadius": 2.198,
+      "T": 1.0,
+      "Distance": 33.379,
+      "X": 0.0,
+      "Y": 31.906,
+      "Z": -13.136,
+      "Charge": 0.0
+     }
+    ],
+    "Layers": {
+     "ResidueFlow": [
+      "GLU 92 A",
+      "GLU 92 A_2",
+      "ALA 88 A_3",
+      "GLU 92 A_3",
+      "GLU 92 A_4",
+      "ALA 88 A",
+      "ALA 88 A_2",
+      "ALA 88 A_4",
+      "THR 59 A_2",
+      "THR 59 A",
+      "THR 59 A_3",
+      "THR 59 A_4",
+      "THR 59 A Backbone",
+      "THR 59 A_3 Backbone",
+      "THR 59 A_4 Backbone",
+      "THR 59 A_2 Backbone",
+      "VAL 60 A_3 Backbone",
+      "VAL 60 A_4 Backbone",
+      "VAL 60 A Backbone",
+      "VAL 60 A_2 Backbone",
+      "GLY 61 A_2 Backbone",
+      "GLY 61 A Backbone",
+      "GLY 61 A_3 Backbone",
+      "GLY 61 A_4 Backbone",
+      "TYR 62 A_4 Backbone",
+      "TYR 62 A Backbone",
+      "TYR 62 A_2 Backbone",
+      "TYR 62 A_3 Backbone"
+     ],
+     "HetResidues": [
+      "K 1 A",
+      "K 2 A",
+      "K 3 A",
+      "K 4 A",
+      "K 5 A",
+      "K 1 A_2",
+      "K 2 A_2",
+      "K 3 A_2",
+      "K 4 A_2",
+      "K 5 A_3",
+      "K 1 A_4",
+      "K 2 A_4",
+      "K 3 A_4",
+      "K 4 A_4",
+      "K 5 A_4"
+     ],
+     "LayerWeightedProperties": {
+      "Hydrophobicity": -0.62,
+      "Hydropathy": -0.14,
+      "Polarity": 4.14,
+      "LogP": -0.16,
+      "LogD": -0.28,
+      "LogS": 0.81,
+      "Mutability": 64
+     },
+     "LayersInfo": [
+      {
+       "LayerGeometry": {
+        "MinRadius": 5.871,
+        "MinFreeRadius": 6.932,
+        "MinBRadius": 7.171,
+        "StartDistance": 0.0,
+        "EndDistance": 0.075,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "GLU 92 A",
+        "GLU 92 A_2",
+        "ALA 88 A_3",
+        "GLU 92 A_3",
+        "GLU 92 A_4"
+       ],
+       "FlowIndices": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4"
+       ],
+       "Properties": {
+        "Charge": -4,
+        "Ionizable": 4,
+        "NumPositives": 0,
+        "NumNegatives": 4,
+        "Hydrophobicity": -0.91,
+        "Hydropathy": -2.44,
+        "Polarity": 39.92,
+        "LogP": 0.6,
+        "LogD": -1.48,
+        "LogS": 1.9,
+        "Mutability": 81
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 5.787,
+        "MinFreeRadius": 6.886,
+        "MinBRadius": 6.843,
+        "StartDistance": 0.075,
+        "EndDistance": 0.239,
+        "LocalMinimum": true
+       },
+       "Residues": [
+        "ALA 88 A_3",
+        "GLU 92 A_4",
+        "ALA 88 A",
+        "ALA 88 A_2",
+        "ALA 88 A_4"
+       ],
+       "FlowIndices": [
+        "2",
+        "4",
+        "5",
+        "6",
+        "7"
+       ],
+       "Properties": {
+        "Charge": -1,
+        "Ionizable": 1,
+        "NumPositives": 0,
+        "NumNegatives": 1,
+        "Hydrophobicity": -0.21,
+        "Hydropathy": 0.74,
+        "Polarity": 9.98,
+        "LogP": 0.96,
+        "LogD": 0.44,
+        "LogS": 0.92,
+        "Mutability": 95
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 5.821,
+        "MinFreeRadius": 6.907,
+        "MinBRadius": 6.876,
+        "StartDistance": 0.239,
+        "EndDistance": 0.368,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "ALA 88 A_3",
+        "GLU 92 A_4",
+        "ALA 88 A",
+        "ALA 88 A_2",
+        "ALA 88 A_4"
+       ],
+       "FlowIndices": [
+        "2",
+        "4",
+        "5",
+        "6",
+        "7"
+       ],
+       "Properties": {
+        "Charge": -1,
+        "Ionizable": 1,
+        "NumPositives": 0,
+        "NumNegatives": 1,
+        "Hydrophobicity": -0.21,
+        "Hydropathy": 0.74,
+        "Polarity": 9.98,
+        "LogP": 0.96,
+        "LogD": 0.44,
+        "LogS": 0.92,
+        "Mutability": 95
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 5.838,
+        "MinFreeRadius": 6.939,
+        "MinBRadius": 7.138,
+        "StartDistance": 0.368,
+        "EndDistance": 1.602,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "GLU 92 A",
+        "GLU 92 A_2",
+        "GLU 92 A_3",
+        "GLU 92 A_4",
+        "ALA 88 A_4"
+       ],
+       "FlowIndices": [
+        "0",
+        "1",
+        "3",
+        "4",
+        "7"
+       ],
+       "Properties": {
+        "Charge": -4,
+        "Ionizable": 4,
+        "NumPositives": 0,
+        "NumNegatives": 4,
+        "Hydrophobicity": -0.91,
+        "Hydropathy": -2.44,
+        "Polarity": 39.92,
+        "LogP": 0.6,
+        "LogD": -1.48,
+        "LogS": 1.9,
+        "Mutability": 81
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 5.43,
+        "MinFreeRadius": 6.558,
+        "MinBRadius": 6.485,
+        "StartDistance": 1.602,
+        "EndDistance": 3.314,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "GLU 92 A_2",
+        "ALA 88 A_3",
+        "ALA 88 A",
+        "ALA 88 A_2",
+        "ALA 88 A_4"
+       ],
+       "FlowIndices": [
+        "1",
+        "2",
+        "5",
+        "6",
+        "7"
+       ],
+       "Properties": {
+        "Charge": -1,
+        "Ionizable": 1,
+        "NumPositives": 0,
+        "NumNegatives": 1,
+        "Hydrophobicity": -0.21,
+        "Hydropathy": 0.74,
+        "Polarity": 9.98,
+        "LogP": 0.96,
+        "LogD": 0.44,
+        "LogS": 0.92,
+        "Mutability": 95
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 4.856,
+        "MinFreeRadius": 5.998,
+        "MinBRadius": 5.827,
+        "StartDistance": 3.314,
+        "EndDistance": 6.146,
+        "LocalMinimum": true
+       },
+       "Residues": [
+        "ALA 88 A_3",
+        "ALA 88 A",
+        "ALA 88 A_2",
+        "ALA 88 A_4"
+       ],
+       "FlowIndices": [
+        "2",
+        "5",
+        "6",
+        "7"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": 0.02,
+        "Hydropathy": 1.8,
+        "Polarity": 0.0,
+        "LogP": 1.08,
+        "LogD": 1.08,
+        "LogS": 0.59,
+        "Mutability": 100
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 4.929,
+        "MinFreeRadius": 6.04,
+        "MinBRadius": 5.882,
+        "StartDistance": 6.146,
+        "EndDistance": 6.744,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "ALA 88 A_3",
+        "ALA 88 A",
+        "ALA 88 A_2",
+        "ALA 88 A_4",
+        "THR 59 A_2"
+       ],
+       "FlowIndices": [
+        "2",
+        "5",
+        "6",
+        "7",
+        "8"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.14,
+        "Hydropathy": 1.3,
+        "Polarity": 0.33,
+        "LogP": 0.83,
+        "LogD": 0.83,
+        "LogS": 0.63,
+        "Mutability": 101
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 4.588,
+        "MinFreeRadius": 5.83,
+        "MinBRadius": 5.48,
+        "StartDistance": 6.744,
+        "EndDistance": 7.175,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "ALA 88 A_4",
+        "THR 59 A_2",
+        "THR 59 A",
+        "THR 59 A_3",
+        "THR 59 A_4"
+       ],
+       "FlowIndices": [
+        "7",
+        "8",
+        "9",
+        "10",
+        "11"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.61,
+        "Hydropathy": -0.2,
+        "Polarity": 1.33,
+        "LogP": 0.09,
+        "LogD": 0.09,
+        "LogS": 0.73,
+        "Mutability": 105
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 4.496,
+        "MinFreeRadius": 5.754,
+        "MinBRadius": 5.37,
+        "StartDistance": 7.175,
+        "EndDistance": 7.255,
+        "LocalMinimum": true
+       },
+       "Residues": [
+        "THR 59 A_2",
+        "THR 59 A",
+        "THR 59 A_3",
+        "THR 59 A_4"
+       ],
+       "FlowIndices": [
+        "8",
+        "9",
+        "10",
+        "11"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.77,
+        "Hydropathy": -0.7,
+        "Polarity": 1.66,
+        "LogP": -0.16,
+        "LogD": -0.16,
+        "LogS": 0.77,
+        "Mutability": 107
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 4.568,
+        "MinFreeRadius": 5.814,
+        "MinBRadius": 5.46,
+        "StartDistance": 7.255,
+        "EndDistance": 8.143,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "ALA 88 A_4",
+        "THR 59 A_2",
+        "THR 59 A",
+        "THR 59 A_3",
+        "THR 59 A_4"
+       ],
+       "FlowIndices": [
+        "7",
+        "8",
+        "9",
+        "10",
+        "11"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.61,
+        "Hydropathy": -0.2,
+        "Polarity": 1.33,
+        "LogP": 0.09,
+        "LogD": 0.09,
+        "LogS": 0.73,
+        "Mutability": 105
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 4.868,
+        "MinFreeRadius": 6.002,
+        "MinBRadius": 5.822,
+        "StartDistance": 8.143,
+        "EndDistance": 8.978,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "ALA 88 A_3",
+        "ALA 88 A",
+        "ALA 88 A_2",
+        "ALA 88 A_4",
+        "THR 59 A_4"
+       ],
+       "FlowIndices": [
+        "2",
+        "5",
+        "6",
+        "7",
+        "11"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.14,
+        "Hydropathy": 1.3,
+        "Polarity": 0.33,
+        "LogP": 0.83,
+        "LogD": 0.83,
+        "LogS": 0.63,
+        "Mutability": 101
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 4.886,
+        "MinFreeRadius": 6.012,
+        "MinBRadius": 5.84,
+        "StartDistance": 8.978,
+        "EndDistance": 10.508,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "ALA 88 A_3",
+        "ALA 88 A",
+        "ALA 88 A_2",
+        "ALA 88 A_4",
+        "THR 59 A_2"
+       ],
+       "FlowIndices": [
+        "2",
+        "5",
+        "6",
+        "7",
+        "8"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.14,
+        "Hydropathy": 1.3,
+        "Polarity": 0.33,
+        "LogP": 0.83,
+        "LogD": 0.83,
+        "LogS": 0.63,
+        "Mutability": 101
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 3.25,
+        "MinFreeRadius": 4.774,
+        "MinBRadius": 4.117,
+        "StartDistance": 10.508,
+        "EndDistance": 13.202,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A_2",
+        "THR 59 A",
+        "THR 59 A_3",
+        "THR 59 A_4"
+       ],
+       "FlowIndices": [
+        "8",
+        "9",
+        "10",
+        "11"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.77,
+        "Hydropathy": -0.7,
+        "Polarity": 1.66,
+        "LogP": -0.16,
+        "LogD": -0.16,
+        "LogS": 0.77,
+        "Mutability": 107
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.153,
+        "MinFreeRadius": 2.045,
+        "MinBRadius": 2.015,
+        "StartDistance": 13.202,
+        "EndDistance": 16.877,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A_2",
+        "THR 59 A",
+        "THR 59 A_3",
+        "THR 59 A_4"
+       ],
+       "FlowIndices": [
+        "8",
+        "9",
+        "10",
+        "11"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.77,
+        "Hydropathy": -0.7,
+        "Polarity": 1.66,
+        "LogP": -0.16,
+        "LogD": -0.16,
+        "LogS": 0.77,
+        "Mutability": 107
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.942,
+        "MinFreeRadius": 0.942,
+        "MinBRadius": 1.775,
+        "StartDistance": 16.877,
+        "EndDistance": 17.71,
+        "LocalMinimum": true
+       },
+       "Residues": [
+        "THR 59 A_2",
+        "THR 59 A Backbone",
+        "THR 59 A_3 Backbone",
+        "THR 59 A_4 Backbone"
+       ],
+       "FlowIndices": [
+        "8",
+        "12",
+        "13",
+        "14"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.79,
+        "Hydropathy": -0.48,
+        "Polarity": 2.95,
+        "LogP": -0.68,
+        "LogD": -0.68,
+        "LogS": 0.8,
+        "Mutability": 107
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.961,
+        "MinFreeRadius": 0.961,
+        "MinBRadius": 1.795,
+        "StartDistance": 17.71,
+        "EndDistance": 18.567,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A_3",
+        "THR 59 A Backbone",
+        "THR 59 A_4 Backbone",
+        "THR 59 A_2 Backbone"
+       ],
+       "FlowIndices": [
+        "10",
+        "12",
+        "14",
+        "15"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.79,
+        "Hydropathy": -0.48,
+        "Polarity": 2.95,
+        "LogP": -0.68,
+        "LogD": -0.68,
+        "LogS": 0.8,
+        "Mutability": 107
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.212,
+        "MinFreeRadius": 1.427,
+        "MinBRadius": 2.073,
+        "StartDistance": 18.567,
+        "EndDistance": 19.77,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A_2",
+        "THR 59 A",
+        "THR 59 A_3",
+        "THR 59 A_4"
+       ],
+       "FlowIndices": [
+        "8",
+        "9",
+        "10",
+        "11"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.77,
+        "Hydropathy": -0.7,
+        "Polarity": 1.66,
+        "LogP": -0.16,
+        "LogD": -0.16,
+        "LogS": 0.77,
+        "Mutability": 107
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.969,
+        "MinFreeRadius": 0.969,
+        "MinBRadius": 1.803,
+        "StartDistance": 19.77,
+        "EndDistance": 21.011,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A_3",
+        "THR 59 A Backbone",
+        "THR 59 A_4 Backbone",
+        "THR 59 A_2 Backbone"
+       ],
+       "FlowIndices": [
+        "10",
+        "12",
+        "14",
+        "15"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.79,
+        "Hydropathy": -0.48,
+        "Polarity": 2.95,
+        "LogP": -0.68,
+        "LogD": -0.68,
+        "LogS": 0.8,
+        "Mutability": 107
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.765,
+        "MinFreeRadius": 0.765,
+        "MinBRadius": 1.587,
+        "StartDistance": 21.011,
+        "EndDistance": 22.359,
+        "LocalMinimum": true,
+        "Bottleneck": true
+       },
+       "Residues": [
+        "THR 59 A Backbone",
+        "THR 59 A_3 Backbone",
+        "THR 59 A_4 Backbone",
+        "THR 59 A_2 Backbone"
+       ],
+       "FlowIndices": [
+        "12",
+        "13",
+        "14",
+        "15"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.951,
+        "MinFreeRadius": 0.951,
+        "MinBRadius": 1.77,
+        "StartDistance": 22.359,
+        "EndDistance": 22.903,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A Backbone",
+        "THR 59 A_3 Backbone",
+        "THR 59 A_4 Backbone",
+        "THR 59 A_2 Backbone",
+        "VAL 60 A_3 Backbone"
+       ],
+       "FlowIndices": [
+        "12",
+        "13",
+        "14",
+        "15",
+        "16"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.221,
+        "MinFreeRadius": 1.221,
+        "MinBRadius": 2.04,
+        "StartDistance": 22.903,
+        "EndDistance": 23.274,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A Backbone",
+        "THR 59 A_3 Backbone",
+        "THR 59 A_4 Backbone",
+        "THR 59 A_2 Backbone",
+        "VAL 60 A_4 Backbone"
+       ],
+       "FlowIndices": [
+        "12",
+        "13",
+        "14",
+        "15",
+        "17"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.129,
+        "MinFreeRadius": 1.129,
+        "MinBRadius": 1.929,
+        "StartDistance": 23.274,
+        "EndDistance": 24.065,
+        "LocalMinimum": true
+       },
+       "Residues": [
+        "THR 59 A_3 Backbone",
+        "VAL 60 A_3 Backbone",
+        "VAL 60 A_4 Backbone",
+        "VAL 60 A Backbone",
+        "VAL 60 A_2 Backbone"
+       ],
+       "FlowIndices": [
+        "13",
+        "16",
+        "17",
+        "18",
+        "19"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.163,
+        "MinFreeRadius": 1.163,
+        "MinBRadius": 1.982,
+        "StartDistance": 24.065,
+        "EndDistance": 24.3,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A Backbone",
+        "THR 59 A_3 Backbone",
+        "THR 59 A_4 Backbone",
+        "THR 59 A_2 Backbone",
+        "VAL 60 A_3 Backbone"
+       ],
+       "FlowIndices": [
+        "12",
+        "13",
+        "14",
+        "15",
+        "16"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.114,
+        "MinFreeRadius": 1.114,
+        "MinBRadius": 1.932,
+        "StartDistance": 24.3,
+        "EndDistance": 25.058,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A Backbone",
+        "THR 59 A_3 Backbone",
+        "THR 59 A_4 Backbone",
+        "THR 59 A_2 Backbone",
+        "VAL 60 A_3 Backbone"
+       ],
+       "FlowIndices": [
+        "12",
+        "13",
+        "14",
+        "15",
+        "16"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.981,
+        "MinFreeRadius": 0.981,
+        "MinBRadius": 1.781,
+        "StartDistance": 25.058,
+        "EndDistance": 26.141,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "THR 59 A_2 Backbone",
+        "VAL 60 A_3 Backbone",
+        "VAL 60 A_4 Backbone",
+        "VAL 60 A Backbone",
+        "VAL 60 A_2 Backbone"
+       ],
+       "FlowIndices": [
+        "15",
+        "16",
+        "17",
+        "18",
+        "19"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.916,
+        "MinFreeRadius": 0.916,
+        "MinBRadius": 1.717,
+        "StartDistance": 26.141,
+        "EndDistance": 26.708,
+        "LocalMinimum": true
+       },
+       "Residues": [
+        "VAL 60 A_3 Backbone",
+        "VAL 60 A_4 Backbone",
+        "VAL 60 A Backbone",
+        "VAL 60 A_2 Backbone"
+       ],
+       "FlowIndices": [
+        "16",
+        "17",
+        "18",
+        "19"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.986,
+        "MinFreeRadius": 0.986,
+        "MinBRadius": 1.784,
+        "StartDistance": 26.708,
+        "EndDistance": 27.607,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "VAL 60 A_3 Backbone",
+        "VAL 60 A_4 Backbone",
+        "VAL 60 A Backbone",
+        "VAL 60 A_2 Backbone",
+        "GLY 61 A_2 Backbone"
+       ],
+       "FlowIndices": [
+        "16",
+        "17",
+        "18",
+        "19",
+        "20"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.298,
+        "MinFreeRadius": 1.298,
+        "MinBRadius": 2.107,
+        "StartDistance": 27.607,
+        "EndDistance": 27.842,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "VAL 60 A_3 Backbone",
+        "GLY 61 A_2 Backbone",
+        "GLY 61 A Backbone",
+        "GLY 61 A_3 Backbone",
+        "GLY 61 A_4 Backbone"
+       ],
+       "FlowIndices": [
+        "16",
+        "20",
+        "21",
+        "22",
+        "23"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.128,
+        "MinFreeRadius": 1.128,
+        "MinBRadius": 1.937,
+        "StartDistance": 27.842,
+        "EndDistance": 28.192,
+        "LocalMinimum": true
+       },
+       "Residues": [
+        "VAL 60 A_4 Backbone",
+        "GLY 61 A_2 Backbone",
+        "GLY 61 A Backbone",
+        "GLY 61 A_3 Backbone",
+        "GLY 61 A_4 Backbone"
+       ],
+       "FlowIndices": [
+        "17",
+        "20",
+        "21",
+        "22",
+        "23"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.253,
+        "MinFreeRadius": 1.253,
+        "MinBRadius": 2.062,
+        "StartDistance": 28.192,
+        "EndDistance": 28.365,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "VAL 60 A_2 Backbone",
+        "GLY 61 A_2 Backbone",
+        "GLY 61 A Backbone",
+        "GLY 61 A_3 Backbone",
+        "GLY 61 A_4 Backbone"
+       ],
+       "FlowIndices": [
+        "19",
+        "20",
+        "21",
+        "22",
+        "23"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.13,
+        "MinFreeRadius": 1.13,
+        "MinBRadius": 1.927,
+        "StartDistance": 28.365,
+        "EndDistance": 29.333,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "VAL 60 A_3 Backbone",
+        "VAL 60 A_4 Backbone",
+        "VAL 60 A Backbone",
+        "VAL 60 A_2 Backbone",
+        "GLY 61 A_2 Backbone"
+       ],
+       "FlowIndices": [
+        "16",
+        "17",
+        "18",
+        "19",
+        "20"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.986,
+        "MinFreeRadius": 0.986,
+        "MinBRadius": 1.795,
+        "StartDistance": 29.333,
+        "EndDistance": 30.484,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "VAL 60 A_4 Backbone",
+        "GLY 61 A_2 Backbone",
+        "GLY 61 A Backbone",
+        "GLY 61 A_3 Backbone",
+        "GLY 61 A_4 Backbone"
+       ],
+       "FlowIndices": [
+        "17",
+        "20",
+        "21",
+        "22",
+        "23"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 0.848,
+        "MinFreeRadius": 0.848,
+        "MinBRadius": 1.663,
+        "StartDistance": 30.484,
+        "EndDistance": 31.738,
+        "LocalMinimum": true
+       },
+       "Residues": [
+        "GLY 61 A_2 Backbone",
+        "GLY 61 A Backbone",
+        "GLY 61 A_3 Backbone",
+        "GLY 61 A_4 Backbone"
+       ],
+       "FlowIndices": [
+        "20",
+        "21",
+        "22",
+        "23"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.064,
+        "MinFreeRadius": 1.064,
+        "MinBRadius": 1.877,
+        "StartDistance": 31.738,
+        "EndDistance": 32.551,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "GLY 61 A_2 Backbone",
+        "GLY 61 A Backbone",
+        "GLY 61 A_3 Backbone",
+        "GLY 61 A_4 Backbone",
+        "TYR 62 A_4 Backbone"
+       ],
+       "FlowIndices": [
+        "20",
+        "21",
+        "22",
+        "23",
+        "24"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.227,
+        "MinFreeRadius": 1.227,
+        "MinBRadius": 2.043,
+        "StartDistance": 32.551,
+        "EndDistance": 33.11,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "GLY 61 A_2 Backbone",
+        "TYR 62 A_4 Backbone",
+        "TYR 62 A Backbone",
+        "TYR 62 A_2 Backbone",
+        "TYR 62 A_3 Backbone"
+       ],
+       "FlowIndices": [
+        "20",
+        "24",
+        "25",
+        "26",
+        "27"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.32,
+        "MinFreeRadius": 1.32,
+        "MinBRadius": 2.133,
+        "StartDistance": 33.11,
+        "EndDistance": 33.264,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "GLY 61 A_2 Backbone",
+        "GLY 61 A Backbone",
+        "GLY 61 A_3 Backbone",
+        "GLY 61 A_4 Backbone",
+        "TYR 62 A_2 Backbone"
+       ],
+       "FlowIndices": [
+        "20",
+        "21",
+        "22",
+        "23",
+        "26"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      },
+      {
+       "LayerGeometry": {
+        "MinRadius": 1.383,
+        "MinFreeRadius": 1.383,
+        "MinBRadius": 2.198,
+        "StartDistance": 33.264,
+        "EndDistance": 33.264,
+        "LocalMinimum": false
+       },
+       "Residues": [
+        "GLY 61 A_2 Backbone",
+        "GLY 61 A_3 Backbone",
+        "TYR 62 A_4 Backbone",
+        "TYR 62 A_2 Backbone",
+        "TYR 62 A_3 Backbone"
+       ],
+       "FlowIndices": [
+        "20",
+        "22",
+        "24",
+        "26",
+        "27"
+       ],
+       "Properties": {
+        "Charge": 0,
+        "Ionizable": 0,
+        "NumPositives": 0,
+        "NumNegatives": 0,
+        "Hydrophobicity": -0.8,
+        "Hydropathy": -0.4,
+        "Polarity": 3.38,
+        "LogP": -0.86,
+        "LogD": -0.86,
+        "LogS": 0.81,
+        "Mutability": 0
+       }
+      }
+     ]
+    }
+   }
+  ]
+ }
+}

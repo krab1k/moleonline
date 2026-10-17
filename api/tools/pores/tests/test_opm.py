@@ -1,4 +1,4 @@
-"""The membrane computed from OPM against production results of Pores.exe (see reference/README.md)."""
+"""The membrane computed from OPM against production results of Pores.exe (see data/README.md)."""
 
 import json
 from pathlib import Path
@@ -10,7 +10,7 @@ import pytest
 from pores.membrane import kabsch, membrane_json, read_structure
 from pores.opm import membrane_from_opm
 
-REFERENCE = Path(__file__).parent.parent / "reference"
+REFERENCE = Path(__file__).parent / "data"
 
 
 def points(membrane: list[dict]) -> tuple[np.ndarray, list[str]]:

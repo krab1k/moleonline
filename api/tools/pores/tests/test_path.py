@@ -1,4 +1,4 @@
-"""Pore paths computed with MOLE against production results of Pores.exe (see reference/README.md).
+"""Pore paths computed with MOLE against production results of Pores.exe (see data/README.md).
 
 Needs the MOLE 2.5 command line tool: set MOLE2 to its path, otherwise the tests are skipped.
 """
@@ -15,7 +15,7 @@ from pores.membrane import read_structure
 from pores.opm import membrane_from_opm
 from pores.path import end_points, mole_input
 
-REFERENCE = Path(__file__).parent.parent / "reference"
+REFERENCE = Path(__file__).parent / "data"
 MOLE = os.environ.get("MOLE2")
 
 pytestmark = pytest.mark.skipif(not MOLE, reason="set MOLE2 to the mole2 executable")

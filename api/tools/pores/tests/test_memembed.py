@@ -1,4 +1,4 @@
-"""The membrane predicted by MEMEMBED against OPM and against the original Pores (see reference/README.md).
+"""The membrane predicted by MEMEMBED against OPM and against the original Pores (see data/README.md).
 
 Needs MEMEMBED: set MEMEMBED to its path, otherwise the tests are skipped. The path test also needs MOLE2.
 """
@@ -17,7 +17,7 @@ from pores.memembed import membrane_from_memembed
 from pores.opm import membrane_from_opm
 from pores.path import end_points, mole_input
 
-REFERENCE = Path(__file__).parent.parent / "reference"
+REFERENCE = Path(__file__).parent / "data"
 MEMEMBED = os.environ.get("MEMEMBED")
 MOLE = os.environ.get("MOLE2")
 

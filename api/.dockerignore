@@ -7,5 +7,6 @@ Mole_api_IP_log.csv
 ErrorLog.log
 tools/pores/.venv/
 tools/pores/reference/
+tools/pores/tests/
 **/__pycache__/
 **/.pytest_cache/

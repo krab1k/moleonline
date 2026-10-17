@@ -125,7 +125,7 @@ uv sync
 MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # tests needing them are skipped without
 ```
 
-The tests compare with production results in `tools/pores/reference/`, which is not in the repository yet.
+The tests compare with production results of the original Pores, in `tools/pores/tests/data/` (see its README).
 
 ## Licence
 

@@ -8,7 +8,7 @@ import pytest
 
 from pores.cli import PoresError, run
 
-REFERENCE = Path(__file__).parent.parent / "reference"
+REFERENCE = Path(__file__).parent / "data"
 
 
 def parameters(tmp_path: Path, chains: list[str]) -> Path:
