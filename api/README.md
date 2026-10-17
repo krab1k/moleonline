@@ -15,25 +15,38 @@ The container contains:
 ## Running
 
 ```sh
+docker network create moleonline    # once, shared with the web's compose project
 docker compose up -d --build
 ```
 
-The API listens on `127.0.0.1:8080`, only for a reverse proxy on the same machine; another port is set
-with `API_PORT=8081 docker compose up -d`. Startup checks the configuration: if a path is wrong, the
+The API has no port on the host. It listens on port 8080 in the Docker network `moleonline`, as the
+service `api`, for the web's nginx container. Startup checks the configuration: if a path is wrong, the
 container stops and its log says what is wrong.
 
 ```sh
 docker compose logs -f api    # one line per event; requests are not logged, errors with the request path
 ```
 
+To reach the API from the host, e.g. for debugging, publish the port in `compose.override.yaml`
+(compose reads it next to `compose.yaml`):
+
+```yaml
+services:
+  api:
+    ports:
+      - "127.0.0.1:8080:8080"
+```
+
 ### nginx
 
-The API takes the client address from `X-Forwarded-For` when the request comes from loopback or a
-private network (the IP log, see below).
+The web's nginx container (`moleonline-web`, `docker/nginx.site.conf`) serves the API under `/api` and
+proxies it to `api:8080` over the network `moleonline`. The network has to exist before either project
+starts. The API takes the client address from `X-Forwarded-For` when the request comes from loopback or
+a private network, as the Docker network is (the IP log, see below).
 
 ```nginx
 location /api/ {
-    proxy_pass http://127.0.0.1:8080/;
+    proxy_pass http://api:8080/;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
