@@ -20,11 +20,18 @@ public partial class InitController(ComputationManager manager) : Controller
     [HttpPost("{id}")]
     public ContentResult Pdb(string id, string assembly = Computation.PreferredAssembly)
     {
-        if (!AssemblyName().IsMatch(assembly))
+        string? created = null;
+        try
         {
-            return Reports.Error(null, StatusCodes.Status400BadRequest, $"Invalid assembly [{assembly}]. Use {Computation.PreferredAssembly}, {Computation.AsymmetricUnit} or an assembly id of the entry.");
+            if (!AssemblyName().IsMatch(assembly))
+            {
+                return Reports.Error(null, StatusCodes.Status400BadRequest, $"Invalid assembly [{assembly}]. Use {Computation.PreferredAssembly}, {Computation.AsymmetricUnit} or an assembly id of the entry.");
+            }
+            var report = manager.CreatePDBComputation(id.ToLower(), assembly); // loads in the background, see Status
+            created = report.ComputationId;
+            return Reports.Json(report);
         }
-        return Reports.Json(manager.CreatePDBComputation(id.ToLower(), assembly)); // loads in the background, see Status
+        finally { IpLog.Write(this, manager.Config.WorkingDirectory, "Init", "PDB", created); }
     }
 
     [HttpPost]
@@ -32,20 +39,26 @@ public partial class InitController(ComputationManager manager) : Controller
     [RequestSizeLimit(MaxRequestMB * 1024 * 1024)]
     public ContentResult Post(IFormFile file)
     {
-        if (Request.ContentLength > MaxRequestMB * 1024 * 1024) // the file is then not read at all, it would look like no file
+        string? created = null;
+        try
         {
-            return Reports.Error(null, StatusCodes.Status413PayloadTooLarge, $"The file is too large, at most {Computation.MaxStructureMB} MB can be uploaded. Gzipped files (*.pdb.gz, *.cif.gz) are accepted.");
+            if (Request.ContentLength > MaxRequestMB * 1024 * 1024) // the file is then not read at all, it would look like no file
+            {
+                return Reports.Error(null, StatusCodes.Status413PayloadTooLarge, $"The file is too large, at most {Computation.MaxStructureMB} MB can be uploaded. Gzipped files (*.pdb.gz, *.cif.gz) are accepted.");
+            }
+            if (file == null || file.Length == 0)
+            {
+                return Reports.Error(null, StatusCodes.Status400BadRequest, "No structure file was uploaded or the file is empty.");
+            }
+            if (!StructureExtension().IsMatch(file.FileName.ToLower()))
+            {
+                return Reports.Error(null, StatusCodes.Status400BadRequest, "Unsupported file type. Supported are PDB (*.pdb) and mmCIF (*.cif) files, also gzipped (*.pdb.gz, *.cif.gz).");
+            }
+            var (report, status) = manager.CreateUserComputation(file);
+            created = report.ComputationId;
+            return Reports.Json(report, status);
         }
-        if (file == null || file.Length == 0)
-        {
-            return Reports.Error(null, StatusCodes.Status400BadRequest, "No structure file was uploaded or the file is empty.");
-        }
-        if (!StructureExtension().IsMatch(file.FileName.ToLower()))
-        {
-            return Reports.Error(null, StatusCodes.Status400BadRequest, "Unsupported file type. Supported are PDB (*.pdb) and mmCIF (*.cif) files, also gzipped (*.pdb.gz, *.cif.gz).");
-        }
-        var (report, status) = manager.CreateUserComputation(file);
-        return Reports.Json(report, status);
+        finally { IpLog.Write(this, manager.Config.WorkingDirectory, "Init", "Upload", created); }
     }
 
 
