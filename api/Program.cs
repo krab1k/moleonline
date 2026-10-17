@@ -16,16 +16,6 @@ builder.Services.AddResponseCompression(x =>
     x.Providers.Add<GzipCompressionProvider>();
 }); // allow gzip compression
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("CorsPolicy",
-        policy => policy.
-            AllowAnyOrigin().
-            AllowAnyMethod().
-            AllowAnyHeader().
-            WithExposedHeaders("Content-Disposition"));
-}); // allow Cross-origin resource sharing (credentials cannot be combined with any origin)
-
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -47,7 +37,6 @@ app.UseExceptionHandler(error => error.Run(context => // the middleware has logg
     context.Response.ContentType = "application/json";
     return context.Response.WriteAsync(new ComputationReport(null, 0, ComputationStatus.Error, "An unexpected error occurred on the server. Please, try again later.").ToJson());
 }));
-app.UseCors("CorsPolicy"); // before UseStaticFiles, the web fetches inputs/cofactors.json cross-origin
 app.UseDefaultFiles(); // / serves index.html, the API documentation
 app.UseStaticFiles(); // allow download files from wwwroot
 app.UseResponseCompression();
