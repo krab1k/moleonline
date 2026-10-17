@@ -101,3 +101,26 @@ class PoresParameters(Defaults):
     def user_parameters(self) -> dict:
         """What the user submitted, as CompInfo reports it"""
         return self.model_dump(include={"InMembrane", "IsBetaBarrel", "Chains", "ProbeRadius", "InteriorThreshold"})
+
+
+class PoresRequest(BaseModel):
+    """Body of Submit/Pores. Unknown fields are an error: a misspelled one would otherwise be ignored silently."""
+    model_config = ConfigDict(extra="forbid")
+    InMembrane: bool = False
+    IsBetaBarrel: bool = False
+    Chains: list[str] | None = None  # None or empty: all chains
+    ProbeRadius: float | None = None  # None: the default
+    InteriorThreshold: float | None = None
+
+    def problems(self) -> str | None:
+        """None when valid"""
+        errors = [f"{name} must be between {low:g} and {high:g}." for name, value, low, high in [
+            ("Probe radius", self.ProbeRadius, 1.4, 45),
+            ("Interior threshold", self.InteriorThreshold, 0.3, 3),
+        ] if value is not None and not low <= value <= high]
+        if any(not chain.strip() or any(c.isspace() for c in chain) for chain in self.Chains or []):
+            errors.append("Chain names must not be empty or contain spaces.")
+        return "Invalid parameters. " + " ".join(errors) if errors else None
+
+
+DEFAULT_PORES_PROBE_RADIUS, DEFAULT_PORES_INTERIOR_THRESHOLD = 13.0, 0.8

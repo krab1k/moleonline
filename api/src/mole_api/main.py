@@ -23,7 +23,8 @@ from .csa import CSA, CSAResidue
 from .paths import AspNetPaths
 from .computation import Computation, Report, Status
 from .config import Settings
-from .parameters import MoleParameters, PoresParameters
+from .parameters import (DEFAULT_PORES_INTERIOR_THRESHOLD, DEFAULT_PORES_PROBE_RADIUS, MoleParameters, PoresParameters,
+                         PoresRequest)
 from .runner import Runner
 from .versions import read_versions
 
@@ -113,6 +114,16 @@ def submission(c: Computation, unit: computation.Unit) -> Submission:
                       Status=unit.Status, ErrorMsg=unit.ErrorMsg,
                       MoleConfig=json.loads(tunnels.read_text()) if tunnels.exists() else {},
                       PoresConfig=PoresParameters.model_validate_json(pores.read_bytes()).user_parameters() if pores.exists() else {})
+
+
+def pore_found(directory: Path) -> str | None:
+    """Why a pore computation failed although MOLE did not"""
+    results = directory / "json" / "data.json"
+    if not results.exists():
+        return "MOLE did not produce any result."
+    if not json.loads(results.read_bytes()).get("Channels", {}).get("Paths"):
+        return "No pore was found along the membrane normal."
+    return None
 
 
 class Version(BaseModel):
@@ -297,6 +308,47 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         report = found.report()  # before the run can change it
         request.app.state.runner.start(found, lambda: [[str(settings.mole), str(path)]], init=False,
                                        finish=lambda: mole.zip_report(directory, found.structure_path()))
+        return report
+
+    @submissions.post("/Pores/{computation_id}", responses=errors(400, 404, 409, 410, 503))
+    async def submit_pores(request: Request, computation_id: str, parameters: PoresRequest) -> Report:
+        """Computes a pore across the membrane, in the background: the pores tool places the membrane (from OPM for
+        the preferred assembly of a PDB entry, otherwise predicted by MEMEMBED) and writes MOLE's input of a path
+        along its normal, MOLE computes the pore (see Status, membrane.json in Data)"""
+        found = find(request, computation_id)
+        if isinstance(found, JSONResponse):
+            return found
+        if problems := parameters.problems():
+            return error(computation_id, 400, problems)
+        if refused := can_run(request, found):
+            return error(computation_id, *refused)
+
+        settings: Settings = request.app.state.settings
+        found.add_submission(request.app.state.versions.mole)
+        directory = found.submit_directory(found.last.SubmitId)
+        tool_input = directory / PORES_PARAMETERS
+        try:
+            found.change_status(Status.Running)
+            tool_input.write_text(PoresParameters(
+                Structure=str(found.structure_path()), PdbId=found.PdbId if found.DbModePores else None, WorkingDirectory=str(directory),
+                Membrane=str(found.folder() / "membrane.json"), InMembrane=parameters.InMembrane, IsBetaBarrel=parameters.IsBetaBarrel,
+                Chains=parameters.Chains or [],
+                ProbeRadius=DEFAULT_PORES_PROBE_RADIUS if parameters.ProbeRadius is None else parameters.ProbeRadius,
+                InteriorThreshold=DEFAULT_PORES_INTERIOR_THRESHOLD if parameters.InteriorThreshold is None else parameters.InteriorThreshold,
+            ).model_dump_json(indent=2))
+        except Exception as e:  # e.g. the structure is missing
+            found.change_status(Status.Error, str(e))
+            return respond(found.report(), 500)
+
+        def finish() -> str | None:
+            if problem := pore_found(directory):
+                return problem
+            mole.zip_report(directory, found.structure_path())
+            return None
+
+        report = found.report()  # before the run can change it
+        request.app.state.runner.start(found, lambda: [[str(settings.pores), str(tool_input)], [str(settings.mole), str(directory / mole.INPUT)]],
+                                       init=False, finish=finish)
         return report
 
     app.include_router(submissions)
