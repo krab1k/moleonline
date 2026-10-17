@@ -113,7 +113,7 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 
 The active sites of `/CSA` come from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (Ribeiro et al., Nucleic
 Acids Research 2018, CC BY 4.0), converted by `tools/mcsa/convert.py` into `src/mole_api/resources/mcsa_sites.csv.gz`.
-The documentation page and the example inputs (`/inputs/`) are in `src/mole_api/static/`.
+The example inputs (`/inputs/`) are in `src/mole_api/static/`; `/` redirects to the documentation, `/docs`.
 
 A structure has at most 30 MB, uploaded (also when unpacked) or downloaded from PDBe: a single ribosome fits
 (4V6X, 238,000 atoms, 23 MB), larger complexes do not. A larger upload is refused with 413, a larger PDBe entry

@@ -14,7 +14,8 @@ def test_endpoint_names_in_any_case_and_a_trailing_slash(client):
 
 
 def test_static_files(client):
-    assert "MOLE" in client.get("/").text  # the documentation page
+    home = client.get("/", follow_redirects=False)
+    assert home.status_code == 307 and home.headers["location"] == "docs"  # relative: also behind nginx's /api/
     assert client.get("/inputs/cofactors.json").json()
     assert client.get("/docs").status_code == 200
     assert client.get("/nothing.txt").status_code == 404

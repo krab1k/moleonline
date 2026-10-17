@@ -11,7 +11,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -50,7 +50,7 @@ def find(request: Request, computation_id: str) -> Computation | JSONResponse:
     return found
 
 
-STATIC_FILES = Path(__file__).parent / "static"  # served at /: the documentation page, inputs/cofactors.json for the web
+STATIC_FILES = Path(__file__).parent / "static"  # served at /: the example inputs, inputs/cofactors.json for the web
 
 
 def can_run(request: Request, c: Computation) -> tuple[int, str] | None:
@@ -171,7 +171,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.versions = await read_versions(app.state.settings)
         app.state.runner = Runner(app.state.settings)
         app.state.pdbe = pdbe.client()
-        app.mount("/", StaticFiles(directory=STATIC_FILES, html=True))  # after the endpoints, it would hide them
+        app.mount("/", StaticFiles(directory=STATIC_FILES))  # after the endpoints, it would hide them
         yield
         await app.state.runner.stop()
         await app.state.pdbe.aclose()
@@ -190,6 +190,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """400 with a report, as the former C# API answered (not FastAPI's 422)"""
         details = "; ".join(f"{'.'.join(str(part) for part in error['loc'] if part != 'body')}: {error['msg']}" for error in e.errors())
         return error(request.path_params.get("computation_id"), 400, f"Input format error. {details}")
+
+    @app.get("/", include_in_schema=False)
+    def home() -> RedirectResponse:
+        return RedirectResponse("docs")  # relative: also behind a proxy's prefix (/api/)
 
     @app.get("/Version")
     def get_version(request: Request) -> Version:
