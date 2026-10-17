@@ -11,8 +11,6 @@ services:
       - moleonline
     volumes:
       - data:/data # computations, the submission log, OPM files
-    environment:
-      TZ: Europe/Prague # times in the submission log
 
 networks:
   moleonline:

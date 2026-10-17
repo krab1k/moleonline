@@ -61,8 +61,15 @@ Everything is in the volume `data`, mounted at `/data`:
 | Path | Content |
 |---|---|
 | `/data/computations/<id>/` | one computation: the structure, `_object.json` (status), one folder per submission |
-| `/data/computations/Mole_api_IP_log.csv` | every load and submission request, also refused ones: time, `Init` or `Submit`, client address, `PDB`, `Upload`, `Mole` or `Pores`, computation id (`-` when none was created) |
+| `/data/computations/Mole_api_IP_log.csv` | every load and submission request, also refused ones: time (UTC), `Init` or `Submit`, client address, `PDB`, `Upload`, `Mole` or `Pores`, computation id (`-` when none was created) |
 | `/data/opm-cache/` | membrane files downloaded from OPM, reused for 30 days |
+
+Usage per month or year (computations, PDB entries and uploads, submissions and their outcome, distinct client
+addresses), from the status files and the IP log:
+
+```sh
+docker compose exec -T api /opt/pores/bin/python -I - /data/computations month < tools/stats.py
+```
 
 Computations running during a restart are reported as failed ("interrupted by a restart"); the user
 can submit them again.
@@ -82,7 +89,7 @@ Settings are in `appsettings.json` (container paths) and can be overridden with 
 | `Config__CSA` | `Resources/CSA_2_0_121113.txt` | active sites from the Catalytic Site Atlas, relative to the app |
 
 The pores tool reads `MEMEMBED` (the MEMEMBED executable) and `PORES_OPM_CACHE` (the OPM file cache)
-from the environment; the image sets both. `TZ` (in `compose.yaml`) sets the time of the IP log.
+from the environment; the image sets both. All times the API stores are in UTC.
 
 ## Endpoints
 
