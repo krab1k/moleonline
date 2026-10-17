@@ -1,17 +1,16 @@
-"""Active sites from M-CSA (Resources/mcsa_sites.csv.gz), as /CSA serves them for PDB entries"""
+"""Active sites from M-CSA (resources/mcsa_sites.csv.gz), as /CSA serves them for PDB entries"""
 
 import pytest
 
 from mole_api.csa import CSA
 
-from .conftest import CSA as CSA_FILE
 from .conftest import STRUCTURE, upload, wait
 from .test_pdbe import FULL, FakePDBe
 
 
 @pytest.fixture(scope="module")
 def csa() -> CSA:
-    return CSA(CSA_FILE)
+    return CSA()
 
 
 def sites(csa: CSA, pdb_id: str) -> list[str]:

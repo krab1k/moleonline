@@ -1,4 +1,4 @@
-"""Active sites per PDB entry from M-CSA (Resources/mcsa_sites.csv.gz, made by tools/mcsa/convert.py): one site per
+"""Active sites per PDB entry from M-CSA (resources/mcsa_sites.csv.gz, made by tools/mcsa/convert.py): one site per
 copy, residues by the author's chain and number. /CSA offers them as tunnel starting points."""
 
 import csv
@@ -7,6 +7,8 @@ import itertools
 from pathlib import Path
 
 from pydantic import BaseModel
+
+FILE = Path(__file__).parent / "resources" / "mcsa_sites.csv.gz"
 
 
 class CSAResidue(BaseModel):
@@ -18,7 +20,7 @@ class CSAResidue(BaseModel):
 class CSA:
     """Each entry's lines of the CSV, parsed when asked for: about 15 MB instead of an object per residue"""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path = FILE):
         """path: gzipped CSV "pdb,site,chain,residue,number", sorted by entry and site, sites numbered from 1"""
         with gzip.open(path, "rt") as rows:
             next(rows)  # the header

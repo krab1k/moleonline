@@ -50,6 +50,9 @@ def find(request: Request, computation_id: str) -> Computation | JSONResponse:
     return found
 
 
+STATIC_FILES = Path(__file__).parent / "static"  # served at /: the documentation page, inputs/cofactors.json for the web
+
+
 def can_run(request: Request, c: Computation) -> tuple[int, str] | None:
     """Why a new submission cannot start, with the HTTP status"""
     match c.last.Status:
@@ -168,7 +171,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.versions = await read_versions(app.state.settings)
         app.state.runner = Runner(app.state.settings)
         app.state.pdbe = pdbe.client()
-        app.mount("/", StaticFiles(directory=app.state.settings.static_files, html=True))  # after the endpoints, it would hide them
+        app.mount("/", StaticFiles(directory=STATIC_FILES, html=True))  # after the endpoints, it would hide them
         yield
         await app.state.runner.stop()
         await app.state.pdbe.aclose()
@@ -216,7 +219,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @functools.cache
     def csa() -> CSA:
-        return CSA(app.state.settings.csa)  # read on the first request (0.1 s), the tests start faster
+        return CSA()  # read on the first request (0.1 s), the tests start faster
 
     @app.get("/CSA/{computation_id}", responses=errors(404, 410))
     def get_csa(request: Request, computation_id: str) -> list[list[CSAResidue]]:

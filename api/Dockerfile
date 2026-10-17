@@ -44,8 +44,6 @@ COPY --from=memembed /opt/memembed /opt/memembed
 COPY --from=python /opt/python /opt/python
 COPY --from=python /opt/pores /opt/pores
 COPY --from=python /opt/api /opt/api
-COPY Resources /app/Resources
-COPY wwwroot /app/wwwroot
 RUN mkdir /data && chown $APP_UID:$APP_UID /data
 ENV MEMEMBED=/opt/memembed/memembed PORES_OPM_CACHE=/data/opm-cache
 WORKDIR /app

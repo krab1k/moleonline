@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from mole_api.config import Settings
 from mole_api.versions import ToolError, read_versions
 
-from .conftest import CSA, MOLE_VERSION, PORES_VERSION, script
+from .conftest import MOLE_VERSION, PORES_VERSION, script
 
 MOLE = "echo 'WebChemistry Tunnels 2.5.1, (c) test'"
 
@@ -27,18 +27,17 @@ def test_documentation_and_version(client):
 def test_wrong_settings_stop_the_api(tmp_path: Path):
     (tmp_path / "file").touch()
     with pytest.raises(ValidationError) as error:
-        Settings(working_directory=tmp_path / "file", csa=tmp_path / "none", max_concurrent_computations=0,
+        Settings(working_directory=tmp_path / "file", max_concurrent_computations=0,
                  max_computation_minutes=0, mole="mole2", pores=tmp_path / "file")
     problems = {e["loc"][0]: e["msg"] for e in error.value.errors()}  # all of them at once
     assert "is not writable" in problems["working_directory"]
-    assert "csa" in problems
     assert "max_concurrent_computations" in problems and "max_computation_minutes" in problems
     assert "must be a full path" in problems["mole"]
     assert "is not executable" in problems["pores"]
 
 
 def tools(directory: Path, mole: str, pores: str) -> Settings:
-    return Settings(working_directory=directory, csa=CSA, mole=script(directory, "mole", mole), pores=script(directory, "pores", pores))
+    return Settings(working_directory=directory, mole=script(directory, "mole", mole), pores=script(directory, "pores", pores))
 
 
 @pytest.mark.parametrize("mole, pores, setting, problem", [

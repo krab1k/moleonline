@@ -3,16 +3,17 @@
 import json
 import time
 import zipfile
-from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import pytest
+
+from mole_api.main import STATIC_FILES
 
 from .conftest import MOLE_VERSION, STRUCTURE, upload, wait, wait_for_file
 from .test_iplog import logged
 from .test_runner import UNTIL_GO
 
-EXAMPLES = Path(__file__).parent.parent / "wwwroot" / "inputs"
+EXAMPLES = STATIC_FILES / "inputs"
 RESULTS = 'mkdir -p "$(dirname "$1")/json" && echo "{}" > "$(dirname "$1")/json/data.json"'  # as MOLE writes them
 
 

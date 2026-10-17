@@ -85,8 +85,6 @@ Settings are environment variables, the defaults are the container's (`src/mole_
 | `MAX_COMPUTATION_MINUTES` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
 | `MOLE` | `/opt/mole2/mole2` | full path |
 | `PORES` | `/opt/pores/bin/pores` | full path |
-| `CSA` | `Resources/mcsa_sites.csv.gz` | active sites from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (CC BY 4.0), made by `tools/mcsa/convert.py`, relative to the app |
-| `STATIC_FILES` | `wwwroot` | served at `/`: the documentation page, `inputs/cofactors.json` for the web, relative to the app |
 
 The pores tool reads `MEMEMBED` (the MEMEMBED executable) and `PORES_OPM_CACHE` (the OPM file cache)
 from the environment; the image sets both. All times the API stores are in UTC.
@@ -112,6 +110,10 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 | `POST /Kill/{id}` | stop the running submission |
 | `DELETE /Delete/{id}` | delete the computation |
 | `GET /Version` | versions of the API, MOLE and Pores |
+
+The active sites of `/CSA` come from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (Ribeiro et al., Nucleic
+Acids Research 2018, CC BY 4.0), converted by `tools/mcsa/convert.py` into `src/mole_api/resources/mcsa_sites.csv.gz`.
+The documentation page and the example inputs (`/inputs/`) are in `src/mole_api/static/`.
 
 A structure has at most 30 MB, uploaded (also when unpacked) or downloaded from PDBe: a single ribosome fits
 (4V6X, 238,000 atoms, 23 MB), larger complexes do not. A larger upload is refused with 413, a larger PDBe entry
