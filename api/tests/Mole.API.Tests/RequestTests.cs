@@ -99,6 +99,30 @@ public class RequestTests
     }
 
     [Fact]
+    public async Task Submissions_are_logged_with_the_computation()
+    {
+        using var api = new Api();
+        var id = await api.LoadAsync();
+        await api.SubmitAsync(id);
+        await api.SubmitAsync("x\ny%0Az");
+        string[] expected = [$" Mole {id}", " Mole x?y?z"];
+        Assert.Equal(expected.Order(StringComparer.Ordinal), (await LogEndings(api, 2)).Order(StringComparer.Ordinal)); // in any order
+    }
+
+    /// <summary>The ends of the log's lines, once it has <c>count</c> complete lines (it is appended in the background)</summary>
+    private static async Task<string[]> LogEndings(Api api, int count)
+    {
+        var log = Path.Combine(api.WorkingDirectory, "Mole_api_IP_log.csv");
+        for (var end = DateTime.UtcNow.AddSeconds(10); DateTime.UtcNow < end; await Task.Delay(50))
+        {
+            var text = File.Exists(log) ? File.ReadAllText(log) : "";
+            if (text.EndsWith('\n') && text.Count(c => c == '\n') == count)
+                return [.. text.TrimEnd('\n').Split('\n').Select(line => line[line.LastIndexOf(" Mole ")..])];
+        }
+        throw new TimeoutException($"{log} has not {count} complete lines.");
+    }
+
+    [Fact]
     public async Task Corrupt_status_file_is_500_with_a_report()
     {
         using var api = new Api();

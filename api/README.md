@@ -61,7 +61,7 @@ Everything is in the volume `data`, mounted at `/data`:
 | Path | Content |
 |---|---|
 | `/data/computations/<id>/` | one computation: the structure, `_object.json` (status), one folder per submission |
-| `/data/computations/Mole_api_IP_log.csv` | time and client address of every submission |
+| `/data/computations/Mole_api_IP_log.csv` | every submission request: time, client address, `Mole` or `Pores`, computation id |
 | `/data/opm-cache/` | membrane files downloaded from OPM, reused for 30 days |
 
 Computations running during a restart are reported as failed ("interrupted by a restart"); the user

@@ -399,6 +399,12 @@ public class ComputationManager(IOptions<Config> options)
         try
         {
             if (LoadComputation(c.ComputationId)?.IsDeleted() == true) return; // deleted while waiting
+            lock (job) // stopped while waiting: KillComputation saved the status, this copy must not write over it
+            {
+                if (job.Killed) return;
+                c.ComputationUnits.Last().Started = DateTime.UtcNow;
+                c.SaveStatus();
+            }
 
             using var timeLimit = new CancellationTokenSource(TimeSpan.FromMinutes(Config.MaxComputationMinutes)); // from now, the queue does not count
             foreach (var info in steps)

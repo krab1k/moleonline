@@ -15,6 +15,7 @@ public class ComputationUnit
     public string Status { get; set; } = "";
     public string ErrorMsg { get; set; } = "";
     public DateTime? Submitted { get; set; } // UTC; the first submission reuses the load's unit and replaces its times
+    public DateTime? Started { get; set; } // got a slot; Started - Submitted is the time in the queue (for a load of a PDB entry also the download)
     public DateTime? Finished { get; set; } // Finished, Error or Aborted
     public string? MoleVersion { get; set; } // the results, and which parameters were defaults, depend on it
 
@@ -189,7 +190,7 @@ public partial class Computation
         }
         var submission = ComputationUnits.Last();
         submission.Submitted = DateTime.UtcNow;
-        submission.Finished = null;
+        submission.Started = submission.Finished = null;
         submission.MoleVersion = new Utils.Version().MoleVersion;
         Directory.CreateDirectory(Path.Combine(BaseDir, ComputationId, ComputationUnits.Last().SubmitId.ToString()));
         SaveStatus();

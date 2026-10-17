@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Mole.API.Tests;
@@ -41,11 +42,39 @@ public class RunnerTests
         var created = (DateTime)saved["Created"]!;
         var loaded = (DateTime)saved["Loaded"]!;
         var unit = saved["ComputationUnits"]![0]!;
-        var (submitted, finished) = ((DateTime)unit["Submitted"]!, (DateTime)unit["Finished"]!);
-        Assert.True(created <= loaded && loaded <= submitted && submitted <= finished, $"{created:O} {loaded:O} {submitted:O} {finished:O}");
+        var (submitted, started, finished) = ((DateTime)unit["Submitted"]!, (DateTime)unit["Started"]!, (DateTime)unit["Finished"]!);
+        Assert.True(created <= loaded && loaded <= submitted && submitted <= started && started <= finished, $"{created:O} {loaded:O} {submitted:O} {started:O} {finished:O}");
         Assert.Equal(DateTimeKind.Utc, created.Kind);
         Assert.Equal(new Utils.Version().MoleVersion, (string)unit["MoleVersion"]!);
     }
+
+    [Fact]
+    public async Task Waiting_for_a_slot()
+    {
+        // loads wait in the queue when the slots are full (computations are refused with 503)
+        using var api = new Api(run: Forever, slots: 1);
+        var running = await api.LoadAsync();
+        await api.SubmitAsync(running);
+        await api.WaitForFileAsync(Path.Combine(api.WorkingDirectory, running, "1", "started"));
+        var waiting = (string)(await api.UploadAsync("1tqn.cif", Api.Structure)).Body["ComputationId"]!;
+        var stopped = (string)(await api.UploadAsync("1tqn.cif", Api.Structure)).Body["ComputationId"]!;
+        Unit Saved(string id) => JsonNode.Parse(File.ReadAllText(Path.Combine(api.WorkingDirectory, id, "_object.json")))!["ComputationUnits"]![0]!.Deserialize<Unit>()!;
+
+        Assert.Null(Saved(waiting).Started);
+        Assert.Equal(HttpStatusCode.OK, (await api.PostAsync($"/Kill/{stopped}")).Status);
+        await Task.Delay(500);
+        Assert.Equal(HttpStatusCode.OK, (await api.PostAsync($"/Kill/{running}")).Status); // the slot is free
+
+        Assert.Equal("Initialized", (string)(await api.WaitAsync(waiting))["Status"]!);
+        var loaded = Saved(waiting);
+        Assert.True(loaded.Started > loaded.Submitted.AddMilliseconds(400), $"{loaded.Submitted:O} {loaded.Started:O}");
+        await Task.Delay(500); // the stopped load's run got the slot after the other, it must not write over the stop
+        var status = (await api.GetAsync($"/Status/{stopped}")).Body;
+        Assert.Equal("FailedInitialization", (string)status["Status"]!);
+        Assert.Equal("Loading of the structure was stopped.", (string)status["ErrorMsg"]!);
+    }
+
+    private record Unit(DateTime Submitted, DateTime? Started);
 
     [Fact]
     public async Task Busy_computation_refuses_and_stops()
