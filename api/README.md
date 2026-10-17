@@ -118,6 +118,22 @@ fails to load.
 
 ## Development
 
+### Python rewrite
+
+The API is being rewritten in Python (FastAPI, `src/mole_api`), with the C# API as the reference until it
+replaces it. So far it reads its settings and the tools' versions at startup and serves `/Version`; the
+documentation is at `/docs`. Settings are environment variables (`WORKING_DIRECTORY`, `CSA`, `MOLE`, `PORES`,
+`MAX_CONCURRENT_COMPUTATIONS`, `MAX_COMPUTATION_MINUTES`), the defaults are the container's:
+
+```sh
+uv sync
+WORKING_DIRECTORY=/tmp/mole MOLE=/path/to/mole2 PORES=$PWD/tools/pores/.venv/bin/pores \
+uv run uvicorn mole_api.main:app
+uv run pytest    # with a fake MOLE and pores tool
+```
+
+### C# API
+
 Run the API outside the container with the paths of local tools (`ASPNETCORE_ENVIRONMENT=Development`
 also logs requests):
 

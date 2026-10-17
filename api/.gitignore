@@ -3,3 +3,5 @@ obj/
 *.user
 Mole_api_IP_log.csv
 ErrorLog.log
+.venv/
+__pycache__/

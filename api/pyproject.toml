@@ -1,0 +1,26 @@
+[project]
+name = "mole-api"
+version = "0.7.0"
+description = "MOLEonline API: computes tunnels and pores with MOLE 2 and the pores tool"
+authors = [
+    { name = "Tomáš Raček", email = "tom@krab1k.net" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.143.3",
+    "pydantic-settings>=2.16.0",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest]
+testpaths = ["tests"]
