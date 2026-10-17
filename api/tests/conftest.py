@@ -79,5 +79,5 @@ def running(pid: int) -> bool:
     """A process that exists and is not a zombie (killed, waiting to be reaped)"""
     try:
         return Path(f"/proc/{pid}/stat").read_text().split()[2] != "Z"
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):  # gone, also while being read
         return False

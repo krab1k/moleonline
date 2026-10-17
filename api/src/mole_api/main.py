@@ -12,7 +12,7 @@ from starlette.datastructures import UploadFile
 from pydantic import BaseModel
 
 from . import computation, mole, upload
-from .computation import Report, Status
+from .computation import Computation, Report, Status
 from .config import Settings
 from .runner import Runner
 from .versions import read_versions
@@ -24,6 +24,19 @@ def respond(report: Report, status_code: int = 200) -> JSONResponse:
 
 def error(computation_id: str | None, status_code: int, message: str, submit_id: int = 0) -> JSONResponse:
     return respond(Report(ComputationId=computation_id, SubmitId=submit_id, Status=Status.Error, ErrorMsg=message), status_code)
+
+
+STOPPED_LOAD = "Loading of the structure was stopped."
+
+
+def find(request: Request, computation_id: str) -> Computation | JSONResponse:
+    """The computation, or the response when it does not exist (404) or is deleted (410)"""
+    found = computation.load(request.app.state.settings.working_directory, computation_id)
+    if found is None:
+        return respond(computation.not_exists(computation_id), 404)
+    if found.is_deleted():
+        return error(computation_id, 410, "The computation has been deleted.")
+    return found
 
 
 def errors(*codes: int) -> dict:
@@ -68,11 +81,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/Status/{computation_id}", responses=errors(404, 410))
     def get_status(request: Request, computation_id: str, submitId: int = 0) -> Report:
         """State of a submission: -1 the last one, 0 (default) the first one, the load"""
-        found = computation.load(request.app.state.settings.working_directory, computation_id)
-        if found is None:
-            return respond(computation.not_exists(computation_id), 404)
-        if found.is_deleted():
-            return error(computation_id, 410, "The computation has been deleted.")
+        found = find(request, computation_id)
+        if isinstance(found, JSONResponse):
+            return found
         report = found.report(submitId)
         if not any(u.SubmitId == report.SubmitId for u in found.ComputationUnits):
             return respond(report, 404)  # "SubmitId N not found."
@@ -108,6 +119,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except OSError as e:  # the input cannot be written
             c.change_status(Status.FailedInitialization, str(e))
         return c.report()
+
+    # on the event loop, as the runs: a stop and a run never interleave
+    @app.post("/Kill/{computation_id}", responses=errors(404, 409, 410))
+    async def kill(request: Request, computation_id: str) -> Report:
+        """Stops the computation's run: Aborted, or FailedInitialization for a load (nothing can run on it)"""
+        found = find(request, computation_id)
+        if isinstance(found, JSONResponse):
+            return found
+        if not request.app.state.runner.kill(computation_id):
+            report = found.report()
+            return error(computation_id, 409, f'Cannot kill computation with the status "{report.Status}"', report.SubmitId)
+        if found.last.Status == Status.Initializing:
+            found.change_status(Status.FailedInitialization, STOPPED_LOAD)
+        else:
+            found.change_status(Status.Aborted)
+        return found.report()
+
+    @app.delete("/Delete/{computation_id}", responses=errors(404, 410))
+    async def delete(request: Request, computation_id: str) -> Report:
+        """Stops the computation's run and marks it deleted (410 from then on); its files are kept"""
+        found = find(request, computation_id)
+        if isinstance(found, JSONResponse):
+            return found
+        request.app.state.runner.kill(computation_id)
+        found.change_status(Status.Deleted)
+        return found.report()
 
     return app
 
