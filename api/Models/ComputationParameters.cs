@@ -77,11 +77,14 @@ internal static class Limits
 
 
 
+/// <summary>
+/// Only the first model of a structure is used (the web shows only that one). Unknown fields are an error,
+/// so a request asking for all models (ReadAllModels, no longer supported) is refused rather than ignored.
+/// </summary>
+[JsonObject(MissingMemberHandling = MissingMemberHandling.Error)]
 public class Input
 {
     public string SpecificChains { get; set; } = string.Empty;
-    public bool ReadAllModels { get; set; } = false;
-
 }
 
 

@@ -1,7 +1,6 @@
 {
   "Input": {
-    "SpecificChains": "",
-    "ReadAllModels": false
+    "SpecificChains": ""
   },
   "Cavity": {
     "IgnoreHETAtoms": false,

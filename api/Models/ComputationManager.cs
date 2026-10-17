@@ -329,9 +329,6 @@ public class ComputationManager(IOptions<Config> options)
         {
             c.ChangeStatus(ComputationStatus.Running);
 
-            // only the first model is used (the web shows only that one); MOLE parses mmCIF as PDB with this option.
-            // Still accepted and stored (as false), the web requires it in imported parameters.
-            param.Input.ReadAllModels = false;
             var xmlPath = BuildXML(c, param);
             File.WriteAllText(Path.Combine(c.SubmitDirectory(c.ComputationUnits.Count), MoleApiFiles.MoleParams), JsonConvert.SerializeObject(param, Formatting.Indented));
 
@@ -650,9 +647,7 @@ public class ComputationManager(IOptions<Config> options)
         var structureName = Path.GetFileNameWithoutExtension(structure);
 
         var root = new XElement("Tunnels");
-        var input = new XElement("Input",
-            new XAttribute("SpecificChains", param.Input.SpecificChains),
-            new XAttribute("ReadAllModels", param.Input.ReadAllModels ? "1" : "0"), structure);
+        var input = new XElement("Input", new XAttribute("SpecificChains", param.Input.SpecificChains), structure); // MOLE reads the first model only
         var WD = new XElement("WorkingDirectory", c.SubmitDirectory());
 
         var nonActive = new XElement("NonActiveParts");

@@ -65,6 +65,7 @@ public class RequestTests
     [Theory]
     [InlineData("not json", "Input format error")]
     [InlineData("""{"Cavity": {"ProbeRadius": 100}}""", "Probe radius must be between")]
+    [InlineData("""{"Input": {"ReadAllModels": true}}""", "Input format error")] // only the first model is used, the option is gone
     public async Task Invalid_tunnel_parameters_are_400(string parameters, string message)
     {
         using var api = new Api();
