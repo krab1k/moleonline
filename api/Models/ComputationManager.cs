@@ -307,7 +307,7 @@ public class ComputationManager(IOptions<Config> options)
     /// Waits for a free slot (at most MaxConcurentComputations computations run at once, initializations included),
     /// runs the processes one after another and sets the computation status: Error when a process writes to stderr,
     /// exits with a non-zero code, the check after the last one fails or the API itself fails (e.g. a process cannot be started),
-    /// otherwise Initialized/Finished. A computation killed by the user keeps the Aborted status set by KillComputation.
+    /// otherwise Initialized/Finished. A computation killed by the user keeps the status set by KillComputation (Aborted, FailedInitialization for a load).
     /// </summary>
     private async Task RunComputationAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string?>? check)
     {
@@ -454,7 +454,9 @@ public class ComputationManager(IOptions<Config> options)
                 }
                 RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(cpt.ComputationId, job));
 
-                cpt.ChangeStatus(ComputationStatus.Aborted);
+                if (cpt.GetComputationReport().Status == ComputationStatus.Initializing) // a stopped load: the structure is not loaded, nothing can run on it
+                    cpt.ChangeStatus(ComputationStatus.FailedInitialization, "Loading of the structure was stopped.");
+                else cpt.ChangeStatus(ComputationStatus.Aborted);
             }
             catch (Exception)
             {
