@@ -6,6 +6,8 @@ using System.Xml.Linq;
 using System.Text;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.IO.Compression;
+using System.Buffers.Binary;
 
 namespace Mole.API.Models;
 
@@ -55,25 +57,65 @@ public class ComputationManager(IOptions<Config> options)
 
 
     /// <summary>
-    /// Handles user computations with user file provided
+    /// Creates a computation of an uploaded structure. A gzipped file is unpacked, the computation holds a plain *.pdb or *.cif.
     /// </summary>
-    /// <param name="file"></param>
-    /// <returns>Computation report object</returns>
-    public ComputationReport CreateUserComputation(IFormFile file)
+    /// <returns>The report, with the HTTP status of the request: 413 when the structure has more than MaxStructureMB, 400 for a broken gzip file</returns>
+    public (ComputationReport Report, int StatusCode) CreateUserComputation(IFormFile file)
     {
-        var computation = new Computation(Config.WorkingDirectory);
-        var savePath = Path.Combine(Config.WorkingDirectory, computation.ComputationId, Path.GetFileName(file.FileName)); // the name comes from the client, never let it leave the folder
-
-        using (var fileStream = new FileStream(savePath, FileMode.Create))
+        var name = Path.GetFileName(file.FileName); // the name comes from the client, never let it leave the folder
+        var gzipped = name.EndsWith(".gz", StringComparison.OrdinalIgnoreCase);
+        var temp = Path.Combine(Config.WorkingDirectory, $".upload-{Guid.NewGuid():N}"); // the computation is created only for a structure that fits
+        try
         {
-            file.CopyTo(fileStream);
+            bool fits;
+            using (var input = file.OpenReadStream())
+            using (var source = gzipped ? new GZipStream(input, CompressionMode.Decompress) : input)
+            using (var target = File.Create(temp))
+            {
+                fits = Computation.CopyStructure(source, target);
+            }
+            if (!fits)
+            {
+                return (new ComputationReport(null, 0, ComputationStatus.Error, gzipped
+                    ? $"The file unpacks to more than {Computation.MaxStructureMB} MB, at most {Computation.MaxStructureMB} MB of structure can be computed."
+                    : $"The file is too large, at most {Computation.MaxStructureMB} MB can be uploaded. Gzipped files (*.pdb.gz, *.cif.gz) are accepted."), StatusCodes.Status413PayloadTooLarge);
+            }
+            if (gzipped && !IsCompleteGzip(file, new FileInfo(temp).Length))
+            {
+                return (new ComputationReport(null, 0, ComputationStatus.Error, "The file is not a valid gzip file or it is incomplete."), StatusCodes.Status400BadRequest);
+            }
+
+            var computation = new Computation(Config.WorkingDirectory) { StructureFile = gzipped ? name[..^3] : name };
+            File.Move(temp, computation.StructurePath());
+            computation.SaveStatus();
+
+            Init(computation);
+
+            return (computation.GetComputationReport(), StatusCodes.Status200OK);
         }
-        computation.StructureFile = Path.GetFileName(savePath);
-        computation.SaveStatus();
+        catch (InvalidDataException)
+        {
+            return (new ComputationReport(null, 0, ComputationStatus.Error, "The file is not a valid gzip file or it is incomplete."), StatusCodes.Status400BadRequest);
+        }
+        finally
+        {
+            if (File.Exists(temp)) File.Delete(temp);
+        }
+    }
 
-        Init(computation);
-
-        return computation.GetComputationReport();
+    /// <summary>
+    /// GZipStream reads a truncated file without an error, as if it ended there. A complete gzip file has at least
+    /// a header (10 bytes) and a trailer (8 bytes), which ends with the unpacked size, modulo 2^32.
+    /// Of a file with several gzip members, the trailer gives only the last one: such a file is refused.
+    /// </summary>
+    private static bool IsCompleteGzip(IFormFile file, long unpacked)
+    {
+        if (file.Length < 18) return false;
+        using var input = file.OpenReadStream();
+        input.Seek(-4, SeekOrigin.End);
+        Span<byte> size = stackalloc byte[4];
+        input.ReadExactly(size);
+        return BinaryPrimitives.ReadUInt32LittleEndian(size) == (uint)unpacked;
     }
 
     public void Init(Computation c)

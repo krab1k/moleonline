@@ -11,7 +11,7 @@ public partial class InitController(ComputationManager manager) : Controller
     [GeneratedRegex(@"\.(pdb|cif)(\.gz)?$")] // one structure, PDB or mmCIF; MOLE and the web use its first model
     private static partial Regex StructureExtension();
 
-    private const int MaxUploadMB = 30;
+    private const int MaxRequestMB = Computation.MaxStructureMB + 1; // the file and the form around it; the file is checked when saved
 
     [GeneratedRegex(@"^[A-Za-z0-9]{1,10}$")] // goes into PDBe's URL
     private static partial Regex AssemblyName();
@@ -29,12 +29,12 @@ public partial class InitController(ComputationManager manager) : Controller
 
     [HttpPost]
     [Consumes("multipart/form-data")]
-    [RequestSizeLimit(MaxUploadMB * 1024 * 1024)]
+    [RequestSizeLimit(MaxRequestMB * 1024 * 1024)]
     public ContentResult Post(IFormFile file)
     {
-        if (Request.ContentLength > MaxUploadMB * 1024 * 1024) // the file is then not read at all, it would look like no file
+        if (Request.ContentLength > MaxRequestMB * 1024 * 1024) // the file is then not read at all, it would look like no file
         {
-            return Reports.Error(null, StatusCodes.Status413PayloadTooLarge, $"The file is too large, at most {MaxUploadMB} MB can be uploaded. Gzipped files (*.pdb.gz, *.cif.gz) are accepted.");
+            return Reports.Error(null, StatusCodes.Status413PayloadTooLarge, $"The file is too large, at most {Computation.MaxStructureMB} MB can be uploaded. Gzipped files (*.pdb.gz, *.cif.gz) are accepted.");
         }
         if (file == null || file.Length == 0)
         {
@@ -44,7 +44,8 @@ public partial class InitController(ComputationManager manager) : Controller
         {
             return Reports.Error(null, StatusCodes.Status400BadRequest, "Unsupported file type. Supported are PDB (*.pdb) and mmCIF (*.cif) files, also gzipped (*.pdb.gz, *.cif.gz).");
         }
-        return Reports.Json(manager.CreateUserComputation(file));
+        var (report, status) = manager.CreateUserComputation(file);
+        return Reports.Json(report, status);
     }
 
 

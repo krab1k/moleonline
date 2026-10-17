@@ -193,6 +193,24 @@ public partial class Computation
 
     public const string PreferredAssembly = "preferred", AsymmetricUnit = "asymmetric";
 
+    /// <summary>A structure file, uploaded (also when unpacked) or downloaded from PDBe, has at most this size</summary>
+    public const int MaxStructureMB = 30;
+    private const long MaxStructureBytes = MaxStructureMB * 1024L * 1024;
+
+    /// <returns>false when the source has more than MaxStructureBytes, the target then holds only a part</returns>
+    public static bool CopyStructure(Stream source, Stream target)
+    {
+        var buffer = new byte[81920];
+        long total = 0;
+        int read;
+        while ((read = source.Read(buffer)) > 0)
+        {
+            if ((total += read) > MaxStructureBytes) return false;
+            target.Write(buffer, 0, read);
+        }
+        return true;
+    }
+
     /// <summary>
     /// Downloads Protein Data Bank file from Model Server https://www.ebi.ac.uk/pdbe/model-server
     /// </summary>
@@ -213,6 +231,11 @@ public partial class Computation
                 status = await DownloadAsync(url, stream);
             }
 
+            if (status == HttpStatusCode.RequestEntityTooLarge)
+            {
+                ChangeStatus(ComputationStatus.FailedInitialization, $"Structure [{PdbId}] is larger than {MaxStructureMB} MB, at most {MaxStructureMB} MB can be computed.");
+                return;
+            }
             if (status == HttpStatusCode.NotFound)
             {
                 ChangeStatus(ComputationStatus.FailedInitialization, $"Structure [{PdbId}] is unlikely to exist or has been made obsolete.");
@@ -276,7 +299,8 @@ public partial class Computation
     /// Downloads url into target. Fails when the response does not start within ResponseTimeout
     /// or no data arrive within IdleTimeout, so that large structures can still be downloaded on slow links.
     /// </summary>
-    /// <returns>HTTP status code of the response, target is written only for OK</returns>
+    /// <returns>HTTP status code of the response, target is written only for OK; RequestEntityTooLarge when the response
+    /// has more than MaxStructureBytes, the download then stops</returns>
     private static async Task<HttpStatusCode> DownloadAsync(string url, Stream target)
     {
         using var cts = new CancellationTokenSource(ResponseTimeout);
@@ -285,11 +309,13 @@ public partial class Computation
 
         await using var body = await response.Content.ReadAsStreamAsync(cts.Token);
         var buffer = new byte[81920];
+        long total = 0;
         while (true)
         {
             cts.CancelAfter(IdleTimeout);
             var read = await body.ReadAsync(buffer, cts.Token);
             if (read == 0) break;
+            if ((total += read) > MaxStructureBytes) return HttpStatusCode.RequestEntityTooLarge;
             await target.WriteAsync(buffer.AsMemory(0, read), cts.Token);
         }
         return HttpStatusCode.OK;

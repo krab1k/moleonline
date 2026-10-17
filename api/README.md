@@ -50,7 +50,7 @@ location /api/ {
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    client_max_body_size 31m;    # uploaded structures, the API accepts files up to 30 MB
+    client_max_body_size 31m;    # uploaded structures, the API accepts files up to 30 MB, also when unpacked
 }
 ```
 
@@ -94,7 +94,7 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 | Endpoint | |
 |---|---|
 | `POST /Init/{pdbId}?assembly=` | load a PDB entry from PDBe and compute its cavities; `assembly`: `preferred` (default, PDBe's preferred biological assembly, the one OPM has; the asymmetric unit when PDBe cannot tell which one it is, e.g. when it is not reachable), `asymmetric` (the asymmetric unit) or an assembly id |
-| `POST /Init` | load an uploaded structure (`multipart/form-data`, `.pdb`, `.cif`, `.pdb.gz`, `.cif.gz`) |
+| `POST /Init` | load an uploaded structure (`multipart/form-data`, `.pdb`, `.cif`, `.pdb.gz`, `.cif.gz`); a gzipped file is unpacked and stored as `.pdb` or `.cif` |
 | `POST /Submit/Mole/{id}` | compute tunnels, body: MOLE parameters |
 | `POST /Submit/Pores/{id}` | compute a pore across the membrane, body: `InMembrane`, `IsBetaBarrel`, `Chains` (list of chain names, empty: all), `ProbeRadius`, `InteriorThreshold` (`null`: the default) |
 | `GET /Status/{id}?submitId=` | status of a computation or one submission |
@@ -104,6 +104,10 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 | `POST /Kill/{id}` | stop the running submission |
 | `DELETE /Delete/{id}` | delete the computation |
 | `GET /Version` | versions of the API, MOLE and Pores |
+
+A structure has at most 30 MB, uploaded (also when unpacked) or downloaded from PDBe: a single ribosome fits
+(4V6X, 238,000 atoms, 23 MB), larger complexes do not. A larger upload is refused with 413, a larger PDBe entry
+fails to load.
 
 ## Development
 
