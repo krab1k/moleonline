@@ -98,3 +98,9 @@ def test_a_deleted_computation_is_never_written_over(settings):
     stale.change_status(Status.Error, "late")
     assert computation.load(settings.working_directory, id).is_deleted()
     assert not list((settings.working_directory / id).glob("*.tmp"))  # no temporary files left
+
+
+def test_status_file_is_readable_by_others(client, settings):
+    id = written_by_csharp(settings.working_directory, last="Running")
+    client.get(f"/Status/{id}")  # rewritten: interrupted by a restart
+    assert (settings.working_directory / id / STATUS_FILE).stat().st_mode & 0o777 == 0o644

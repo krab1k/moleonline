@@ -2,6 +2,7 @@
 submission (0 is the load). The status file has the format of the C# API, which reads it back (BaseDir included)."""
 
 import base64
+import os
 import re
 import tempfile
 import threading
@@ -116,6 +117,7 @@ class Computation(BaseModel):
             # a new file renamed over the old one, so that readers (status polling) never see a partial file
             with tempfile.NamedTemporaryFile("w", dir=path.parent, prefix=f"{STATUS_FILE}.", suffix=".tmp", delete=False) as temp:
                 temp.write(self.model_dump_json(indent=2))
+            os.chmod(temp.name, 0o644)  # as the other files, a temporary file is private
             Path(temp.name).replace(path)
 
 
