@@ -68,7 +68,7 @@ Usage per month or year (computations, PDB entries and uploads, submissions and 
 addresses), from the status files and the IP log:
 
 ```sh
-docker compose exec -T api /opt/pores/bin/python -I - /data/computations month < tools/stats.py
+docker compose exec -T api /app/.venv/bin/python -I - /data/computations month < tools/stats.py
 ```
 
 Computations running during a restart are reported as failed ("interrupted by a restart"); the user
@@ -84,7 +84,7 @@ Settings are environment variables, the defaults are the container's (`src/mole_
 | `MAX_CONCURRENT_COMPUTATIONS` | `4` | MOLE and pore runs at once (loads included), others wait in a queue |
 | `MAX_COMPUTATION_MINUTES` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
 | `MOLE` | `/opt/mole2/mole2` | full path |
-| `PORES` | `/opt/pores/bin/pores` | full path |
+| `PORES` | `/app/.venv/bin/pores` | full path |
 
 The pores tool reads `MEMEMBED` (the MEMEMBED executable) and `PORES_OPM_CACHE` (the OPM file cache)
 from the environment; the image sets both. All times the API stores are in UTC.
@@ -125,7 +125,7 @@ fails to load.
 
 ```sh
 uv sync
-WORKING_DIRECTORY=/tmp/mole MOLE=/path/to/mole2 PORES=$PWD/tools/pores/.venv/bin/pores \
+WORKING_DIRECTORY=/tmp/mole MOLE=/path/to/mole2 PORES=$PWD/.venv/bin/pores \
 uv run uvicorn mole_api.main:app
 uv run pytest    # with a fake MOLE and pores tool, and a fake PDBe
 MOLE2=/path/to/mole2 uv run pytest    # also a tunnel computation with the real MOLE, skipped without
@@ -133,12 +133,11 @@ MOLE2=/path/to/mole2 uv run pytest    # also a tunnel computation with the real 
 
 ### Pores tool
 
-The pores tool is a [uv](https://docs.astral.sh/uv/) project, its input is described in
-`tools/pores/src/pores/cli.py`:
+The pores tool is a project of its own in the API's [uv](https://docs.astral.sh/uv/) workspace (one lock, one
+environment, `.venv`), installed with the API; its input is described in `tools/pores/src/pores/cli.py`:
 
 ```sh
 cd tools/pores
-uv sync
 MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # tests needing them are skipped without
 ```
 

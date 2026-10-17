@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     max_concurrent_computations: int = Field(4, ge=1)
     max_computation_minutes: int = Field(30, ge=1)  # one run (all its processes), the queue not included
     mole: Path = Path("/opt/mole2/mole2")
-    pores: Path = Path("/opt/pores/bin/pores")
+    pores: Path = Path("/app/.venv/bin/pores")  # installed with the API
 
     @field_validator("working_directory")
     @classmethod

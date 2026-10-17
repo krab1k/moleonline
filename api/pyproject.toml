@@ -9,6 +9,7 @@ requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.143.3",
     "httpx2>=2.13.1",
+    "pores",
     "pydantic-settings>=2.16.0",
     "python-multipart>=0.0.32",
     "uvicorn>=0.54.0",
@@ -25,3 +26,11 @@ dev = [
 
 [tool.pytest]
 testpaths = ["tests"]
+
+[tool.uv.workspace]
+members = [
+    "tools/pores",
+]
+
+[tool.uv.sources]
+pores = { workspace = true }

@@ -2,8 +2,8 @@
 
 usage: python3 stats.py <computations folder> [month|year]
 
-In the container (the API image has Python for the pores tool):
-    docker compose exec -T api /opt/pores/bin/python -I - /data/computations year < tools/stats.py
+In the container (with the API's Python):
+    docker compose exec -T api /app/.venv/bin/python -I - /data/computations year < tools/stats.py
 
 All times are UTC, in the status files and in the log, so both are grouped by the same calendar.
 - computations: by Created in _object.json, split into PDB entries and uploads; status files written before the
