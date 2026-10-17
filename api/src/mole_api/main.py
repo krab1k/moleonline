@@ -5,7 +5,9 @@ from contextlib import asynccontextmanager
 from importlib.metadata import version
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.routing import APIRoute
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -17,6 +19,7 @@ from . import computation, iplog, mole, pdbe, upload
 from .paths import AspNetPaths
 from .computation import Computation, Report, Status
 from .config import Settings
+from .parameters import MoleParameters
 from .runner import Runner
 from .versions import read_versions
 
@@ -40,6 +43,33 @@ def find(request: Request, computation_id: str) -> Computation | JSONResponse:
     if found.is_deleted():
         return error(computation_id, 410, "The computation has been deleted.")
     return found
+
+
+def can_run(request: Request, c: Computation) -> tuple[int, str] | None:
+    """Why a new submission cannot start, with the HTTP status"""
+    match c.last.Status:
+        case Status.Running:
+            return 409, "Previous computation is still running. This one has not been started. Please, try again later."
+        case Status.Initializing:
+            return 409, "The structure is still being initialized. This computation has not been started. Please, try again later."
+        case Status.FailedInitialization:
+            return 409, "The structure could not be loaded, no computation can run on it."
+    if len(request.app.state.runner.jobs) >= request.app.state.settings.max_concurrent_computations:
+        return 503, "Server is under heavy load, computation has not started. Please try again later"
+    return None
+
+
+class LoggedSubmission(APIRoute):
+    """A submission (/Submit/Mole/{computation_id}) is logged before its body is read, so a refused one too"""
+
+    def get_route_handler(self):
+        handle, kind = super().get_route_handler(), self.path.split("/")[2]
+
+        async def logged(request: Request):
+            iplog.write(request.app.state.settings.working_directory, "Submit", request.client and request.client.host,
+                        kind, request.path_params["computation_id"])
+            return await handle(request)
+        return logged
 
 
 def errors(*codes: int) -> dict:
@@ -107,6 +137,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def unexpected(request: Request, e: Exception) -> JSONResponse:  # logged by uvicorn
         return error(None, 500, "An unexpected error occurred on the server. Please, try again later.")
 
+    @app.exception_handler(RequestValidationError)
+    async def invalid(request: Request, e: RequestValidationError) -> JSONResponse:
+        """400 with a report, as the C# API answered (not FastAPI's 422)"""
+        details = "; ".join(f"{'.'.join(str(part) for part in error['loc'] if part != 'body')}: {error['msg']}" for error in e.errors())
+        return error(request.path_params.get("computation_id"), 400, f"Input format error. {details}")
+
     @app.get("/Version")
     def get_version(request: Request) -> Version:
         """Versions of the API and of the MOLE and pores tool that compute"""
@@ -156,6 +192,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return c.report()
         finally:
             iplog.write(settings.working_directory, "Init", request.client and request.client.host, "PDB", created)
+
+    # on the event loop, as the runs: a stop and a run never interleave, nor two submissions
+    submissions = APIRouter(prefix="/Submit", route_class=LoggedSubmission)
+
+    @submissions.post("/Mole/{computation_id}", responses=errors(400, 404, 409, 410, 503))
+    async def submit_mole(request: Request, computation_id: str, parameters: MoleParameters) -> Report:
+        """Computes tunnels (pores with PoresAuto, PoresMerged or exits without an origin) in the loaded structure, in
+        the background: Running, then Finished or Error (see Status with the SubmitId of the answer)"""
+        found = find(request, computation_id)
+        if isinstance(found, JSONResponse):
+            return found
+        if problems := parameters.problems():
+            return error(computation_id, 400, problems)
+        if refused := can_run(request, found):
+            return error(computation_id, *refused)
+
+        settings: Settings = request.app.state.settings
+        found.add_submission(request.app.state.versions.mole)
+        directory = found.submit_directory(found.last.SubmitId)
+        try:
+            found.change_status(Status.Running)
+            path = mole.computation_input(found, parameters)
+            (directory / mole.PARAMETERS).write_text(parameters.model_dump_json(indent=2))
+        except Exception as e:  # e.g. the structure is missing
+            found.change_status(Status.Error, str(e))
+            return respond(found.report(), 500)
+        report = found.report()  # before the run can change it
+        request.app.state.runner.start(found, lambda: [[str(settings.mole), str(path)]], init=False,
+                                       finish=lambda: mole.zip_report(directory, found.structure_path()))
+        return report
+
+    app.include_router(submissions)
 
     # on the event loop, as the runs: a stop and a run never interleave
     @app.post("/Kill/{computation_id}", responses=errors(404, 409, 410))

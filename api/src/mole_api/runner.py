@@ -28,11 +28,12 @@ class Runner:
         self.tasks: set[asyncio.Task] = set()  # all runs, until done
 
     def start(self, c: Computation, steps: Callable[[], list[list[str]]], init: bool,
-              prepare: Callable[[], Awaitable[bool]] | None = None) -> None:
+              prepare: Callable[[], Awaitable[bool]] | None = None, finish: Callable[[], str | None] | None = None) -> None:
         """steps: the command lines of the processes, made when the run gets its slot. prepare: before the slot is
-        awaited (a download), False when it failed and set the status. The run is registered before the request
-        is answered: a stop right after it finds the run."""
-        task = asyncio.create_task(self._run(c, steps, init, prepare))
+        awaited (a download), False when it failed and set the status. finish: after the last process, in a thread
+        (zipping the results), returns why the run failed. The run is registered before the request is answered:
+        a stop right after it finds the run."""
+        task = asyncio.create_task(self._run(c, steps, init, prepare, finish))
         self.jobs[c.ComputationId] = task
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
@@ -57,7 +58,7 @@ class Runner:
         await asyncio.gather(*self.tasks, return_exceptions=True)
 
     async def _run(self, c: Computation, steps: Callable[[], list[list[str]]], init: bool,
-                   prepare: Callable[[], Awaitable[bool]] | None) -> None:
+                   prepare: Callable[[], Awaitable[bool]] | None, finish: Callable[[], str | None] | None) -> None:
         failed = Status.FailedInitialization if init else Status.Error
         try:
             if prepare and not await prepare():
@@ -75,6 +76,9 @@ class Runner:
                     c.change_status(failed, f"The computation exceeded the time limit of {self.minutes} minute{'s' if self.minutes != 1 else ''}.")
                     return
                 self._forget(c.ComputationId, asyncio.current_task())  # as soon as the last process exits: no stop now
+                if finish and (error := await asyncio.to_thread(finish)):
+                    c.change_status(failed, error)
+                    return
                 c.change_status(Status.Initialized if init else Status.Finished)
         except Exception as e:  # e.g. a process cannot be started; never leave the computation running
             with contextlib.suppress(Exception):

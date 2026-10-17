@@ -80,6 +80,15 @@ class Computation(BaseModel):
             return Report(ComputationId=self.ComputationId, SubmitId=submit_id, Status=Status.Error, ErrorMsg=f"SubmitId {submit_id} not found.")
         return Report(ComputationId=self.ComputationId, SubmitId=unit.SubmitId, Status=unit.Status, ErrorMsg=unit.ErrorMsg)
 
+    def add_submission(self, mole_version: str) -> None:
+        """A new submission with its folder; the first one reuses the load's unit (Initialized)"""
+        if self.last.Status != Status.Initialized:
+            self.ComputationUnits.append(Unit(SubmitId=len(self.ComputationUnits) + 1, Status=Status.Initialized))
+        self.last.Submitted, self.last.Started, self.last.Finished = datetime.now(UTC), None, None
+        self.last.MoleVersion = mole_version
+        self.submit_directory(self.last.SubmitId).mkdir(parents=True, exist_ok=True)
+        self.save()
+
     def change_status(self, status: Status, error: str = "") -> None:
         """Of the last submission, unless the computation is deleted"""
         if self.is_deleted():
