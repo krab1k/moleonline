@@ -13,7 +13,7 @@ import pytest
 
 from pores.membrane import read_structure
 from pores.opm import membrane_from_opm
-from pores.path import PathError, end_points, mole_input
+from pores.path import end_points, mole_input
 
 REFERENCE = Path(__file__).parent.parent / "reference"
 MOLE = os.environ.get("MOLE2")
@@ -66,10 +66,19 @@ def test_1k4c_outside_membrane_close(tmp_path):
     assert len(residues & p_residues) >= 0.9 * len(p_residues)
 
 
-def test_curved_membrane_in_membrane_region_reported(tmp_path):
-    """Production finished 2VV5 with InMembrane=true without any path; we say why instead."""
-    with pytest.raises(PathError, match="curved"):
-        compute("2vv5", True, 13.0, tmp_path)
+def test_curved_membrane_in_membrane_region(tmp_path):
+    """2vv5: the membrane region along the axis ends at the wide mouth of the channel, MOLE drops such a
+    short path (fewer than 11 steps inside the protein). Production found no path either; the API reports
+    no pore. Most curved channels that cross the membrane get one (74 of 75 in OPM)."""
+    structure_path = tmp_path / "2vv5.cif"
+    shutil.copy(REFERENCE / "2vv5" / "data_molecule", structure_path)
+    structure = read_structure(structure_path)
+    membrane = membrane_from_opm(structure, (REFERENCE / "2vv5" / "opm_2vv5.pdb").read_text())
+    working_directory = tmp_path / "1"
+    working_directory.mkdir()
+    start, end = end_points(structure, membrane, True, [])
+    (working_directory / "input.xml").write_text(mole_input(structure_path, working_directory, start, end, 13.0, 0.8, []))
+    assert run_mole(working_directory / "input.xml", working_directory)["Channels"]["Paths"] == []
 
 
 def test_selected_chains(tmp_path):
