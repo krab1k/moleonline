@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <DefaultItemExcludes>$(DefaultItemExcludes);tools/**</DefaultItemExcludes> <!-- the pores tool is a separate Python project -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tools/**;tests/**</DefaultItemExcludes> <!-- the pores tool is a separate Python project, the tests a separate project -->
     <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled> <!-- no web.config, it is for IIS -->
   </PropertyGroup>
 

@@ -131,6 +131,14 @@ MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # tests needing
 
 The tests compare with production results of the original Pores, in `tools/pores/tests/data/` (see its README).
 
+The API's tests run it in the test process, with a temporary working directory and a fake MOLE (a shell
+script) for loads, failures and stopping; one test runs the real MOLE. They upload structures, nothing is
+downloaded from PDBe:
+
+```sh
+MOLE2=/path/to/mole2 dotnet test tests/Mole.API.Tests    # the test with the real MOLE is skipped without
+```
+
 ## Licence
 
 MIT, see `LICENSE`. MEMEMBED in the container image is GPL v2.
