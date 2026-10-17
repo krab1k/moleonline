@@ -122,7 +122,8 @@ fails to load.
 
 The API is being rewritten in Python (FastAPI, `src/mole_api`), with the C# API as the reference until it
 replaces it, and both read each other's computations (`_object.json`). So far it reads its settings and the
-tools' versions at startup and serves `/Version` and `/Status`; the documentation is at `/docs`. Settings are environment variables (`WORKING_DIRECTORY`, `CSA`, `MOLE`, `PORES`,
+tools' versions at startup, serves `/Version` and `/Status`, and loads uploaded structures (`/Init`) with
+MOLE; the documentation is at `/docs`. Settings are environment variables (`WORKING_DIRECTORY`, `CSA`, `MOLE`, `PORES`,
 `MAX_CONCURRENT_COMPUTATIONS`, `MAX_COMPUTATION_MINUTES`), the defaults are the container's:
 
 ```sh

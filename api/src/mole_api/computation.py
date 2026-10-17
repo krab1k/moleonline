@@ -1,6 +1,7 @@
 """A computation: a folder in the working directory with its status file _object.json, the structure, and a folder per
 submission (0 is the load). The status file has the format of the C# API, which reads it back (BaseDir included)."""
 
+import base64
 import re
 import tempfile
 import threading
@@ -89,6 +90,18 @@ class Computation(BaseModel):
             self.last.Finished = datetime.now(UTC)
         self.save()
 
+    def folder(self) -> Path:
+        return Path(self.BaseDir) / self.ComputationId
+
+    def structure_path(self) -> Path:
+        if self.StructureFile is None:
+            raise ValueError(f"Computation {self.ComputationId} has no structure.")
+        return self.folder() / self.StructureFile
+
+    def submit_directory(self, submit_id: int) -> Path:
+        """0: the load"""
+        return self.folder() / str(submit_id)
+
     def status_path(self) -> Path:
         return Path(self.BaseDir) / self.ComputationId / STATUS_FILE
 
@@ -114,6 +127,18 @@ def _saved_as_deleted(path: Path) -> bool:
         return Computation.model_validate_json(path.read_bytes()).is_deleted()
     except (FileNotFoundError, ValueError):  # a corrupt file is replaced
         return False
+
+
+def create(working_directory: Path, mole_version: str, pdb_id: str = "") -> Computation:
+    """A new computation, Initializing: its structure is loaded as submission 1"""
+    now = datetime.now(UTC)
+    computation = Computation(
+        ComputationId=re.sub("[/+=]", "", base64.b64encode(uuid.uuid4().bytes).decode()), BaseDir=str(working_directory),
+        UserStructure=not pdb_id, PdbId=pdb_id, Created=now,
+        ComputationUnits=[Unit(SubmitId=1, Status=Status.Initializing, Submitted=now, MoleVersion=mole_version)])
+    computation.folder().mkdir()
+    computation.save()
+    return computation
 
 
 def not_exists(computation_id: str) -> Report:
