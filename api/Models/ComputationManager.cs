@@ -341,7 +341,9 @@ public class ComputationManager(IOptions<Config> options)
 
     private void RunComputation(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory = true, Func<string?>? check = null)
     {
-        Task.Run(() => RunComputationAsync(c, steps, init, zipDirectory, check));
+        var job = new RunningJob();
+        RunningProcesses[c.ComputationId] = job; // before the request is answered: a kill right after it finds the run, the slot check counts it
+        Task.Run(() => RunComputationAsync(c, steps, init, zipDirectory, check, job));
     }
 
 
@@ -351,11 +353,9 @@ public class ComputationManager(IOptions<Config> options)
     /// exits with a non-zero code, the check after the last one fails or the API itself fails (e.g. a process cannot be started),
     /// otherwise Initialized/Finished. A computation killed by the user keeps the status set by KillComputation (Aborted, FailedInitialization for a load).
     /// </summary>
-    private async Task RunComputationAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string?>? check)
+    private async Task RunComputationAsync(Computation c, ProcessStartInfo[] steps, bool init, bool zipDirectory, Func<string?>? check, RunningJob job)
     {
-        var job = new RunningJob();
-        RunningProcesses[c.ComputationId] = job; // registered while waiting, so that KillComputation can abort it
-        try
+        try // registered also while waiting for a slot, so that KillComputation can abort it
         {
             await RunJobAsync(c, steps, init, zipDirectory, check, job);
         }
