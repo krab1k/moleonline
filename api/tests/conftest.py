@@ -28,6 +28,7 @@ def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", sl
     return Settings(
         working_directory=directory / "computations",
         csa=CSA,
+        static_files=Path(__file__).parent.parent / "wwwroot",
         max_concurrent_computations=slots,
         mole=script(directory, "mole", mole),
         pores=script(directory, "pores", f"[ \"$1\" = --version ] && echo 'pores {PORES_VERSION}' || exit 1"),

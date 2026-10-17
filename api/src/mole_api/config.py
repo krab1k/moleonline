@@ -5,13 +5,14 @@ import os
 import tempfile
 from pathlib import Path
 
-from pydantic import Field, FilePath, field_validator
+from pydantic import DirectoryPath, Field, FilePath, field_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     working_directory: Path = Path("/data/computations")  # computations and the submission log
     csa: FilePath = Path("Resources/mcsa_sites.csv.gz")  # active sites, tools/mcsa/convert.py
+    static_files: DirectoryPath = Path("wwwroot")  # served at /: the documentation page, inputs/cofactors.json for the web
     max_concurrent_computations: int = Field(4, ge=1)
     max_computation_minutes: int = Field(30, ge=1)  # one run (all its processes), the queue not included
     mole: Path = Path("/opt/mole2/mole2")

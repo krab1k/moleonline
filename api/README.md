@@ -124,8 +124,9 @@ The API is being rewritten in Python (FastAPI, `src/mole_api`), with the C# API 
 replaces it, and both read each other's computations (`_object.json`). So far it reads its settings and the
 tools' versions at startup, serves `/Version` and `/Status`, loads uploaded structures (`/Init`) and PDB
 entries from PDBe (`/Init/{pdbId}`) with MOLE, stops (`/Kill`) and deletes (`/Delete`) them, and logs loads
-(`Mole_api_IP_log.csv`); the documentation is at `/docs`. Settings are environment variables (`WORKING_DIRECTORY`, `CSA`, `MOLE`, `PORES`,
-`MAX_CONCURRENT_COMPUTATIONS`, `MAX_COMPUTATION_MINUTES`), the defaults are the container's:
+(`Mole_api_IP_log.csv`); the documentation is at `/docs`. Settings are environment variables (`WORKING_DIRECTORY`, `CSA`, `STATIC_FILES`, `MOLE`,
+`PORES`, `MAX_CONCURRENT_COMPUTATIONS`, `MAX_COMPUTATION_MINUTES`), the defaults are the container's. Endpoint
+names match in any case and a trailing slash is ignored, as in the C# API (the web uses `/Compinfo/` and `/Init/`):
 
 ```sh
 uv sync

@@ -9,10 +9,12 @@ from fastapi import FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import UploadFile
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from . import computation, iplog, mole, pdbe, upload
+from .paths import AspNetPaths
 from .computation import Computation, Report, Status
 from .config import Settings
 from .runner import Runner
@@ -92,12 +94,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.versions = await read_versions(app.state.settings)
         app.state.runner = Runner(app.state.settings)
         app.state.pdbe = pdbe.client()
+        app.mount("/", StaticFiles(directory=app.state.settings.static_files, html=True))  # after the endpoints, it would hide them
         yield
         await app.state.runner.stop()
         await app.state.pdbe.aclose()
 
     app = FastAPI(title="MOLEonline API", version=version("mole-api"), lifespan=lifespan)
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=iplog.PROXIES)  # the client address, also for the log
+    app.add_middleware(AspNetPaths)
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, e: Exception) -> JSONResponse:  # logged by uvicorn
