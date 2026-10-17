@@ -32,31 +32,43 @@ public partial class ToolVersionReader(IOptions<Config> options, ToolVersions ve
     [GeneratedRegex(@"^pores (\S+)$")]
     private static partial Regex PoresLine();
 
+    /// <summary>How long a tool may take to report its version</summary>
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(30);
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        versions.Mole = await ReadAsync("MOLE", options.Value.MOLE, [], MoleLine());
-        versions.Pores = await ReadAsync("Pores", options.Value.Pores, ["--version"], PoresLine());
+        versions.Mole = await ReadAsync("MOLE", options.Value.MOLE, [], MoleLine(), cancellationToken);
+        versions.Pores = await ReadAsync("Pores", options.Value.Pores, ["--version"], PoresLine(), cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    private static async Task<string> ReadAsync(string setting, string path, string[] arguments, Regex version)
+    /// <summary>The version from the tool's first line, if it exits with code 0 in time</summary>
+    private async Task<string> ReadAsync(string setting, string path, string[] arguments, Regex version, CancellationToken stop)
     {
-        var info = new ProcessStartInfo(path) { RedirectStandardOutput = true, RedirectStandardError = true };
+        var info = new ProcessStartInfo(path) { RedirectStandardOutput = true }; // stderr goes to the API's log
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
         using var process = Process.Start(info)!;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        string? line = null;
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(stop);
+        limit.CancelAfter(Timeout);
+        string? line = null, problem = null;
         try
         {
-            line = await process.StandardOutput.ReadLineAsync(timeout.Token);
-            await process.WaitForExitAsync(timeout.Token);
+            line = await process.StandardOutput.ReadLineAsync(limit.Token);
+            await process.StandardOutput.ReadToEndAsync(limit.Token); // the rest, so that a full pipe never blocks it
+            await process.WaitForExitAsync(limit.Token);
+            if (process.ExitCode != 0) problem = $"it exited with code {process.ExitCode}";
         }
-        catch (OperationCanceledException) { process.Kill(entireProcessTree: true); }
+        catch (OperationCanceledException)
+        {
+            process.Kill(entireProcessTree: true);
+            stop.ThrowIfCancellationRequested(); // the API is stopping
+            problem = $"it did not finish within {Timeout.TotalSeconds:0.#} s";
+        }
 
         var match = version.Match(line ?? "");
-        if (!match.Success)
-            throw new OptionsValidationException(nameof(Config), typeof(Config), [$"Config:{setting} '{path}' did not report its version, its first line is \"{line}\"."]);
+        if (problem != null || !match.Success)
+            throw new OptionsValidationException(nameof(Config), typeof(Config), [$"Config:{setting} '{path}' did not report its version, {problem ?? $"its first line is \"{line}\""}."]);
         return match.Groups[1].Value;
     }
 }

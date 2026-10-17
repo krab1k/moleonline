@@ -138,25 +138,45 @@ public class RequestTests
         Assert.Equal("Error", (string)body["Status"]!);
     }
 
-    [Theory]
-    [InlineData("not MOLE", "pores 1.0", "Config:MOLE", "not MOLE")]
-    [InlineData("WebChemistry Tunnels 2.5.1, (c)", "not pores", "Config:Pores", "not pores")]
-    public async Task Tool_without_a_version_stops_the_API(string moleLine, string poresLine, string setting, string line)
+    private const string Mole = "echo 'WebChemistry Tunnels 2.5.1, (c) test'";
+
+    /// <summary>The reader of a MOLE and a pores tool running these scripts</summary>
+    private static (Utils.ToolVersionReader Reader, string Directory) Tools(string mole, string pores)
     {
-        // the reader runs when the API starts; its error stops the start like a wrong setting (checked here directly,
-        // a failed start in the test host shows only as a disposed object)
         var directory = Directory.CreateTempSubdirectory("mole-api-tests-").FullName;
-        string Tool(string name, string firstLine)
+        string Tool(string name, string script)
         {
             var path = Path.Combine(directory, name);
-            File.WriteAllText(path, $"#!/bin/sh\necho '{firstLine}'\n");
+            File.WriteAllText(path, $"#!/bin/sh\n{script}\n");
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserExecute);
             return path;
         }
-        var reader = new Utils.ToolVersionReader(Options.Create(new Config { MOLE = Tool("mole", moleLine), Pores = Tool("pores", poresLine) }), new Utils.ToolVersions());
+        var config = Options.Create(new Config { MOLE = Tool("mole", mole), Pores = Tool("pores", pores) });
+        return (new Utils.ToolVersionReader(config, new Utils.ToolVersions()) { Timeout = TimeSpan.FromSeconds(1) }, directory);
+    }
+
+    [Theory]
+    [InlineData("echo 'not MOLE'", "echo 'pores 1.0'", "Config:MOLE", "its first line is \"not MOLE\"")]
+    [InlineData(Mole, "echo 'not pores'", "Config:Pores", "its first line is \"not pores\"")]
+    [InlineData(Mole, "echo 'pores 1.0'; exit 1", "Config:Pores", "it exited with code 1")] // a version line does not make a failing tool work
+    [InlineData(Mole, "echo 'pores 1.0'; sleep 30", "Config:Pores", "it did not finish within 1 s")]
+    public async Task Tool_without_a_version_stops_the_API(string mole, string pores, string setting, string problem)
+    {
+        // the reader runs when the API starts; its error stops the start like a wrong setting (checked here directly,
+        // a failed start in the test host shows only as a disposed object)
+        var (reader, directory) = Tools(mole, pores);
         var error = await Assert.ThrowsAsync<OptionsValidationException>(() => reader.StartAsync(default));
         Assert.Contains($"{setting} '", error.Message);
-        Assert.Contains($"did not report its version, its first line is \"{line}\"", error.Message);
+        Assert.Contains($"did not report its version, {problem}.", error.Message);
+        Directory.Delete(directory, recursive: true);
+    }
+
+    [Fact]
+    public async Task Stopping_the_API_while_a_tool_reports_its_version()
+    {
+        var (reader, directory) = Tools(Mole, "sleep 30");
+        using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => reader.StartAsync(stop.Token)); // not reported as a wrong setting
         Directory.Delete(directory, recursive: true);
     }
 
