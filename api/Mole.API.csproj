@@ -20,7 +20,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Resources/CSA_2_0_121113.txt"> <!-- Catalytic Site Atlas 2.0 (EBI, 2013): active sites offered as tunnel starting points -->
+    <None Update="Resources/mcsa_sites.csv.gz"> <!-- active sites from M-CSA, offered as tunnel starting points (tools/mcsa/convert.py) -->
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

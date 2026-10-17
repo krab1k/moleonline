@@ -19,7 +19,7 @@ public class ComputationManager(IOptions<Config> options, Utils.ToolVersions ver
     public string MoleVersion => versions.Mole;
 
     public Config Config { get; } = options.Value;
-    private readonly CSA csa = new(options.Value.CSA);
+    private readonly Lazy<CSA> csa = new(() => new CSA(options.Value.CSA)); // read on the first /CSA request, about 1 s
     private readonly ConcurrentDictionary<string, RunningJob> RunningProcesses = new(); // runs waiting for a slot and running
     private readonly ConcurrentDictionary<string, CancellationTokenSource> Downloads = new(); // loads from PDBe before their run, KillComputation stops them
     private readonly SemaphoreSlim slots = new(Math.Max(1, options.Value.MaxConcurentComputations)); // MaxConcurentComputations processes at once, initializations included
@@ -616,17 +616,8 @@ public class ComputationManager(IOptions<Config> options, Utils.ToolVersions ver
 
     }
 
-    /// <summary>
-    /// Retrieves CSA anotated active sites for a given pdb id
-    /// </summary>
-    /// <param name="pdbId">pdbId to be processed</param>
-    /// <returns></returns>
-    internal CSAResidue[][] GetActiveSite(string pdbId)
-    {
-        if (csa.Database.ContainsKey(pdbId)) return [.. csa.Database[pdbId].Select(x => x.Residues.ToArray())];
-
-        return [];
-    }
+    /// <summary>Active sites of a PDB entry from M-CSA</summary>
+    internal CSAResidue[][] GetActiveSite(string pdbId) => csa.Value.Get(pdbId);
     #endregion
 
 

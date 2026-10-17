@@ -86,7 +86,7 @@ Settings are in `appsettings.json` (container paths) and can be overridden with 
 | `Config__MaxComputationMinutes` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
 | `Config__MOLE` | `/opt/mole2/mole2` | full path |
 | `Config__Pores` | `/opt/pores/bin/pores` | full path |
-| `Config__CSA` | `Resources/CSA_2_0_121113.txt` | active sites from the Catalytic Site Atlas, relative to the app |
+| `Config__CSA` | `Resources/mcsa_sites.csv.gz` | active sites from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (CC BY 4.0), made by `tools/mcsa/convert.py`, relative to the app |
 
 The pores tool reads `MEMEMBED` (the MEMEMBED executable) and `PORES_OPM_CACHE` (the OPM file cache)
 from the environment; the image sets both. All times the API stores are in UTC.
@@ -107,7 +107,7 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 | `GET /Status/{id}?submitId=` | status of a computation or one submission |
 | `GET /CompInfo/{id}` | the computation and the parameters of all submissions |
 | `GET /Data/{id}?submitId=&format=` | results: `json`, `report` (zip), `molecule`, `pymol`, `chimera`, `vmd`, `pdb`, `membrane` |
-| `GET /CSA/{id}` | catalytic active sites of the PDB entry, starting points for tunnels |
+| `GET /CSA/{id}` | catalytic active sites of the PDB entry from M-CSA, one per chain, starting points for tunnels |
 | `POST /Kill/{id}` | stop the running submission |
 | `DELETE /Delete/{id}` | delete the computation |
 | `GET /Version` | versions of the API, MOLE and Pores |

@@ -43,7 +43,7 @@ public sealed class Api : IDisposable
             ["Config:WorkingDirectory"] = WorkingDirectory,
             ["Config:MOLE"] = mole,
             ["Config:Pores"] = Script("pores", $"[ \"$1\" = --version ] && echo 'pores {PoresVersion}' || exit 1\n"),
-            ["Config:CSA"] = Path.Combine(AppContext.BaseDirectory, "Resources", "CSA_2_0_121113.txt"),
+            ["Config:CSA"] = Path.Combine(AppContext.BaseDirectory, "Resources", "mcsa_sites.csv.gz"),
             ["Config:MaxConcurentComputations"] = slots.ToString(),
         };
         factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(config)));
