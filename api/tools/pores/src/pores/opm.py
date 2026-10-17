@@ -5,6 +5,9 @@ dummy atoms (residue DUM, atom names N and O) on the two membrane planes. The pr
 OPM file is a rigidly moved copy of the PDB entry, so superposing it onto the computed
 structure gives the transformation that moves the dummy atoms into the structure's frame.
 
+The dummy atoms are read from the text: OPM writes them after the END record in about a quarter of
+its files, PDB readers (gemmi) stop at END.
+
 Chains cannot be paired by their names: OPM renames chains of assemblies (A..L for four copies
 of 1k4c) and PDBe names assembly copies like A, A_2. Alpha carbons are paired by residue number,
 insertion code and residue name, chain against chain, under one common transformation.
@@ -133,17 +136,20 @@ def superpose(structure: gemmi.Structure, opm: gemmi.Structure) -> tuple[np.ndar
     return best
 
 
+def _dummy_atoms(opm_text: str) -> list[tuple[np.ndarray, str]]:
+    """Dummy atoms of an OPM file, positions in the OPM frame and names (N, O), wherever they are."""
+    return [(np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])]), line[12:16].strip())
+            for line in opm_text.splitlines()
+            if line.startswith(("HETATM", "ATOM")) and line[17:20] == "DUM"]
+
+
 def membrane_from_opm(structure: gemmi.Structure, opm_text: str) -> Membrane:
     opm = gemmi.read_pdb_string(opm_text)
     rotation, translation, fit, paired = superpose(structure, opm)
     points, heights = [], {"N": [], "O": []}
-    for chain in opm[0]:
-        for residue in chain:
-            if residue.name == "DUM":
-                for atom in residue:
-                    position = rotation @ np.array(atom.pos.tolist()) + translation
-                    points.append((position, atom.name))
-                    heights.setdefault(atom.name, []).append(atom.pos.z)
+    for xyz, name in _dummy_atoms(opm_text):
+        points.append((rotation @ xyz + translation, name))
+        heights.setdefault(name, []).append(xyz[2])
     if not heights["N"] or not heights["O"]:
         raise MembraneError("The OPM entry contains no membrane.")
     return Membrane(points, fit, paired, rotation, translation, {side: np.array(h) for side, h in heights.items()})

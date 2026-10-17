@@ -68,3 +68,16 @@ def test_largest_chain_missing_in_opm():
     theirs, theirs_sides = points(reference("2vv5"))
     assert ours_sides == theirs_sides
     assert np.linalg.norm(ours - theirs, axis=1).max() < 0.01
+
+
+def test_dummy_atoms_after_end():
+    """5ng5: OPM writes the dummy atoms after the END record (a quarter of OPM files), gemmi stops reading
+    there. All are read; the OPM file serves as the structure (no production reference for it)."""
+    opm_path = REFERENCE / "opm_only" / "opm_5ng5.pdb"
+    lines = opm_path.read_text().splitlines()
+    end = next(i for i, line in enumerate(lines) if line.strip() == "END")
+    after = [line[12:16].strip() for line in lines[end:] if line[17:20] == "DUM"]
+    assert after.count("N") > 0 and after.count("O") > 0
+    m = membrane_from_opm(read_structure(opm_path), opm_path.read_text())
+    assert [len(m.heights[side]) for side in "NO"] == [after.count("N"), after.count("O")]
+    assert m.rmsd < 0.01
