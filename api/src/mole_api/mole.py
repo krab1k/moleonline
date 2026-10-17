@@ -38,7 +38,7 @@ def load_input(c: Computation) -> Path:
 
 
 def number(value: float) -> str:
-    """As the C# API wrote it: 5, 1.25"""
+    """As the former C# API wrote it: 5, 1.25"""
     return repr(float(value)).removesuffix(".0")
 
 

@@ -1,5 +1,5 @@
 """A computation: a folder in the working directory with its status file _object.json, the structure, and a folder per
-submission (0 is the load). The status file has the format of the C# API, which reads it back (BaseDir included)."""
+submission (0 is the load). The status file has the format of the former C# API."""
 
 import base64
 import os

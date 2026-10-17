@@ -1,10 +1,4 @@
-**/bin/
-**/obj/
 .git/
-.vs/
-*.user
-Mole_api_IP_log.csv
-ErrorLog.log
 .venv/
 tools/pores/.venv/
 tools/pores/reference/

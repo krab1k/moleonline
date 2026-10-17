@@ -184,7 +184,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def invalid(request: Request, e: RequestValidationError) -> JSONResponse:
-        """400 with a report, as the C# API answered (not FastAPI's 422)"""
+        """400 with a report, as the former C# API answered (not FastAPI's 422)"""
         details = "; ".join(f"{'.'.join(str(part) for part in error['loc'] if part != 'body')}: {error['msg']}" for error in e.errors())
         return error(request.path_params.get("computation_id"), 400, f"Input format error. {details}")
 

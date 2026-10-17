@@ -1,4 +1,4 @@
-"""Usage of MOLEonline per month or year, from the computations folder (Config:WorkingDirectory).
+"""Usage of MOLEonline per month or year, from the computations folder (WORKING_DIRECTORY).
 
 usage: python3 stats.py <computations folder> [month|year]
 

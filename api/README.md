@@ -126,19 +126,7 @@ uv sync
 WORKING_DIRECTORY=/tmp/mole MOLE=/path/to/mole2 PORES=$PWD/tools/pores/.venv/bin/pores \
 uv run uvicorn mole_api.main:app
 uv run pytest    # with a fake MOLE and pores tool, and a fake PDBe
-```
-
-### C# API
-
-The former API, the reference of the Python one until it is removed; the container no longer builds it.
-
-Run the API outside the container with the paths of local tools (`ASPNETCORE_ENVIRONMENT=Development`
-also logs requests):
-
-```sh
-Config__WorkingDirectory=/tmp/mole Config__MOLE=/path/to/mole2 \
-Config__Pores=$PWD/tools/pores/.venv/bin/pores MEMEMBED=/path/to/memembed \
-dotnet run
+MOLE2=/path/to/mole2 uv run pytest    # also a tunnel computation with the real MOLE, skipped without
 ```
 
 ### Pores tool
@@ -153,16 +141,6 @@ MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # tests needing
 ```
 
 The tests compare with production results of the original Pores, in `tools/pores/tests/data/` (see its README).
-
-### C# API tests
-
-The C# API's tests run it in the test process, with a temporary working directory and a fake MOLE (a shell
-script) for loads, failures and stopping; one test runs the real MOLE. They upload structures, nothing is
-downloaded from PDBe:
-
-```sh
-MOLE2=/path/to/mole2 dotnet test tests/Mole.API.Tests    # the test with the real MOLE is skipped without
-```
 
 ## Licence
 

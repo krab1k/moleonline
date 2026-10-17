@@ -21,17 +21,18 @@ def script(directory: Path, name: str, body: str) -> Path:
     return path
 
 
-def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", pores: str = "exit 0", slots: int = 4) -> Settings:
+def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", pores: str = "exit 0", slots: int = 4,
+                  mole: Path | None = None) -> Settings:
     """The API's own working directory. The fake MOLE runs load for a load (input in folder 0), run for a
     computation, and reports its version without arguments; the fake pores tool runs pores (input: pores.json) and
-    reports its version for --version."""
-    mole = f"case \"$1\" in\n  '') echo 'WebChemistry Tunnels {MOLE_VERSION}, (c) test' ;;\n  */0/input.xml) {load} ;;\n  *) {run} ;;\nesac"
+    reports its version for --version. mole: a real MOLE instead."""
+    fake = f"case \"$1\" in\n  '') echo 'WebChemistry Tunnels {MOLE_VERSION}, (c) test' ;;\n  */0/input.xml) {load} ;;\n  *) {run} ;;\nesac"
     return Settings(
         working_directory=directory / "computations",
         csa=CSA,
         static_files=Path(__file__).parent.parent / "wwwroot",
         max_concurrent_computations=slots,
-        mole=script(directory, "mole", mole),
+        mole=mole or script(directory, "mole", fake),
         pores=script(directory, "pores", f"if [ \"$1\" = --version ]; then echo 'pores {PORES_VERSION}'; else {pores}; fi"),
     )
 

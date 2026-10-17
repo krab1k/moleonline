@@ -1,4 +1,4 @@
-"""Paths as the C# API matched them, and its static files"""
+"""Paths as the former C# API matched them, and the static files"""
 
 from .conftest import STRUCTURE, upload
 

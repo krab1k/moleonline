@@ -1,4 +1,4 @@
-"""Paths as the C# API (ASP.NET) matched them, the web and scripts use them: endpoint names in any case (the web asks
+"""Paths as the former C# API (ASP.NET) matched them, the web and scripts use them: endpoint names in any case (the web asks
 for /Compinfo/...), a trailing slash ignored (the web uploads to /Init/)."""
 
 from fastapi.routing import APIRoute
