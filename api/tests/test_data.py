@@ -86,3 +86,10 @@ def test_unknown_and_deleted_computation(finished):
     assert client.get("/Data/nope").status_code == 404
     client.delete(f"/Delete/{id}")
     assert client.get(f"/Data/{id}").status_code == 410
+
+
+def test_compressed_for_clients_that_accept_it(finished):
+    client, id = finished
+    assert client.get(f"/Data/{id}?format=molecule", headers={"Accept-Encoding": "gzip"}).headers["content-encoding"] == "gzip"
+    assert "content-encoding" not in client.get(f"/Data/{id}?format=molecule", headers={"Accept-Encoding": "identity"}).headers
+    assert "content-encoding" not in client.get(f"/Data/{id}?format=report", headers={"Accept-Encoding": "gzip"}).headers  # a zip

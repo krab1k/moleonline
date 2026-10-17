@@ -11,6 +11,7 @@ from fastapi.routing import APIRoute
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import UploadFile
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -132,6 +133,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="MOLEonline API", version=version("mole-api"), lifespan=lifespan)
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=iplog.PROXIES)  # the client address, also for the log
     app.add_middleware(AspNetPaths)
+    app.add_middleware(GZipMiddleware)  # for clients that accept it; not zips, data.json often has megabytes
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, e: Exception) -> JSONResponse:  # logged by uvicorn
