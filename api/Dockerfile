@@ -4,7 +4,7 @@
 ARG DOTNET_VERSION=10.0
 
 # MOLE 2, framework-dependent, it runs on the .NET runtime of the final image
-FROM docker.io/sbncbr/mole2:2.5.26.10.15 AS mole2
+FROM docker.io/sbncbr/mole2:2.5.26.10.17 AS mole2
 
 # MEMEMBED (GPL v2): https://github.com/psipred/MemEmbed, unmodified, built without -Werror (newer compilers warn)
 FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS memembed
