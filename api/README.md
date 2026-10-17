@@ -122,7 +122,7 @@ fails to load.
 
 The API is being rewritten in Python (FastAPI, `src/mole_api`), with the C# API as the reference until it
 replaces it, and both read each other's computations (`_object.json`). So far it reads its settings and the
-tools' versions at startup, serves `/Version` and `/Status`, loads uploaded structures (`/Init`) and PDB
+tools' versions at startup, serves `/Version`, `/Status` and `/CompInfo`, loads uploaded structures (`/Init`) and PDB
 entries from PDBe (`/Init/{pdbId}`) with MOLE, computes tunnels (`/Submit/Mole`) and serves their results (`/Data`), stops (`/Kill`) and
 deletes (`/Delete`) computations, and logs loads and submissions (`Mole_api_IP_log.csv`); the documentation is at
 `/docs`. Settings are environment variables (`WORKING_DIRECTORY`, `CSA`, `STATIC_FILES`, `MOLE`,

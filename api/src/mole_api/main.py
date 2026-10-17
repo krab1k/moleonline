@@ -1,5 +1,6 @@
 """The API: uvicorn mole_api.main:app. Documentation at /docs, the OpenAPI description at /openapi.json."""
 
+import json
 import uuid
 from contextlib import asynccontextmanager
 from importlib.metadata import version
@@ -20,7 +21,7 @@ from . import computation, data, iplog, mole, pdbe, upload
 from .paths import AspNetPaths
 from .computation import Computation, Report, Status
 from .config import Settings
-from .parameters import MoleParameters
+from .parameters import MoleParameters, PoresParameters
 from .runner import Runner
 from .versions import read_versions
 
@@ -81,6 +82,35 @@ def errors(*codes: int) -> dict:
 UPLOAD_FORM = {"requestBody": {"required": True, "content": {"multipart/form-data": {"schema": {
     "type": "object", "required": ["file"],
     "properties": {"file": {"type": "string", "format": "binary", "description": "*.pdb, *.cif, *.pdb.gz or *.cif.gz, at most 30 MB unpacked"}}}}}}}
+
+
+class Submission(BaseModel):
+    SubmitId: int
+    Mode: str | None  # Mole, Pores; None: no parameters were submitted
+    Status: Status
+    ErrorMsg: str
+    MoleConfig: dict  # mole.json, {} for pores
+    PoresConfig: dict  # what the user submitted of pores.json, {} for tunnels
+
+
+class CompInfo(BaseModel):
+    ComputationId: str
+    UserStructure: bool
+    PdbId: str
+    AssemblyId: str | None
+    Submissions: list[Submission]  # those with a folder
+
+
+PORES_PARAMETERS = "pores.json"  # the input of the pores tool, also what the user submitted
+
+
+def submission(c: Computation, unit: computation.Unit) -> Submission:
+    folder = c.submit_directory(unit.SubmitId)
+    tunnels, pores = folder / mole.PARAMETERS, folder / PORES_PARAMETERS
+    return Submission(SubmitId=unit.SubmitId, Mode="Mole" if tunnels.exists() else "Pores" if pores.exists() else None,
+                      Status=unit.Status, ErrorMsg=unit.ErrorMsg,
+                      MoleConfig=json.loads(tunnels.read_text()) if tunnels.exists() else {},
+                      PoresConfig=PoresParameters.model_validate_json(pores.read_bytes()).user_parameters() if pores.exists() else {})
 
 
 class Version(BaseModel):
@@ -161,6 +191,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not any(u.SubmitId == report.SubmitId for u in found.ComputationUnits):
             return respond(report, 404)  # "SubmitId N not found."
         return report
+
+    @app.get("/CompInfo/{computation_id}", responses=errors(404, 410))
+    def get_info(request: Request, computation_id: str) -> CompInfo:
+        """The computation and its submissions with their parameters, so that the web can show them again"""
+        found = find(request, computation_id)
+        if isinstance(found, JSONResponse):
+            return found
+        return CompInfo(ComputationId=found.ComputationId, UserStructure=found.UserStructure, PdbId=found.PdbId, AssemblyId=found.AssemblyId,
+                        Submissions=[submission(found, u) for u in found.ComputationUnits if found.submit_directory(u.SubmitId).is_dir()])
 
     @app.get("/Data/{computation_id}", responses={**errors(400, 404, 410), 200: {"description": "The file, as an attachment"}},
              response_class=Response)

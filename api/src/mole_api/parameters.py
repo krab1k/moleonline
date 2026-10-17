@@ -83,3 +83,21 @@ class MoleParameters(Defaults):
 
 
 WEIGHT_FUNCTIONS = ["VoronoiScale", "LengthAndRadius", "Length", "Constant"]
+
+
+class PoresParameters(Defaults):
+    """pores.json: the input of the pores tool (tools/pores) and the record of what the user submitted. Files of
+    earlier versions miss fields (IsBetaBarrel was IsBetaBarel): their defaults."""
+    Structure: str = ""
+    PdbId: str | None = None  # OPM entry to use; None when the structure is not the PDB entry as OPM has it
+    WorkingDirectory: str = ""  # the submit directory, MOLE input and results
+    Membrane: str = ""  # where the tool writes membrane.json
+    InMembrane: bool = False  # the pore only between the membrane planes
+    IsBetaBarrel: bool = False
+    Chains: list[str] = []
+    ProbeRadius: float = 0
+    InteriorThreshold: float = 0
+
+    def user_parameters(self) -> dict:
+        """What the user submitted, as CompInfo reports it"""
+        return self.model_dump(include={"InMembrane", "IsBetaBarrel", "Chains", "ProbeRadius", "InteriorThreshold"})
