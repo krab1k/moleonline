@@ -74,7 +74,7 @@ def test_refused_upload_creates_no_computation(client, settings, name, content, 
     assert response.status_code == expected
     assert response.json()["Status"] == "Error" and response.json()["ComputationId"] is None
     assert message in response.json()["ErrorMsg"]
-    assert list(settings.working_directory.iterdir()) == []  # no computation, no temporary file
+    assert [p.name for p in settings.working_directory.iterdir()] == ["Mole_api_IP_log.csv"]  # no computation, no temporary file
 
 
 def test_upload_without_a_file_is_refused(client):
