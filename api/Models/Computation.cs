@@ -19,7 +19,7 @@ public class ComputationUnit
     public DateTime? Finished { get; set; } // Finished, Error or Aborted
     public string? MoleVersion { get; set; } // the results, and which parameters were defaults, depend on it
 
-    public static ComputationUnit Initialize()
+    public static ComputationUnit Initialize(string moleVersion)
     {
         return new ComputationUnit()
         {
@@ -27,7 +27,7 @@ public class ComputationUnit
             Status = ComputationStatus.Initializing,
             ErrorMsg = String.Empty,
             Submitted = DateTime.UtcNow,
-            MoleVersion = new Utils.Version().MoleVersion,
+            MoleVersion = moleVersion,
         };
     }
 
@@ -112,10 +112,11 @@ public partial class Computation
     /// </summary>
     /// <param name="baseDir">Working directory of the API</param>
     /// <param name="pdbId">PDB id to be downloaded</param>
-    public Computation(string baseDir, string pdbId = "")
+    /// <param name="moleVersion">of the MOLE that loads the structure</param>
+    public Computation(string baseDir, string moleVersion, string pdbId = "")
     {
         ComputationId = Base64Symbols().Replace(Convert.ToBase64String(Guid.NewGuid().ToByteArray()), "");
-        ComputationUnits = [ComputationUnit.Initialize()];
+        ComputationUnits = [ComputationUnit.Initialize(moleVersion)];
         Created = ComputationUnits[0].Submitted;
         UserStructure = pdbId == string.Empty;
         PdbId = pdbId;
@@ -175,7 +176,8 @@ public partial class Computation
     ///    - increment submission id.
     ///
     /// </summary>
-    public void AddCalculation()
+    /// <param name="moleVersion">of the MOLE that runs the submission</param>
+    public void AddCalculation(string moleVersion)
     {
         if (this.ComputationUnits.Last().Status != ComputationStatus.Initialized)
         {
@@ -191,7 +193,7 @@ public partial class Computation
         var submission = ComputationUnits.Last();
         submission.Submitted = DateTime.UtcNow;
         submission.Started = submission.Finished = null;
-        submission.MoleVersion = new Utils.Version().MoleVersion;
+        submission.MoleVersion = moleVersion;
         Directory.CreateDirectory(Path.Combine(BaseDir, ComputationId, ComputationUnits.Last().SubmitId.ToString()));
         SaveStatus();
     }

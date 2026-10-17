@@ -19,7 +19,7 @@ public class SubmitController(ComputationManager manager) : Controller
         if (param.Validate() is string invalid) return Reports.Error(cpt.ComputationId, StatusCodes.Status400BadRequest, invalid);
         if (manager.CanRun(cpt) is (int statusCode, string reason)) return Reports.Error(cpt.ComputationId, statusCode, reason);
 
-        cpt.AddCalculation();
+        cpt.AddCalculation(manager.MoleVersion);
 
         var (report, started) = manager.PrepareAndRunMole(cpt, param);
         return Reports.Json(report, started ? StatusCodes.Status200OK : StatusCodes.Status500InternalServerError);
@@ -39,7 +39,7 @@ public class SubmitController(ComputationManager manager) : Controller
         if (parameters.Validate() is string invalid) return Reports.Error(cpt.ComputationId, StatusCodes.Status400BadRequest, invalid);
         if (manager.CanRun(cpt) is (int statusCode, string reason)) return Reports.Error(cpt.ComputationId, statusCode, reason);
 
-        cpt.AddCalculation();
+        cpt.AddCalculation(manager.MoleVersion);
 
         var (report, started) = manager.PrepareAndRunPores(cpt, parameters);
         return Reports.Json(report, started ? StatusCodes.Status200OK : StatusCodes.Status500InternalServerError);

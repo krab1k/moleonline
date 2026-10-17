@@ -14,8 +14,10 @@ namespace Mole.API.Models;
 /// <summary>
 /// API logic
 /// </summary>
-public class ComputationManager(IOptions<Config> options)
+public class ComputationManager(IOptions<Config> options, Utils.MoleVersion moleVersion)
 {
+    public string MoleVersion => moleVersion.Value;
+
     public Config Config { get; } = options.Value;
     private readonly CSA csa = new(options.Value.CSA);
     private readonly ConcurrentDictionary<string, RunningJob> RunningProcesses = new(); // runs waiting for a slot and running
@@ -48,7 +50,7 @@ public class ComputationManager(IOptions<Config> options)
     /// <returns>Computation report object</returns>
     public ComputationReport CreatePDBComputation(string id, string assembly)
     {
-        var computation = new Computation(Config.WorkingDirectory, id);
+        var computation = new Computation(Config.WorkingDirectory, MoleVersion, id);
         var stop = new CancellationTokenSource(); // not disposed: without a timer it holds nothing, and a kill may still cancel it
         Downloads[computation.ComputationId] = stop;
 
@@ -110,7 +112,7 @@ public class ComputationManager(IOptions<Config> options)
                 return (new ComputationReport(null, 0, ComputationStatus.Error, "The file is not a valid gzip file or it is incomplete."), StatusCodes.Status400BadRequest);
             }
 
-            var computation = new Computation(Config.WorkingDirectory) { StructureFile = gzipped ? name[..^3] : name };
+            var computation = new Computation(Config.WorkingDirectory, MoleVersion) { StructureFile = gzipped ? name[..^3] : name };
             File.Move(temp, computation.StructurePath());
             computation.SaveStatus();
 

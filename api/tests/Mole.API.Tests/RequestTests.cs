@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using Mole.API.Models;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
 namespace Mole.API.Tests;
@@ -138,6 +139,21 @@ public class RequestTests
     }
 
     [Fact]
+    public async Task MOLE_without_a_version_stops_the_API()
+    {
+        // the reader runs when the API starts; its error stops the start like a wrong setting (checked here directly,
+        // a failed start in the test host shows only as a disposed object)
+        var directory = Directory.CreateTempSubdirectory("mole-api-tests-").FullName;
+        var mole = Path.Combine(directory, "mole");
+        File.WriteAllText(mole, "#!/bin/sh\necho 'not MOLE'\n");
+        File.SetUnixFileMode(mole, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        var reader = new Utils.MoleVersionReader(Options.Create(new Config { MOLE = mole }), new Utils.MoleVersion());
+        var error = await Assert.ThrowsAsync<OptionsValidationException>(() => reader.StartAsync(default));
+        Assert.Contains("did not report its version, its first line is \"not MOLE\"", error.Message);
+        Directory.Delete(directory, recursive: true);
+    }
+
+    [Fact]
     public async Task Documentation_and_version()
     {
         using var api = new Api();
@@ -145,5 +161,6 @@ public class RequestTests
         var (status, version) = await api.GetAsync("/Version");
         Assert.Equal(HttpStatusCode.OK, status);
         Assert.NotNull(version["APIVersion"]);
+        Assert.Equal(Api.MoleVersion, (string)version["MoleVersion"]!);
     }
 }

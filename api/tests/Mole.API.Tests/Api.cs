@@ -11,12 +11,15 @@ namespace Mole.API.Tests;
 /// The API in the test process, with its own working directory. MOLE is a shell script by default: the load (input in
 /// folder 0) runs <c>load</c>, a computation runs <c>run</c>; both succeed at once unless told otherwise.
 /// With <c>mole</c> set (e.g. the real MOLE), it is used instead.
+/// Started without arguments, the fake MOLE reports <see cref="MoleVersion"/> like MOLE.
 /// The scripts see <c>$ALIVE</c>, a file that exists until the test ends: a run waiting for it (<see cref="UntilTestEnds"/>)
 /// ends with the test, also when an assertion failed before the run was stopped.
 /// </summary>
 public sealed class Api : IDisposable
 {
     public static readonly string Data = Path.Combine(AppContext.BaseDirectory, "data");
+    public const string MoleVersion = "9.8.7.6"; // what the fake MOLE reports when started without arguments, as MOLE does
+
     public static readonly byte[] Structure = File.ReadAllBytes(Path.Combine(Data, "1tqn.cif"));
 
     private readonly string root = Directory.CreateTempSubdirectory("mole-api-tests-").FullName;
@@ -32,7 +35,7 @@ public sealed class Api : IDisposable
     public Api(string load = "exit 0", string run = "exit 0", int slots = 4, string? mole = null)
     {
         File.WriteAllText(Alive, "");
-        mole ??= Script("mole", $"case \"$1\" in\n  */0/input.xml) {load} ;;\n  *) {run} ;;\nesac\n");
+        mole ??= Script("mole", $"case \"$1\" in\n  '') echo 'WebChemistry Tunnels {MoleVersion}, (c) test' ;;\n  */0/input.xml) {load} ;;\n  *) {run} ;;\nesac\n");
         var config = new Dictionary<string, string?>
         {
             ["Config:WorkingDirectory"] = WorkingDirectory,

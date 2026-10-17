@@ -21,6 +21,8 @@ public class MoleTests
         Assert.Equal("Finished", (string)status["Status"]!);
 
         var data = JsonNode.Parse(await api.Client.GetStringAsync($"/Data/{id}?submitId=1"))!;
+        var (_, version) = await api.GetAsync("/Version");
+        Assert.Equal((string)data["Version"]!, (string)version["MoleVersion"]!); // read from MOLE when the API started
         Assert.Contains(data["Channels"]!.AsObject(), channels => channels.Value is JsonArray { Count: > 0 }); // tunnels, paths or pores
         foreach (var format in new[] { "report", "pymol", "vmd", "chimera", "pdb", "molecule" })
         {

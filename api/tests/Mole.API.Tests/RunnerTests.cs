@@ -45,7 +45,7 @@ public class RunnerTests
         var (submitted, started, finished) = ((DateTime)unit["Submitted"]!, (DateTime)unit["Started"]!, (DateTime)unit["Finished"]!);
         Assert.True(created <= loaded && loaded <= submitted && submitted <= started && started <= finished, $"{created:O} {loaded:O} {submitted:O} {started:O} {finished:O}");
         Assert.Equal(DateTimeKind.Utc, created.Kind);
-        Assert.Equal(new Utils.Version().MoleVersion, (string)unit["MoleVersion"]!);
+        Assert.Equal(Api.MoleVersion, (string)unit["MoleVersion"]!); // read from MOLE when the API started
     }
 
     [Fact]
