@@ -31,4 +31,4 @@ ENV MEMEMBED=/opt/memembed/memembed PORES_OPM_CACHE=/data/opm-cache
 USER $APP_UID
 EXPOSE 8080
 # one process: the runs and their slots are kept in memory; requests are logged by nginx
-ENTRYPOINT ["/app/.venv/bin/uvicorn", "mole_api.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+ENTRYPOINT ["/app/.venv/bin/uvicorn", "mole_api.main:app", "--host", "0.0.0.0", "--port", "8080", "--root-path", "/api", "--no-access-log"]

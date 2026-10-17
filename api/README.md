@@ -42,7 +42,9 @@ services:
 The web's nginx container (`moleonline-web`, `docker/nginx.site.conf`) serves the API under `/api` and
 proxies it to `api:8080` over the network `moleonline`. The network has to exist before either project
 starts. The API takes the client address from `X-Forwarded-For` when the request comes from loopback or
-a private network, as the Docker network is (the IP log, see below).
+a private network, as the Docker network is (the IP log, see below). The API runs with `--root-path /api`, so its
+documentation (`/api/docs`) and "Try it out" use the proxy's URLs; on a port published for debugging the endpoints
+work, the documentation does not.
 
 ```nginx
 location /api/ {
