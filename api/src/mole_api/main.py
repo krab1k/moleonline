@@ -1,5 +1,6 @@
 """The API: uvicorn mole_api.main:app. Documentation at /docs, the OpenAPI description at /openapi.json."""
 
+import functools
 import json
 import uuid
 from contextlib import asynccontextmanager
@@ -18,6 +19,7 @@ from starlette.datastructures import UploadFile
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from . import computation, data, iplog, mole, pdbe, upload
+from .csa import CSA, CSAResidue
 from .paths import AspNetPaths
 from .computation import Computation, Report, Status
 from .config import Settings
@@ -200,6 +202,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return found
         return CompInfo(ComputationId=found.ComputationId, UserStructure=found.UserStructure, PdbId=found.PdbId, AssemblyId=found.AssemblyId,
                         Submissions=[submission(found, u) for u in found.ComputationUnits if found.submit_directory(u.SubmitId).is_dir()])
+
+    @functools.cache
+    def csa() -> CSA:
+        return CSA(app.state.settings.csa)  # read on the first request (0.1 s), the tests start faster
+
+    @app.get("/CSA/{computation_id}", responses=errors(404, 410))
+    def get_csa(request: Request, computation_id: str) -> list[list[CSAResidue]]:
+        """Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per
+        copy, as tunnel starting points; none for an uploaded structure"""
+        found = find(request, computation_id)
+        if isinstance(found, JSONResponse):
+            return found
+        return [] if found.UserStructure else csa().get(found.PdbId)
 
     @app.get("/Data/{computation_id}", responses={**errors(400, 404, 410), 200: {"description": "The file, as an attachment"}},
              response_class=Response)
