@@ -215,10 +215,11 @@ public partial class Computation
     /// Downloads Protein Data Bank file from Model Server https://www.ebi.ac.uk/pdbe/model-server
     /// </summary>
     /// <param name="assembly">PreferredAssembly, AsymmetricUnit or an assembly id</param>
-    public async Task DownloadStructureAsync(string assembly)
+    /// <param name="stop">the user stopped the load: the download ends without changing the status (KillComputation sets it)</param>
+    public async Task DownloadStructureAsync(string assembly, CancellationToken stop)
     {
         // the asymmetric unit also when the preferred assembly cannot be looked up
-        AssemblyId = assembly switch { AsymmetricUnit => null, PreferredAssembly => await GetBioAssemblyIdAsync(), _ => assembly };
+        AssemblyId = assembly switch { AsymmetricUnit => null, PreferredAssembly => await GetBioAssemblyIdAsync(stop), _ => assembly };
         var url = AssemblyId != null ? $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/assembly?name={AssemblyId}" : $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/full";
 
         var file = Path.Combine(BaseDir, ComputationId, PdbId + ".cif");
@@ -228,8 +229,9 @@ public partial class Computation
             HttpStatusCode status;
             await using (var stream = File.Create(temp))
             {
-                status = await DownloadAsync(url, stream);
+                status = await DownloadAsync(url, stream, stop);
             }
+            if (stop.IsCancellationRequested) return;
 
             if (status == HttpStatusCode.RequestEntityTooLarge)
             {
@@ -256,9 +258,11 @@ public partial class Computation
                 return;
             }
             // the preferred assembly, the one OPM has; unknown when the lookup failed, then the full structure was downloaded
-            DbModePores = AssemblyId != null && (assembly == PreferredAssembly || AssemblyId == await GetBioAssemblyIdAsync());
+            DbModePores = AssemblyId != null && (assembly == PreferredAssembly || AssemblyId == await GetBioAssemblyIdAsync(stop));
+            if (stop.IsCancellationRequested) return;
             SaveStatus();
         }
+        catch (OperationCanceledException) when (stop.IsCancellationRequested) { }
         catch (Exception e) when (e is HttpRequestException || e is OperationCanceledException || e is IOException)
         {
             ChangeStatus(ComputationStatus.FailedInitialization, "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later.");
@@ -273,12 +277,12 @@ public partial class Computation
         }
     }
 
-    public async Task<string?> GetBioAssemblyIdAsync()
+    public async Task<string?> GetBioAssemblyIdAsync(CancellationToken stop)
     {
         try
         {
             using var stream = new MemoryStream();
-            if (await DownloadAsync($"https://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml", stream) != HttpStatusCode.OK) return null;
+            if (await DownloadAsync($"https://www.ebi.ac.uk/pdbe/static/entry/download/{PdbId}-assembly.xml", stream, stop) != HttpStatusCode.OK) return null;
             stream.Position = 0;
             return XDocument.Load(stream).Root?.Elements("assembly").FirstOrDefault(x => (string?)x.Attribute("prefered") == "True")?.Attribute("id")?.Value;
         }
@@ -301,9 +305,10 @@ public partial class Computation
     /// </summary>
     /// <returns>HTTP status code of the response, target is written only for OK; RequestEntityTooLarge when the response
     /// has more than MaxStructureBytes, the download then stops</returns>
-    private static async Task<HttpStatusCode> DownloadAsync(string url, Stream target)
+    private static async Task<HttpStatusCode> DownloadAsync(string url, Stream target, CancellationToken stop)
     {
-        using var cts = new CancellationTokenSource(ResponseTimeout);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(stop);
+        cts.CancelAfter(ResponseTimeout);
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token);
         if (response.StatusCode != HttpStatusCode.OK) return response.StatusCode;
 
@@ -372,13 +377,30 @@ public partial class Computation
     /// Saves current state of the computation to the ComputationStatus file
     /// </summary>
     /// <param name="baseDir"></param>
+    private static readonly Lock statusWrites = new();
+
+    private bool SavedAsDeleted()
+    {
+        try { return File.Exists(StatusPath()) && JsonConvert.DeserializeObject<Computation>(File.ReadAllText(StatusPath()))?.IsDeleted() == true; }
+        catch (JsonException) { return false; } // a corrupt file is replaced
+    }
+
+    /// <summary>
+    /// Saves this copy of the computation. Several copies exist (a request, the run, a download), one may be stale:
+    /// a computation deleted meanwhile is never written over, the check and the write are one step for all copies.
+    /// </summary>
     public void SaveStatus()
     {
-        // write a temporary file first and rename it, so that concurrent readers (status polling) never see a partially written file
-        ApiInstance = CurrentApiInstance;
-        var temp = $"{StatusPath()}.{Guid.NewGuid():N}.tmp.json";
-        File.WriteAllText(temp, JsonConvert.SerializeObject(this, Formatting.Indented));
-        File.Move(temp, StatusPath(), overwrite: true);
+        lock (statusWrites)
+        {
+            if (SavedAsDeleted()) return;
+
+            // write a temporary file first and rename it, so that concurrent readers (status polling) never see a partially written file
+            ApiInstance = CurrentApiInstance;
+            var temp = $"{StatusPath()}.{Guid.NewGuid():N}.tmp.json";
+            File.WriteAllText(temp, JsonConvert.SerializeObject(this, Formatting.Indented));
+            File.Move(temp, StatusPath(), overwrite: true);
+        }
     }
 
 }

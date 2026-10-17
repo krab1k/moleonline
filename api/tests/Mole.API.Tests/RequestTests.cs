@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text;
+using Mole.API.Models;
+using Newtonsoft.Json;
 
 namespace Mole.API.Tests;
 
@@ -35,6 +37,19 @@ public class RequestTests
         Assert.Equal(HttpStatusCode.OK, await Send(api, "DELETE", $"/Delete/{id}"));
         foreach (var (method, path) in ComputationEndpoints)
             Assert.True(await Send(api, method, string.Format(path, id)) == HttpStatusCode.Gone, $"{method} {path}");
+    }
+
+    [Fact]
+    public async Task Stale_copy_does_not_undo_deletion()
+    {
+        // a download or a run holds its own copy of the computation and may save it after a delete
+        using var api = new Api();
+        var id = await api.LoadAsync();
+        var stale = JsonConvert.DeserializeObject<Computation>(File.ReadAllText(Path.Combine(api.WorkingDirectory, id, "_object.json")))!;
+        Assert.Equal(HttpStatusCode.OK, (await api.Client.DeleteAsync($"/Delete/{id}")).StatusCode);
+
+        stale.ChangeStatus(ComputationStatus.FailedInitialization, "late");
+        Assert.Equal(HttpStatusCode.Gone, (await api.GetAsync($"/Status/{id}")).Status);
     }
 
     [Theory]

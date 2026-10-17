@@ -19,6 +19,7 @@ public class ComputationManager(IOptions<Config> options)
     public Config Config { get; } = options.Value;
     private readonly CSA csa = new(options.Value.CSA);
     private readonly ConcurrentDictionary<string, RunningJob> RunningProcesses = new(); // runs waiting for a slot and running
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> Downloads = new(); // loads from PDBe before their run, KillComputation stops them
     private readonly SemaphoreSlim slots = new(Math.Max(1, options.Value.MaxConcurentComputations)); // MaxConcurentComputations processes at once, initializations included
 
     /// <summary>
@@ -48,8 +49,32 @@ public class ComputationManager(IOptions<Config> options)
     public ComputationReport CreatePDBComputation(string id, string assembly)
     {
         var computation = new Computation(Config.WorkingDirectory, id);
+        var stop = new CancellationTokenSource(); // not disposed: without a timer it holds nothing, and a kill may still cancel it
+        Downloads[computation.ComputationId] = stop;
 
-        computation.DownloadStructureAsync(assembly).ContinueWith(x => Init(computation)); // no thread is held while waiting for PDBe
+        computation.DownloadStructureAsync(assembly, stop.Token).ContinueWith(x => // no thread is held while waiting for PDBe
+        {
+            try
+            {
+                lock (stop) // with KillComputation: either the stop comes first, or the run is registered and the stop kills it
+                {
+                    if (!stop.IsCancellationRequested) Init(computation);
+                }
+            }
+            catch (Exception e) // e.g. the input of the load cannot be written
+            {
+                computation.ChangeStatus(ComputationStatus.FailedInitialization, e.Message);
+            }
+            finally
+            {
+                Downloads.TryRemove(new KeyValuePair<string, CancellationTokenSource>(computation.ComputationId, stop));
+            }
+            if (stop.IsCancellationRequested) // the download may have saved its stale copy after the stop (a deleted computation is never written over)
+            {
+                var current = LoadComputation(computation.ComputationId);
+                if (current?.GetComputationReport().Status == ComputationStatus.Initializing) current.ChangeStatus(ComputationStatus.FailedInitialization, StoppedLoad);
+            }
+        });
 
         return computation.GetComputationReport(1);
     }
@@ -482,8 +507,22 @@ public class ComputationManager(IOptions<Config> options)
 
 
     /// <returns>The report, with the HTTP status of the request</returns>
+    private const string StoppedLoad = "Loading of the structure was stopped.";
+
     internal (ComputationReport Report, int StatusCode) KillComputation(Computation cpt)
     {
+        if (Downloads.TryGetValue(cpt.ComputationId, out var download))
+        {
+            lock (download)
+            {
+                if (!RunningProcesses.ContainsKey(cpt.ComputationId)) // still downloading, the run has not been registered
+                {
+                    download.Cancel();
+                    cpt.ChangeStatus(ComputationStatus.FailedInitialization, StoppedLoad);
+                    return (cpt.GetComputationReport(), StatusCodes.Status200OK);
+                }
+            }
+        }
 
         if (RunningProcesses.TryGetValue(cpt.ComputationId, out var job))
         {
@@ -497,7 +536,7 @@ public class ComputationManager(IOptions<Config> options)
                 RunningProcesses.TryRemove(new KeyValuePair<string, RunningJob>(cpt.ComputationId, job));
 
                 if (cpt.GetComputationReport().Status == ComputationStatus.Initializing) // a stopped load: the structure is not loaded, nothing can run on it
-                    cpt.ChangeStatus(ComputationStatus.FailedInitialization, "Loading of the structure was stopped.");
+                    cpt.ChangeStatus(ComputationStatus.FailedInitialization, StoppedLoad);
                 else cpt.ChangeStatus(ComputationStatus.Aborted);
             }
             catch (Exception)
