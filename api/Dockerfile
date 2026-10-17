@@ -22,33 +22,34 @@ RUN git clone https://github.com/psipred/MemEmbed.git . \
     && cp -r Makefile README src /opt/memembed/source/ && rm /opt/memembed/source/src/*.o \
     && printf 'MEMEMBED, https://github.com/psipred/MemEmbed, commit %s, unmodified (source/).\nBuilt with: make CFLAGS="-Wall -O3 -fPIC -std=c++11", Boost linked statically.\nCopyright (C) Tim Nugent 2013, GNU General Public License v2 or later (LICENSE, GPL-2).\n' ${MEMEMBED_COMMIT} > /opt/memembed/SOURCE
 
-# the pores tool with its own Python, installed by uv
-FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS pores
+# the API and the pores tool, each in its own environment of one Python, installed by uv
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS python
 COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /usr/local/bin/uv
-ENV UV_PYTHON_INSTALL_DIR=/opt/python UV_PYTHON_PREFERENCE=only-managed \
-    UV_PROJECT_ENVIRONMENT=/opt/pores UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
-WORKDIR /src
+ENV UV_PYTHON_INSTALL_DIR=/opt/python UV_PYTHON_PREFERENCE=only-managed UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+WORKDIR /src/pores
 COPY tools/pores/pyproject.toml tools/pores/uv.lock tools/pores/.python-version ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN UV_PROJECT_ENVIRONMENT=/opt/pores uv sync --frozen --no-dev --no-install-project
 COPY tools/pores/src ./src
-RUN uv sync --frozen --no-dev --no-editable
+RUN UV_PROJECT_ENVIRONMENT=/opt/pores uv sync --frozen --no-dev --no-editable
+WORKDIR /src/api
+COPY pyproject.toml uv.lock .python-version ./
+RUN UV_PROJECT_ENVIRONMENT=/opt/api uv sync --frozen --no-dev --no-install-project
+COPY src ./src
+RUN UV_PROJECT_ENVIRONMENT=/opt/api uv sync --frozen --no-dev --no-editable
 
-FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
-WORKDIR /src
-COPY Mole.API.csproj ./
-RUN dotnet restore Mole.API.csproj
-COPY . .
-RUN dotnet publish Mole.API.csproj -c Release --no-restore -o /app
-
+# the .NET runtime for MOLE
 FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}
 COPY --from=mole2 /app /opt/mole2
 COPY --from=memembed /opt/memembed /opt/memembed
-COPY --from=pores /opt/python /opt/python
-COPY --from=pores /opt/pores /opt/pores
-COPY --from=build /app /app
+COPY --from=python /opt/python /opt/python
+COPY --from=python /opt/pores /opt/pores
+COPY --from=python /opt/api /opt/api
+COPY Resources /app/Resources
+COPY wwwroot /app/wwwroot
 RUN mkdir /data && chown $APP_UID:$APP_UID /data
 ENV MEMEMBED=/opt/memembed/memembed PORES_OPM_CACHE=/data/opm-cache
 WORKDIR /app
 USER $APP_UID
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "Mole.API.dll"]
+# one process: the runs and their slots are kept in memory; requests are logged by nginx
+ENTRYPOINT ["/opt/api/bin/uvicorn", "mole_api.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]

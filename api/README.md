@@ -5,7 +5,7 @@ cavities, tunnels and pores with [MOLE 2](https://github.com/sb-ncbr/webchemistr
 
 The container contains:
 
-- the API (ASP.NET Core, .NET 10),
+- the API (Python, FastAPI, `src/mole_api`), with the .NET runtime for MOLE,
 - MOLE 2, from the image `sbncbr/mole2`,
 - the pores tool (`tools/pores`): the membrane position for pore computations, from
   [OPM](https://opm.phar.umich.edu/) or predicted by MEMEMBED,
@@ -76,24 +76,25 @@ can submit them again.
 
 ## Configuration
 
-Settings are in `appsettings.json` (container paths) and can be overridden with environment variables,
-`Config__<name>`:
+Settings are environment variables, the defaults are the container's (`src/mole_api/config.py`):
 
 | Setting | Default | |
 |---|---|---|
-| `Config__WorkingDirectory` | `/data/computations` | computations, must be writable |
-| `Config__MaxConcurentComputations` | `4` | MOLE and pore runs at once (loads included), others wait in a queue |
-| `Config__MaxComputationMinutes` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
-| `Config__MOLE` | `/opt/mole2/mole2` | full path |
-| `Config__Pores` | `/opt/pores/bin/pores` | full path |
-| `Config__CSA` | `Resources/mcsa_sites.csv.gz` | active sites from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (CC BY 4.0), made by `tools/mcsa/convert.py`, relative to the app |
+| `WORKING_DIRECTORY` | `/data/computations` | computations, must be writable |
+| `MAX_CONCURRENT_COMPUTATIONS` | `4` | MOLE and pore runs at once (loads included), others wait in a queue |
+| `MAX_COMPUTATION_MINUTES` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
+| `MOLE` | `/opt/mole2/mole2` | full path |
+| `PORES` | `/opt/pores/bin/pores` | full path |
+| `CSA` | `Resources/mcsa_sites.csv.gz` | active sites from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (CC BY 4.0), made by `tools/mcsa/convert.py`, relative to the app |
+| `STATIC_FILES` | `wwwroot` | served at `/`: the documentation page, `inputs/cofactors.json` for the web, relative to the app |
 
 The pores tool reads `MEMEMBED` (the MEMEMBED executable) and `PORES_OPM_CACHE` (the OPM file cache)
 from the environment; the image sets both. All times the API stores are in UTC.
 
 ## Endpoints
 
-All responses are JSON. A request that fails has an HTTP error status and a report with `Status: "Error"` and `ErrorMsg`:
+The OpenAPI documentation is at `/docs` (`/openapi.json`). Endpoint names match in any case and a trailing slash
+is ignored, as in the former C# API (the web uses `/Compinfo/` and `/Init/`). All responses are JSON. A request that fails has an HTTP error status and a report with `Status: "Error"` and `ErrorMsg`:
 400 invalid request (parameters, file type, data format), 404 no such computation, submission or data, 409 the computation
 is busy or could not be loaded, 410 deleted, 413 upload too large, 503 all slots busy, 500 server error. A report about a
 computation that failed (e.g. `Status` of a failed submission) is a successful request, 200.
@@ -107,7 +108,7 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 | `GET /Status/{id}?submitId=` | status of a computation or one submission |
 | `GET /CompInfo/{id}` | the computation and the parameters of all submissions |
 | `GET /Data/{id}?submitId=&format=` | results: `json`, `report` (zip), `molecule`, `pymol`, `chimera`, `vmd`, `pdb`, `membrane` |
-| `GET /CSA/{id}` | catalytic active sites of the PDB entry from M-CSA, one per chain, starting points for tunnels |
+| `GET /CSA/{id}` | catalytic active sites of the PDB entry from M-CSA, one per copy, starting points for tunnels |
 | `POST /Kill/{id}` | stop the running submission |
 | `DELETE /Delete/{id}` | delete the computation |
 | `GET /Version` | versions of the API, MOLE and Pores |
@@ -118,25 +119,18 @@ fails to load.
 
 ## Development
 
-### Python rewrite
-
-The API is being rewritten in Python (FastAPI, `src/mole_api`), with the C# API as the reference until it
-replaces it, and both read each other's computations (`_object.json`). So far it reads its settings and the
-tools' versions at startup, serves `/Version`, `/Status`, `/CompInfo` and `/CSA`, loads uploaded structures (`/Init`) and PDB
-entries from PDBe (`/Init/{pdbId}`) with MOLE, computes tunnels (`/Submit/Mole`) and pores (`/Submit/Pores`) and serves their results (`/Data`), stops (`/Kill`) and
-deletes (`/Delete`) computations, and logs loads and submissions (`Mole_api_IP_log.csv`); the documentation is at
-`/docs`. Settings are environment variables (`WORKING_DIRECTORY`, `CSA`, `STATIC_FILES`, `MOLE`,
-`PORES`, `MAX_CONCURRENT_COMPUTATIONS`, `MAX_COMPUTATION_MINUTES`), the defaults are the container's. Endpoint
-names match in any case and a trailing slash is ignored, as in the C# API (the web uses `/Compinfo/` and `/Init/`):
+### Python API
 
 ```sh
 uv sync
 WORKING_DIRECTORY=/tmp/mole MOLE=/path/to/mole2 PORES=$PWD/tools/pores/.venv/bin/pores \
 uv run uvicorn mole_api.main:app
-uv run pytest    # with a fake MOLE and pores tool
+uv run pytest    # with a fake MOLE and pores tool, and a fake PDBe
 ```
 
 ### C# API
+
+The former API, the reference of the Python one until it is removed; the container no longer builds it.
 
 Run the API outside the container with the paths of local tools (`ASPNETCORE_ENVIRONMENT=Development`
 also logs requests):
@@ -146,6 +140,8 @@ Config__WorkingDirectory=/tmp/mole Config__MOLE=/path/to/mole2 \
 Config__Pores=$PWD/tools/pores/.venv/bin/pores MEMEMBED=/path/to/memembed \
 dotnet run
 ```
+
+### Pores tool
 
 The pores tool is a [uv](https://docs.astral.sh/uv/) project, its input is described in
 `tools/pores/src/pores/cli.py`:
@@ -158,7 +154,9 @@ MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # tests needing
 
 The tests compare with production results of the original Pores, in `tools/pores/tests/data/` (see its README).
 
-The API's tests run it in the test process, with a temporary working directory and a fake MOLE (a shell
+### C# API tests
+
+The C# API's tests run it in the test process, with a temporary working directory and a fake MOLE (a shell
 script) for loads, failures and stopping; one test runs the real MOLE. They upload structures, nothing is
 downloaded from PDBe:
 
