@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json.Nodes;
 
 namespace Mole.API.Tests;
 
@@ -26,6 +27,24 @@ public class RunnerTests
         Assert.Equal(1, (int)body["SubmitId"]!);
         Assert.Equal("Finished", (string)(await api.WaitAsync(id, 1))["Status"]!);
         Assert.Equal(2, (int)(await api.SubmitAsync(id)).Body["SubmitId"]!);
+    }
+
+    [Fact]
+    public async Task Times_and_MOLE_version_are_recorded()
+    {
+        using var api = new Api();
+        var id = await api.LoadAsync();
+        await api.SubmitAsync(id);
+        await api.WaitAsync(id, 1);
+
+        var saved = JsonNode.Parse(File.ReadAllText(Path.Combine(api.WorkingDirectory, id, "_object.json")))!;
+        var created = (DateTime)saved["Created"]!;
+        var loaded = (DateTime)saved["Loaded"]!;
+        var unit = saved["ComputationUnits"]![0]!;
+        var (submitted, finished) = ((DateTime)unit["Submitted"]!, (DateTime)unit["Finished"]!);
+        Assert.True(created <= loaded && loaded <= submitted && submitted <= finished, $"{created:O} {loaded:O} {submitted:O} {finished:O}");
+        Assert.Equal(DateTimeKind.Utc, created.Kind);
+        Assert.Equal(new Utils.Version().MoleVersion, (string)unit["MoleVersion"]!);
     }
 
     [Fact]

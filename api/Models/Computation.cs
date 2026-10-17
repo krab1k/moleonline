@@ -14,6 +14,9 @@ public class ComputationUnit
     public int SubmitId { get; set; }
     public string Status { get; set; } = "";
     public string ErrorMsg { get; set; } = "";
+    public DateTime? Submitted { get; set; } // UTC; the first submission reuses the load's unit and replaces its times
+    public DateTime? Finished { get; set; } // Finished, Error or Aborted
+    public string? MoleVersion { get; set; } // the results, and which parameters were defaults, depend on it
 
     public static ComputationUnit Initialize()
     {
@@ -21,7 +24,9 @@ public class ComputationUnit
         {
             SubmitId = 1,
             Status = ComputationStatus.Initializing,
-            ErrorMsg = String.Empty
+            ErrorMsg = String.Empty,
+            Submitted = DateTime.UtcNow,
+            MoleVersion = new Utils.Version().MoleVersion,
         };
     }
 
@@ -86,6 +91,8 @@ public partial class Computation
     /// </summary>
     public string? StructureFile { get; set; }
     public List<ComputationUnit> ComputationUnits { get; set; } = [];
+    public DateTime? Created { get; set; } // UTC
+    public DateTime? Loaded { get; set; } // the load ended: Initialized or FailedInitialization
 
     /// <summary>
     /// API process that wrote the status last. Running/Initializing written by another process was interrupted by a restart.
@@ -108,6 +115,7 @@ public partial class Computation
     {
         ComputationId = Base64Symbols().Replace(Convert.ToBase64String(Guid.NewGuid().ToByteArray()), "");
         ComputationUnits = [ComputationUnit.Initialize()];
+        Created = ComputationUnits[0].Submitted;
         UserStructure = pdbId == string.Empty;
         PdbId = pdbId;
         BaseDir = baseDir;
@@ -152,7 +160,10 @@ public partial class Computation
     {
         if (IsDeleted()) return;
 
-        ComputationUnits.Last().ChangeStatus(status, error);
+        var unit = ComputationUnits.Last();
+        unit.ChangeStatus(status, error);
+        if (status is ComputationStatus.Initialized or ComputationStatus.FailedInitialization) Loaded ??= DateTime.UtcNow;
+        else if (status is ComputationStatus.Finished or ComputationStatus.Error or ComputationStatus.Aborted) unit.Finished = DateTime.UtcNow;
         SaveStatus();
     }
 
@@ -176,6 +187,10 @@ public partial class Computation
 
             ComputationUnits.Add(unit);
         }
+        var submission = ComputationUnits.Last();
+        submission.Submitted = DateTime.UtcNow;
+        submission.Finished = null;
+        submission.MoleVersion = new Utils.Version().MoleVersion;
         Directory.CreateDirectory(Path.Combine(BaseDir, ComputationId, ComputationUnits.Last().SubmitId.ToString()));
         SaveStatus();
     }
