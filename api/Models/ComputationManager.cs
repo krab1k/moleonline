@@ -38,35 +38,18 @@ public class ComputationManager(IOptions<Config> options)
 
     #region Methods
     /// <summary>
-    /// Creates a MOLE computation with a given PDB id
+    /// Creates a computation of a PDB entry, downloaded from PDBe in the background
     /// </summary>
     /// <param name="id">PDB id</param>
-    /// <param name="bioUnit">optional biologicall assembly</param>
+    /// <param name="assembly">preferred, asymmetric or an assembly id</param>
     /// <returns>Computation report object</returns>
-    public ComputationReport CreatePDBComputation(string id, string assemblyId)
-    {
-        var computation = new Computation(Config.WorkingDirectory, id, assemblyId);
-
-        computation.DownloadStructureAsync().ContinueWith(x => Init(computation)); // no thread is held while waiting for PDBe
-
-        return computation.GetComputationReport(1);
-    }
-
-
-    /// <summary>
-    /// Creates a Pore computation with a given PDB id biological assembly is implicitly downloaded.
-    /// </summary>
-    /// <param name="id">PDB id</param>
-    /// <param name="bioUnit">optional biologicall assembly</param>
-    /// <returns>Computation report object</returns>
-    internal ComputationReport CreatePoreComputation(string id)
+    public ComputationReport CreatePDBComputation(string id, string assembly)
     {
         var computation = new Computation(Config.WorkingDirectory, id);
-        computation.DownloadBioStructureAsync().ContinueWith(x => Init(computation));
 
+        computation.DownloadStructureAsync(assembly).ContinueWith(x => Init(computation)); // no thread is held while waiting for PDBe
 
         return computation.GetComputationReport(1);
-
     }
 
 

@@ -80,8 +80,7 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 
 | Endpoint | |
 |---|---|
-| `POST /Init/{pdbId}?assemblyId=` | load a PDB entry from PDBe and compute its cavities |
-| `POST /Init/Pores/{pdbId}` | load the preferred biological assembly of a PDB entry, for a pore computation |
+| `POST /Init/{pdbId}?assembly=` | load a PDB entry from PDBe and compute its cavities; `assembly`: `preferred` (default, PDBe's preferred biological assembly, the one OPM has; the asymmetric unit when PDBe cannot tell which one it is, e.g. when it is not reachable), `asymmetric` (the asymmetric unit) or an assembly id |
 | `POST /Init` | load an uploaded structure (`multipart/form-data`, `.pdb`, `.cif`, `.pdb.gz`, `.cif.gz`) |
 | `POST /Submit/Mole/{id}` | compute tunnels, body: MOLE parameters |
 | `POST /Submit/Pores/{id}` | compute a pore across the membrane, body: `InMembrane`, `IsBetaBarrel`, `Chains` (list of chain names, empty: all), `ProbeRadius`, `InteriorThreshold` (`null`: the default) |

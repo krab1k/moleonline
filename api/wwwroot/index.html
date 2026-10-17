@@ -195,27 +195,22 @@
 
         <div class="mole-api-docs-query-wrap">
             <h2 onclick='javascript:toggle("moleapi-documentation-init-body", event)'>
-                Initialize <span>/Init/?&lt;Pores&gt;/&lt;pdbId&gt;?&lt;optional parameters&gt;</span><br>
+                Initialize <span>/Init/&lt;pdbId&gt;?&lt;optional parameters&gt;</span><br>
                 <small>Initialize a new MOLE computation with a user structure or a PDB Id.</small>
             </h2>
             <div id="moleapi-documentation-init-body" style="display:none; margin: 24px 24px 0 24px">
                 <h4>Examples</h4>
                 <span class="cs-docs-template-link">[POST] /Init/1tqn</span><br>
-                <span class="cs-docs-template-link">[POST] /Init/2bfu?assemblyId=PAU</span><br>
-                <span class="cs-docs-template-link">[POST] /Init/Pores/1k4c</span><br />
+                <span class="cs-docs-template-link">[POST] /Init/1tqn?assembly=asymmetric</span><br>
+                <span class="cs-docs-template-link">[POST] /Init/2bfu?assembly=2</span><br>
                 <h4>URL Parameters</h4>
                 <table cellpadding="0" cellspacing="0" style='width: 100%'>
                     <tbody>
                         <tr><th style='width: 100px'>Http Request</th><th>Name</th><th>Description</th></tr>
                         <tr>
                             <td style="font-weight: bold">POST</td>
-                            <td class="mole-api-docs-param-name">Pores</td>
-                            <td>Initialize computation for transmembrane pore identification (assumed biological unit is downloaded).</td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: bold">POST</td>
-                            <td class="mole-api-docs-param-name">assemblyId</td>
-                            <td>Optional assembly Id of a PDB entry in a string format (e.g. 1,2, PAU...).</td>
+                            <td class="mole-api-docs-param-name">assembly</td>
+                            <td>Which structure of a PDB entry is loaded: <span class="id">preferred</span> (default) the preferred biological assembly by PDBe, the one OPM uses for membranes (the asymmetric unit when PDBe cannot tell which one it is, e.g. when it is not reachable), <span class="id">asymmetric</span> the asymmetric unit, or an assembly id of the entry (e.g. 1, 2).</td>
                         </tr>
                         <tr>
                             <td style="font-weight: bold">POST</td>

@@ -104,14 +104,12 @@ public partial class Computation
     /// </summary>
     /// <param name="baseDir">Working directory of the API</param>
     /// <param name="pdbId">PDB id to be downloaded</param>
-    /// <param name="bioUnit">Optional biological assembly to be downloaded</param>
-    public Computation(string baseDir, string pdbId = "", string? bioUnit = "")
+    public Computation(string baseDir, string pdbId = "")
     {
         ComputationId = Base64Symbols().Replace(Convert.ToBase64String(Guid.NewGuid().ToByteArray()), "");
         ComputationUnits = [ComputationUnit.Initialize()];
         UserStructure = pdbId == string.Empty;
         PdbId = pdbId;
-        AssemblyId = bioUnit;
         BaseDir = baseDir;
 
         Directory.CreateDirectory(Path.Combine(baseDir, ComputationId));
@@ -193,18 +191,16 @@ public partial class Computation
          new(computationId, 0, ComputationStatus.Error, $"ComputationId [{computationId}] does not exists.\n");
 
 
-    public async Task DownloadBioStructureAsync()
-    {
-        AssemblyId = await GetBioAssemblyIdAsync();
-        await DownloadStructureAsync(isBioAssembly: true);
-    }
-
+    public const string PreferredAssembly = "preferred", AsymmetricUnit = "asymmetric";
 
     /// <summary>
     /// Downloads Protein Data Bank file from Model Server https://www.ebi.ac.uk/pdbe/model-server
     /// </summary>
-    public async Task DownloadStructureAsync(bool isBioAssembly = false)
+    /// <param name="assembly">PreferredAssembly, AsymmetricUnit or an assembly id</param>
+    public async Task DownloadStructureAsync(string assembly)
     {
+        // the asymmetric unit also when the preferred assembly cannot be looked up
+        AssemblyId = assembly switch { AsymmetricUnit => null, PreferredAssembly => await GetBioAssemblyIdAsync(), _ => assembly };
         var url = AssemblyId != null ? $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/assembly?name={AssemblyId}" : $"https://www.ebi.ac.uk/pdbe/model-server/v1/{PdbId}/full";
 
         var file = Path.Combine(BaseDir, ComputationId, PdbId + ".cif");
@@ -237,7 +233,7 @@ public partial class Computation
                 return;
             }
             // the preferred assembly, the one OPM has; unknown when the lookup failed, then the full structure was downloaded
-            DbModePores = AssemblyId != null && (isBioAssembly || AssemblyId == await GetBioAssemblyIdAsync());
+            DbModePores = AssemblyId != null && (assembly == PreferredAssembly || AssemblyId == await GetBioAssemblyIdAsync());
             SaveStatus();
         }
         catch (Exception e) when (e is HttpRequestException || e is OperationCanceledException || e is IOException)

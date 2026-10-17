@@ -13,20 +13,19 @@ public partial class InitController(ComputationManager manager) : Controller
 
     private const int MaxUploadMB = 30;
 
+    [GeneratedRegex(@"^[A-Za-z0-9]{1,10}$")] // goes into PDBe's URL
+    private static partial Regex AssemblyName();
+
+    /// <param name="assembly">preferred (default): PDBe's preferred assembly, asymmetric: the asymmetric unit, or an assembly id</param>
     [HttpPost("{id}")]
-    public ContentResult Pdb(string id, string assemblyId)
+    public ContentResult Pdb(string id, string assembly = Computation.PreferredAssembly)
     {
-        return Reports.Json(manager.CreatePDBComputation(id.ToLower(), assemblyId)); // loads in the background, see Status
+        if (!AssemblyName().IsMatch(assembly))
+        {
+            return Reports.Error(null, StatusCodes.Status400BadRequest, $"Invalid assembly [{assembly}]. Use {Computation.PreferredAssembly}, {Computation.AsymmetricUnit} or an assembly id of the entry.");
+        }
+        return Reports.Json(manager.CreatePDBComputation(id.ToLower(), assembly)); // loads in the background, see Status
     }
-
-
-    [HttpPost("Pores/{id}", Name = "Init/Pores")]
-    public ContentResult Pores(string id)
-    {
-        return Reports.Json(manager.CreatePoreComputation(id.ToLower()));
-    }
-
-
 
     [HttpPost]
     [Consumes("multipart/form-data")]
