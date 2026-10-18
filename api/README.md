@@ -91,6 +91,10 @@ Settings are environment variables, the defaults are the container's (`src/mole_
 The pores tool reads `MEMEMBED` (the MEMEMBED executable) and `PORES_OPM_CACHE` (the OPM file cache)
 from the environment; the image sets both. All times the API stores are in UTC.
 
+The container's memory, all computations together, is limited to `API_MEMORY_LIMIT` (compose, default `24g`, e.g. in
+`.env` next to `compose.yaml`). Above it the kernel stops the largest process, a computation, which is reported as
+having run out of memory; the API keeps running.
+
 ## Endpoints
 
 The OpenAPI documentation is at `/docs` (`/openapi.json`). Endpoint names match in any case and a trailing slash

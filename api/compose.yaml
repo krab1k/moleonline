@@ -7,6 +7,8 @@ services:
     image: moleonline-api
     restart: unless-stopped
     init: true # reaps processes left by killed computations
+    # all computations together; above it the kernel kills the largest process, a computation, not the whole host
+    mem_limit: ${API_MEMORY_LIMIT:-24g}
     networks:
       - moleonline
     volumes:
