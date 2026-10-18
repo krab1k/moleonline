@@ -68,3 +68,6 @@ def main() -> None:
     except OSError as e:  # network (OPM), file errors, MEMEMBED not found
         print(f"The pore computation failed: {e}", file=sys.stderr)
         sys.exit(1)
+    except Exception as e:  # a bug or a structure gemmi or numpy cannot handle: one line for the user, not a traceback
+        print(f"The pore computation failed unexpectedly ({': '.join(filter(None, [type(e).__name__, str(e)]))}).", file=sys.stderr)
+        sys.exit(1)

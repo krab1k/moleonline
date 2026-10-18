@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mole_api.pores.cli import PoresError, run
+from mole_api.pores.cli import PoresError, main, run
 
 REFERENCE = Path(__file__).parent / "data"
 
@@ -43,3 +43,14 @@ def test_writes_membrane_and_mole_input(tmp_path, monkeypatch):
     assert json.loads((computation / "membrane.json").read_text())
     mole_input = (computation / "1" / "input.xml").read_text()
     assert str(computation / "1k4c.cif") in mole_input and "C,C_2" in mole_input.replace(" ", "")
+
+
+def test_unexpected_error_is_one_line(tmp_path, monkeypatch, capsys):
+    """The API shows stderr to the user: a structure without a model (IndexError) is reported, not traced back."""
+    path = parameters(tmp_path, [])
+    (tmp_path / "computation" / "1k4c.cif").write_text("data_x\n_atom_site.id 1\n")
+    monkeypatch.setattr("sys.argv", ["pores", str(path)])
+    with pytest.raises(SystemExit) as exit:
+        main()
+    assert exit.value.code == 1
+    assert capsys.readouterr().err == "The pore computation failed unexpectedly (IndexError).\n"
