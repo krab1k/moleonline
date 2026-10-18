@@ -55,7 +55,7 @@ def test_tool_that_cannot_start(api):
 
 
 def test_time_limit_kills_the_whole_process_tree(api):
-    # the pores tool starts MEMEMBED and MOLE as children; the child must not keep running
+    # the pores tool starts MEMEMBED as a child; the child must not keep running
     client = api(load='sleep 30 & echo $! > "$(dirname "$1")/child"; ' + UNTIL_GO)
     client.app.state.runner.time_limit = 0.5
     id = load(client)

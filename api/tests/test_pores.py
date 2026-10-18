@@ -54,6 +54,14 @@ def test_tools_run_one_after_another(api, settings):
     assert wait(client, id, 1)["Status"] == "Finished"
 
 
+def test_warning_of_the_pores_tool_is_no_error(api):
+    # the pores tool fails with its exit code (unlike MOLE), a warning on stderr (e.g. numpy's) does not fail the run
+    client = api(pores="echo 'RuntimeWarning: Mean of empty slice' >&2", run=PORE)
+    id = loaded(client)
+    submit(client, id)
+    assert wait(client, id, 1)["Status"] == "Finished"
+
+
 def test_opm_membrane_for_the_preferred_assembly(client, settings):
     FakePDBe(client, {XML: ASSEMBLIES, assembly("1"): STRUCTURE})
     id = client.post("/Init/1tqn").json()["ComputationId"]
@@ -65,7 +73,7 @@ def test_opm_membrane_for_the_preferred_assembly(client, settings):
 
 @pytest.mark.parametrize("pores, run, message", [
     ("exit 2", PORE, "The computation failed with exit code 2."),  # MOLE does not run
-    ("echo 'No membrane found' >&2", PORE, "No membrane found\n"),
+    ("echo 'No membrane found' >&2; exit 1", PORE, "No membrane found\n"),  # the reason, not the exit code
     ("exit 0", NO_PORE, "No pore was found along the membrane normal."),
     ("exit 0", "exit 0", "MOLE did not produce any result."),
 ])

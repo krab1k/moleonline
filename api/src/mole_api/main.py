@@ -26,7 +26,7 @@ from .computation import Computation, Report, Status
 from .config import Settings
 from .parameters import (DEFAULT_PORES_INTERIOR_THRESHOLD, DEFAULT_PORES_PROBE_RADIUS, MoleParameters, PoresParameters,
                          PoresRequest)
-from .runner import Runner
+from .runner import Runner, Step
 from .versions import read_mole_version
 
 
@@ -113,6 +113,10 @@ PORES_PARAMETERS = "pores.json"  # the input of the pores tool, also what the us
 PORES_TOOL = [sys.executable, "-m", "mole_api.pores"]
 
 
+def run_mole(settings: Settings, input: Path) -> Step:
+    return Step([str(settings.mole), str(input)], errors_on_stderr=True)  # MOLE reports errors on stderr, with exit code 0
+
+
 def submission(c: Computation, unit: computation.Unit) -> Submission:
     folder = c.submit_directory(unit.SubmitId)
     tunnels, pores = folder / mole.PARAMETERS, folder / PORES_PARAMETERS
@@ -160,7 +164,7 @@ async def create_from_upload(request: Request) -> Report | JSONResponse:
             c.save()
         finally:
             temp.unlink(missing_ok=True)
-    request.app.state.runner.start(c, lambda: [[str(settings.mole), str(mole.load_input(c))]], init=True)
+    request.app.state.runner.start(c, lambda: [run_mole(settings, mole.load_input(c))], init=True)
     return c.report()
 
 
@@ -282,7 +286,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return error(None, 400, f"Invalid assembly [{assembly}]. Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
             c = computation.create(settings.working_directory, request.app.state.mole_version, pdb_id.lower())
             created = c.ComputationId
-            request.app.state.runner.start(c, lambda: [[str(settings.mole), str(mole.load_input(c))]], init=True,
+            request.app.state.runner.start(c, lambda: [run_mole(settings, mole.load_input(c))], init=True,
                                            prepare=lambda: pdbe.download(request.app.state.pdbe, c, assembly))
             return c.report()
         finally:
@@ -314,7 +318,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             found.change_status(Status.Error, str(e))
             return respond(found.report(), 500)
         report = found.report()  # before the run can change it
-        request.app.state.runner.start(found, lambda: [[str(settings.mole), str(path)]], init=False,
+        request.app.state.runner.start(found, lambda: [run_mole(settings, path)], init=False,
                                        finish=lambda: mole.zip_report(directory, found.structure_path()))
         return report
 
@@ -355,7 +359,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return None
 
         report = found.report()  # before the run can change it
-        request.app.state.runner.start(found, lambda: [[*PORES_TOOL, str(tool_input)], [str(settings.mole), str(directory / mole.INPUT)]],
+        request.app.state.runner.start(found, lambda: [Step([*PORES_TOOL, str(tool_input)]), run_mole(settings, directory / mole.INPUT)],
                                        init=False, finish=finish)
         return report
 
