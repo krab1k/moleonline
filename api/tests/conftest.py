@@ -28,6 +28,8 @@ def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", sl
         working_directory=directory / "computations",
         max_concurrent_computations=slots,
         mole=mole or script(directory, "mole", fake),
+        memembed=script(directory, "memembed", "exit 1"),  # the fake pores tool does not run it
+        opm_cache=directory / "opm-cache",
     )
 
 

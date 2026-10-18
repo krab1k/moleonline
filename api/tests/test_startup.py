@@ -27,17 +27,20 @@ def test_wrong_settings_stop_the_api(tmp_path: Path):
     (tmp_path / "file").touch()
     with pytest.raises(ValidationError) as error:
         Settings(working_directory=tmp_path / "file", max_concurrent_computations=0,
-                 max_computation_minutes=0, mole=tmp_path / "file")
+                 max_computation_minutes=0, mole=tmp_path / "file", memembed=tmp_path / "missing", opm_cache=tmp_path / "file")
     problems = {e["loc"][0]: e["msg"] for e in error.value.errors()}  # all of them at once
     assert "is not writable" in problems["working_directory"]
     assert "max_concurrent_computations" in problems and "max_computation_minutes" in problems
     assert "is not executable" in problems["mole"]
+    assert "does not exist" in problems["memembed"]
+    assert "is not writable" in problems["opm_cache"]
     with pytest.raises(ValidationError, match="must be a full path"):
         Settings(working_directory=tmp_path, mole="mole2")
 
 
 def tools(directory: Path, mole: str) -> Settings:
-    return Settings(working_directory=directory, mole=script(directory, "mole", mole))
+    return Settings(working_directory=directory, mole=script(directory, "mole", mole), memembed=script(directory, "memembed", "exit 0"),
+                    opm_cache=directory / "opm-cache")
 
 
 @pytest.mark.parametrize("mole, problem", [

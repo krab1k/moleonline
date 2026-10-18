@@ -26,7 +26,6 @@ COPY --from=memembed /opt/memembed /opt/memembed
 COPY --from=api /opt/python /opt/python
 COPY --from=api /app/.venv /app/.venv
 RUN mkdir /data && chown $APP_UID:$APP_UID /data
-ENV MEMEMBED=/opt/memembed/memembed PORES_OPM_CACHE=/data/opm-cache
 USER $APP_UID
 EXPOSE 8080
 # one process: the runs and their slots are kept in memory; requests are logged by nginx

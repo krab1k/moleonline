@@ -37,7 +37,7 @@ def test_pore_is_computed(api, settings):
     folder = settings.working_directory / id
     assert json.loads((folder / "1" / "pores.json").read_text()) == {
         "Structure": str(folder / "1tqn.cif"), "PdbId": None, "WorkingDirectory": str(folder / "1"), "Membrane": str(folder / "membrane.json"),
-        "InMembrane": True, "IsBetaBarrel": False, "Chains": ["A", "A_2"], "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
+        "Memembed": str(settings.memembed), "OpmCache": str(settings.opm_cache), "InMembrane": True, "IsBetaBarrel": False, "Chains": ["A", "A_2"], "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
     with zipfile.ZipFile(folder / "1" / "report.zip") as report:
         assert sorted(report.namelist()) == ["1tqn.cif", "json/data.json"]
     submission = client.get(f"/CompInfo/{id}").json()["Submissions"][0]

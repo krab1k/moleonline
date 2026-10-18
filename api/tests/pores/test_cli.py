@@ -15,14 +15,15 @@ from mole_api.pores.path import PathError
 REFERENCE = Path(__file__).parent / "data"
 
 
-def parameters(tmp_path: Path, chains: list[str]) -> Path:
+def parameters(tmp_path: Path, chains: list[str], **changed) -> Path:
     computation = tmp_path / "computation"
     (computation / "1").mkdir(parents=True)
     shutil.copy(REFERENCE / "1k4c" / "data_molecule", computation / "1k4c.cif")
     path = computation / "1" / "pores.json"
     path.write_text(json.dumps({"Structure": str(computation / "1k4c.cif"), "PdbId": "1k4c",
                                 "WorkingDirectory": str(computation / "1"), "Membrane": str(computation / "membrane.json"),
-                                "InMembrane": True, "IsBetaBarrel": False, "Chains": chains, "ProbeRadius": 13.0, "InteriorThreshold": 0.8}))
+                                "OpmCache": str(tmp_path / "opm"), "InMembrane": True, "IsBetaBarrel": False, "Chains": chains, "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
+                               | changed))
     return path
 
 
@@ -36,15 +37,15 @@ def test_unknown_chains(tmp_path, chains, message):
         run(parameters(tmp_path, chains))
 
 
-def opm_in_cache(tmp_path, monkeypatch) -> None:
+def opm_in_cache(tmp_path) -> None:
+    """The cache of parameters()"""
     cache = tmp_path / "opm"
     cache.mkdir()
     shutil.copy(REFERENCE / "1k4c" / "opm_1k4c.pdb", cache / "1k4c.pdb")  # fresh in the cache, nothing is downloaded
-    monkeypatch.setenv("PORES_OPM_CACHE", str(cache))
 
 
-def test_writes_membrane_and_mole_input(tmp_path, monkeypatch):
-    opm_in_cache(tmp_path, monkeypatch)
+def test_writes_membrane_and_mole_input(tmp_path):
+    opm_in_cache(tmp_path)
     run(parameters(tmp_path, ["C", "C_2"]))
 
     computation = tmp_path / "computation"
@@ -66,7 +67,7 @@ def test_unexpected_error_is_one_line(tmp_path, monkeypatch, capsys):
 
 def test_invalid_membrane_is_not_written(tmp_path, monkeypatch):
     """numpy only warns and computes on with NaN: neither the web nor MOLE gets it."""
-    opm_in_cache(tmp_path, monkeypatch)
+    opm_in_cache(tmp_path)
     computed = cli.membrane_from_opm
 
     def with_nan(*arguments):
@@ -80,8 +81,26 @@ def test_invalid_membrane_is_not_written(tmp_path, monkeypatch):
 
 
 def test_invalid_pore_ends_are_not_written(tmp_path, monkeypatch):
-    opm_in_cache(tmp_path, monkeypatch)
+    opm_in_cache(tmp_path)
     monkeypatch.setattr(cli, "end_points", lambda *arguments: (np.zeros(3), np.array([0.0, np.nan, 1.0])))
     with pytest.raises(PathError, match="invalid numbers"):
         run(parameters(tmp_path, []))
     assert not (tmp_path / "computation" / "1" / "input.xml").exists()
+
+
+def test_memembed_of_the_parameters(tmp_path, monkeypatch):
+    """Without an OPM entry (PdbId null) MEMEMBED predicts the membrane, the one the API configured"""
+    called = []
+
+    def memembed(structure, executable, beta_barrel, chains):
+        called.append((executable, beta_barrel, chains))
+        raise MembraneError("stop")
+    monkeypatch.setattr(cli, "membrane_from_memembed", memembed)
+    with pytest.raises(MembraneError, match="stop"):
+        run(parameters(tmp_path, ["A"], PdbId=None, Memembed="/opt/memembed/memembed", IsBetaBarrel=True))
+    assert called == [("/opt/memembed/memembed", True, ["A"])]
+
+
+def test_memembed_not_configured(tmp_path):
+    with pytest.raises(PoresError, match="MEMEMBED is not configured"):
+        run(parameters(tmp_path, [], PdbId=None))

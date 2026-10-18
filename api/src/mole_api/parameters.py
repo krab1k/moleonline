@@ -96,6 +96,8 @@ class PoresParameters(Defaults):
     PdbId: str | None = None  # OPM entry to use; None when the structure is not the PDB entry as OPM has it
     WorkingDirectory: str = ""  # the submit directory, MOLE input and results
     Membrane: str = ""  # where the tool writes membrane.json
+    Memembed: str = ""  # the MEMEMBED executable (setting MEMEMBED)
+    OpmCache: str = ""  # directory of downloaded OPM files (setting OPM_CACHE); empty: no cache
     InMembrane: bool = False  # the pore only between the membrane planes
     IsBetaBarrel: bool = False
     Chains: list[str] = []

@@ -345,7 +345,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             found.change_status(Status.Running)
             tool_input.write_text(PoresParameters(
                 Structure=str(found.structure_path()), PdbId=found.PdbId if found.DbModePores else None, WorkingDirectory=str(directory),
-                Membrane=str(found.folder() / "membrane.json"), InMembrane=parameters.InMembrane, IsBetaBarrel=parameters.IsBetaBarrel,
+                Membrane=str(found.folder() / "membrane.json"), Memembed=str(settings.memembed), OpmCache=str(settings.opm_cache),
+                InMembrane=parameters.InMembrane, IsBetaBarrel=parameters.IsBetaBarrel,
                 Chains=parameters.Chains or [],
                 ProbeRadius=DEFAULT_PORES_PROBE_RADIUS if parameters.ProbeRadius is None else parameters.ProbeRadius,
                 InteriorThreshold=DEFAULT_PORES_INTERIOR_THRESHOLD if parameters.InteriorThreshold is None else parameters.InteriorThreshold,

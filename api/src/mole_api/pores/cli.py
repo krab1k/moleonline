@@ -5,14 +5,12 @@ in a process of its own, so that a stop or the time limit kills it with MEMEMBED
 
 The membrane comes from OPM for PDB entries it has, otherwise from MEMEMBED. The API then runs MOLE
 with input.xml, MOLE is never run from here.
-Settings of the installation are environment variables: MEMEMBED (the memembed executable) and
-PORES_OPM_CACHE (directory for downloaded OPM files, no cache when unset).
+The API's settings MEMEMBED and OPM_CACHE come in pores.json too.
 Errors are reported on stderr (the API shows them to the user) with a non-zero exit code.
 """
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -42,15 +40,14 @@ def run(parameters_path: Path) -> None:
         raise PoresError(f"Chain{'s' if len(unknown) > 1 else ''} {', '.join(unknown)} {'are' if len(unknown) > 1 else 'is'} not in the structure. "
                          f"Available chains: {', '.join(available)}.")
 
-    cache = os.environ.get("PORES_OPM_CACHE")
-    opm = download_opm(parameters.PdbId, Path(cache) if cache else None) if parameters.PdbId else None
+    cache = Path(parameters.OpmCache) if parameters.OpmCache else None
+    opm = download_opm(parameters.PdbId, cache) if parameters.PdbId else None
     if opm is not None:
         membrane = membrane_from_opm(structure, opm)
     else:
-        memembed = os.environ.get("MEMEMBED")
-        if not memembed:
+        if not parameters.Memembed:
             raise PoresError("MEMEMBED is not configured, the membrane position cannot be predicted.")
-        membrane = membrane_from_memembed(structure, memembed, parameters.IsBetaBarrel, chains)
+        membrane = membrane_from_memembed(structure, parameters.Memembed, parameters.IsBetaBarrel, chains)
     # numpy computes with NaN after a problem it only warns about; nothing invalid is written for the web or MOLE
     if not membrane.is_finite():
         raise MembraneError("The membrane position could not be computed, it contains invalid numbers.")

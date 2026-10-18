@@ -14,8 +14,10 @@ class Settings(BaseSettings):
     max_concurrent_computations: int = Field(4, ge=1)
     max_computation_minutes: int = Field(30, ge=1)  # one run (all its processes), the queue not included
     mole: Path = Path("/opt/mole2/mole2")
+    memembed: Path = Path("/opt/memembed/memembed")  # the membrane of pore computations without OPM's
+    opm_cache: Path = Path("/data/opm-cache")  # membranes downloaded from OPM, reused for 30 days
 
-    @field_validator("working_directory")
+    @field_validator("working_directory", "opm_cache")
     @classmethod
     def writable(cls, path: Path) -> Path:
         try:
@@ -26,7 +28,7 @@ class Settings(BaseSettings):
             raise ValueError(f"'{path}' is not writable: {e}") from e
         return path
 
-    @field_validator("mole")
+    @field_validator("mole", "memembed")
     @classmethod
     def executable(cls, path: Path) -> Path:
         if not path.is_absolute():

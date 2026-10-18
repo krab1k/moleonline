@@ -86,9 +86,10 @@ Settings are environment variables, the defaults are the container's (`src/mole_
 | `MAX_CONCURRENT_COMPUTATIONS` | `4` | MOLE and pore runs at once (loads included), others wait in a queue |
 | `MAX_COMPUTATION_MINUTES` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
 | `MOLE` | `/opt/mole2/mole2` | full path |
+| `MEMEMBED` | `/opt/memembed/memembed` | full path, the membrane of pore computations without OPM's |
+| `OPM_CACHE` | `/data/opm-cache` | membrane files downloaded from OPM, must be writable |
 
-The pores tool reads `MEMEMBED` (the MEMEMBED executable) and `PORES_OPM_CACHE` (the OPM file cache)
-from the environment; the image sets both. All times the API stores are in UTC.
+All times the API stores are in UTC.
 
 The container's memory, all computations together, is limited to `API_MEMORY_LIMIT` (compose, default `24g`, e.g. in
 `.env` next to `compose.yaml`). Above it the kernel stops the largest process, a computation, which is reported as
@@ -130,7 +131,8 @@ fails to load.
 
 ```sh
 uv sync
-WORKING_DIRECTORY=/tmp/mole MOLE=/path/to/mole2 MEMEMBED=/path/to/memembed uv run uvicorn mole_api.main:app
+WORKING_DIRECTORY=/tmp/mole OPM_CACHE=/tmp/opm-cache MOLE=/path/to/mole2 MEMEMBED=/path/to/memembed \
+uv run uvicorn mole_api.main:app
 uv run pytest    # with a fake MOLE and pores tool in the API's tests, and a fake PDBe
 MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # also the tests needing them, skipped without
 ```
