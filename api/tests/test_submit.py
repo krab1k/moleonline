@@ -94,6 +94,9 @@ def test_input_of_the_examples(client):
     ({"Tunnel": {"WeightFunction": "x", "MaxTunnelSimilarity": 2}}, "Invalid parameters. Max tunnel similarity must be between 0 and 1. Weight function must be one of"),
     ({"Input": {"ReadAllModels": True}}, "Input format error. Input.ReadAllModels: Extra inputs are not permitted"),  # only the first model is used
     ({"Cavity": {"ProbeRadius": "big"}}, "Input format error. Cavity.ProbeRadius:"),
+    ({"Origin": {"Points": [{"X": "NaN", "Y": 0, "Z": 0}]}}, "Input format error. Origin.Points.0.X: Input should be a finite number"),
+    ('{"CustomExits": {"Points": [{"X": 0, "Y": Infinity, "Z": 0}]}}', "Input format error. CustomExits.Points.0.Y: Input should be a finite number"),
+    ('{"Cavity": {"ProbeRadius": NaN}}', "Input format error. Cavity.ProbeRadius: Input should be a finite number"),
 ])
 def test_invalid_parameters_are_400(client, settings, parameters, message):
     id = loaded(client)

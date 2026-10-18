@@ -1,12 +1,16 @@
 """Parameters of a tunnel computation (Submit/Mole), stored as mole.json; CompInfo returns them to the web. Unknown
 fields are ignored (the web sends some, e.g. Tunnel.UseCustomExitsOnly), except in Input: a request asking for all
 models (ReadAllModels, no longer supported: only the first model is used) is refused rather than ignored. A null
-field has its default."""
+field has its default. Numbers are finite: NaN or infinity would reach MOLE's input (JSON stores them as null)."""
 
 from pydantic import BaseModel, ConfigDict, ValidationInfo, field_validator
 
 
-class Defaults(BaseModel):
+class Parameters(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+
+
+class Defaults(Parameters):
     @field_validator("*", mode="before")
     @classmethod
     def null_is_default(cls, value, info: ValidationInfo):
@@ -34,18 +38,18 @@ class MoleTunnel(Defaults):
     SurfaceCoverRadius: float = 10.0
 
 
-class MoleResidue(BaseModel):
+class MoleResidue(Parameters):
     Chain: str = ""
     SequenceNumber: int = 0
 
 
-class MolePoint(BaseModel):
+class MolePoint(Parameters):
     X: float = 0
     Y: float = 0
     Z: float = 0
 
 
-class MoleOrigin(BaseModel):
+class MoleOrigin(Parameters):
     """Each part is optional"""
     Points: list[MolePoint] | None = None
     QueryExpression: str | None = None
@@ -76,7 +80,7 @@ class MoleParameters(Defaults):
             ("Bottleneck radius", self.Tunnel.BottleneckRadius, 0, 5),
             ("Bottleneck tolerance", self.Tunnel.BottleneckTolerance, 0, 5),
             ("Max tunnel similarity", self.Tunnel.MaxTunnelSimilarity, 0, 1),
-        ] if not low <= value <= high]  # also NaN
+        ] if not low <= value <= high]
         if self.Tunnel.WeightFunction not in WEIGHT_FUNCTIONS:
             errors.append(f"Weight function must be one of {', '.join(WEIGHT_FUNCTIONS)}.")
         return "Invalid parameters. " + " ".join(errors) if errors else None
@@ -103,7 +107,7 @@ class PoresParameters(Defaults):
         return self.model_dump(include={"InMembrane", "IsBetaBarrel", "Chains", "ProbeRadius", "InteriorThreshold"})
 
 
-class PoresRequest(BaseModel):
+class PoresRequest(Parameters):
     """Body of Submit/Pores. Unknown fields are an error: a misspelled one would otherwise be ignored silently."""
     model_config = ConfigDict(extra="forbid")
     InMembrane: bool = False

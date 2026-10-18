@@ -95,6 +95,7 @@ def test_failed_pore_computation(api, settings, pores, run, message):
     ({"ProbeRadius": 100, "InteriorThreshold": 0.1}, "Invalid parameters. Probe radius must be between 1.4 and 45. Interior threshold must be between 0.3 and 3."),
     ({"Chains": ["A", "B C"]}, "Invalid parameters. Chain names must not be empty or contain spaces."),
     ({"Chains": [""]}, "Invalid parameters. Chain names must not be empty or contain spaces."),
+    ('{"ProbeRadius": NaN}', "Input format error. ProbeRadius: Input should be a finite number"),
     ("not json", "Input format error"),
 ])
 def test_invalid_parameters_are_400(client, settings, parameters, message):
