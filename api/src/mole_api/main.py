@@ -4,6 +4,7 @@ import functools
 import json
 import sys
 import uuid
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 from pathlib import Path
@@ -167,6 +168,31 @@ async def create_from_upload(request: Request) -> Report | JSONResponse:
     return c.report()
 
 
+def submit(request: Request, computation_id: str, parameters: MoleParameters | PoresRequest,
+           write_input: Callable[[Computation, Path], list[Step]], finish: Callable[[Computation, Path], str | None]) -> Report | JSONResponse:
+    """A new submission of the computation, run in the background, or why it is refused. write_input: writes its input
+    into its folder, returns its processes; finish: after them, in a thread, returns why the run failed (see Runner)."""
+    found = find(request, computation_id)
+    if isinstance(found, JSONResponse):
+        return found
+    if problems := parameters.problems():
+        return error(computation_id, 400, problems)
+    if refused := can_run(request, found):
+        return error(computation_id, *refused)
+
+    found.add_submission(request.app.state.mole_version)
+    directory = found.submit_directory(found.last.SubmitId)
+    try:
+        found.change_status(Status.Running)
+        steps = write_input(found, directory)
+    except Exception as e:  # e.g. the structure is missing
+        found.change_status(Status.Error, str(e))
+        return respond(found.report(), 500)
+    report = found.report()  # before the run can change it
+    request.app.state.runner.start(found, lambda: steps, init=False, finish=lambda: finish(found, directory))
+    return report
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     """settings: from the environment by default"""
 
@@ -301,70 +327,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def submit_mole(request: Request, computation_id: str, parameters: MoleParameters) -> Report:
         """Computes tunnels (pores with PoresAuto, PoresMerged or exits without an origin) in the loaded structure, in
         the background: Running, then Finished or Error (see Status with the SubmitId of the answer)"""
-        found = find(request, computation_id)
-        if isinstance(found, JSONResponse):
-            return found
-        if problems := parameters.problems():
-            return error(computation_id, 400, problems)
-        if refused := can_run(request, found):
-            return error(computation_id, *refused)
-
         settings: Settings = request.app.state.settings
-        found.add_submission(request.app.state.mole_version)
-        directory = found.submit_directory(found.last.SubmitId)
-        try:
-            found.change_status(Status.Running)
-            path = mole.computation_input(found, parameters)
+
+        def write_input(c: Computation, directory: Path) -> list[Step]:
+            path = mole.computation_input(c, parameters)
             (directory / mole.PARAMETERS).write_text(parameters.model_dump_json(indent=2))
-        except Exception as e:  # e.g. the structure is missing
-            found.change_status(Status.Error, str(e))
-            return respond(found.report(), 500)
-        report = found.report()  # before the run can change it
-        request.app.state.runner.start(found, lambda: [run_mole(settings, path)], init=False,
-                                       finish=lambda: mole.zip_report(directory, found.structure_path()))
-        return report
+            return [run_mole(settings, path)]
+        return submit(request, computation_id, parameters, write_input, lambda c, directory: mole.zip_report(directory, c.structure_path()))
 
     @submissions.post("/Pores/{computation_id}", responses=errors(400, 404, 409, 410, 503))
     async def submit_pores(request: Request, computation_id: str, parameters: PoresRequest) -> Report:
         """Computes a pore across the membrane, in the background: the pores tool places the membrane (from OPM for
         the preferred assembly of a PDB entry, otherwise predicted by MEMEMBED) and writes MOLE's input of a path
         along its normal, MOLE computes the pore (see Status, membrane.json in Data)"""
-        found = find(request, computation_id)
-        if isinstance(found, JSONResponse):
-            return found
-        if problems := parameters.problems():
-            return error(computation_id, 400, problems)
-        if refused := can_run(request, found):
-            return error(computation_id, *refused)
-
         settings: Settings = request.app.state.settings
-        found.add_submission(request.app.state.mole_version)
-        directory = found.submit_directory(found.last.SubmitId)
-        tool_input = directory / PORES_PARAMETERS
-        try:
-            found.change_status(Status.Running)
+
+        def write_input(c: Computation, directory: Path) -> list[Step]:
+            tool_input = directory / PORES_PARAMETERS
             tool_input.write_text(PoresParameters(
-                Structure=str(found.structure_path()), PdbId=found.PdbId if found.DbModePores else None, WorkingDirectory=str(directory),
-                Membrane=str(found.folder() / "membrane.json"), Memembed=str(settings.memembed), OpmCache=str(settings.opm_cache),
+                Structure=str(c.structure_path()), PdbId=c.PdbId if c.DbModePores else None, WorkingDirectory=str(directory),
+                Membrane=str(c.folder() / "membrane.json"), Memembed=str(settings.memembed), OpmCache=str(settings.opm_cache),
                 InMembrane=parameters.InMembrane, IsBetaBarrel=parameters.IsBetaBarrel,
                 Chains=parameters.Chains or [],
                 ProbeRadius=DEFAULT_PORES_PROBE_RADIUS if parameters.ProbeRadius is None else parameters.ProbeRadius,
                 InteriorThreshold=DEFAULT_PORES_INTERIOR_THRESHOLD if parameters.InteriorThreshold is None else parameters.InteriorThreshold,
             ).model_dump_json(indent=2))
-        except Exception as e:  # e.g. the structure is missing
-            found.change_status(Status.Error, str(e))
-            return respond(found.report(), 500)
+            return [Step([*PORES_TOOL, str(tool_input)]), run_mole(settings, directory / mole.INPUT)]
 
-        def finish() -> str | None:
+        def finish(c: Computation, directory: Path) -> str | None:
             if problem := pore_found(directory):
                 return problem
-            mole.zip_report(directory, found.structure_path())
+            mole.zip_report(directory, c.structure_path())
             return None
-
-        report = found.report()  # before the run can change it
-        request.app.state.runner.start(found, lambda: [Step([*PORES_TOOL, str(tool_input)]), run_mole(settings, directory / mole.INPUT)],
-                                       init=False, finish=finish)
-        return report
+        return submit(request, computation_id, parameters, write_input, finish)
 
     app.include_router(submissions)
 
