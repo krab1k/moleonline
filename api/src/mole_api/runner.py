@@ -87,7 +87,7 @@ class Runner:
 
 async def run_process(command: list[str]) -> str | None:
     """Runs a process until it exits; returns why it failed. Cancelled (a stop, the time limit), it is killed with its
-    children (the pores tool starts MEMEMBED and MOLE), also those that outlived it."""
+    children (the pores tool starts MEMEMBED), also those that outlived it."""
     process = await asyncio.create_subprocess_exec(*command, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL,
                                                    stderr=asyncio.subprocess.PIPE, start_new_session=True)
     try:
