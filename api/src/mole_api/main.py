@@ -254,6 +254,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return error(computation_id, 404, f"Submission {submitId} does not exist.", submitId)
         if format not in data.FORMATS:
             return error(computation_id, 400, f"Unknown format '{format}', the formats are {', '.join(data.FORMATS)}.", submitId)
+        # MOLE's files appear while it runs, a failed run leaves some; the membrane is the computation's (pore computations)
+        if format not in ("molecule", "membrane") and not found.has_results(submitId):
+            return error(computation_id, 404, f"Submission {submitId} has no results, it has not finished or it failed.", submitId)
         if (file := data.download(found, submitId, format)) is None:
             return error(computation_id, 404, f"Data in format '{format}' are not available.", submitId)
         return file

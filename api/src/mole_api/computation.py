@@ -80,6 +80,12 @@ class Computation(BaseModel):
             return Report(ComputationId=self.ComputationId, SubmitId=submit_id, Status=Status.Error, ErrorMsg=f"SubmitId {submit_id} not found.")
         return Report(ComputationId=self.ComputationId, SubmitId=unit.SubmitId, Status=unit.Status, ErrorMsg=unit.ErrorMsg)
 
+    def has_results(self, submit_id: int) -> bool:
+        """Its results are complete: the load (0) succeeded, the submission finished"""
+        if submit_id == 0:
+            return self.Loaded is not None and self.ComputationUnits[0].Status != Status.FailedInitialization
+        return any(u.SubmitId == submit_id and u.Status == Status.Finished for u in self.ComputationUnits)
+
     def add_submission(self, mole_version: str) -> None:
         """A new submission with its folder; the first one reuses the load's unit (Initialized)"""
         if self.last.Status != Status.Initialized:

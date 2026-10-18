@@ -109,9 +109,15 @@ def write(root: ET.Element, path: Path) -> Path:
 
 
 def zip_report(directory: Path, structure: Path) -> None:
-    """report.zip in the submission's folder: the files of its subfolders (results of each format) and the structure"""
-    with zipfile.ZipFile(directory / REPORT, "w", zipfile.ZIP_DEFLATED) as report:
-        for folder in sorted(p for p in directory.iterdir() if p.is_dir()):
-            for file in sorted(f for f in folder.iterdir() if f.is_file()):
-                report.write(file, f"{folder.name}/{file.name}")
-        report.write(structure, structure.name)
+    """report.zip in the submission's folder: the files of its subfolders (results of each format) and the structure.
+    It appears only when complete."""
+    temp = directory / f"{REPORT}.tmp"
+    try:
+        with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as report:
+            for folder in sorted(p for p in directory.iterdir() if p.is_dir()):
+                for file in sorted(f for f in folder.iterdir() if f.is_file()):
+                    report.write(file, f"{folder.name}/{file.name}")
+            report.write(structure, structure.name)
+        temp.replace(directory / REPORT)
+    finally:
+        temp.unlink(missing_ok=True)

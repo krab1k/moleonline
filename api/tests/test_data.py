@@ -6,7 +6,8 @@ import zipfile
 
 import pytest
 
-from .conftest import STRUCTURE, upload, wait
+from .conftest import STRUCTURE, upload, wait, wait_for_file
+from .test_runner import UNTIL_GO
 from .test_submit import submit
 
 # MOLE's results next to its input: data.json, the viewers' scripts, the tunnels' profiles
@@ -71,14 +72,40 @@ def test_refused(finished, query, status, message):
     assert response.json()["ErrorMsg"] == message
 
 
-def test_no_results_of_a_failed_submission(api):
-    client = api(run="exit 1")
+@pytest.mark.parametrize("run", ["exit 1", RESULTS + "; echo 'MOLE failed' >&2"])  # also when MOLE wrote some
+def test_no_results_of_a_failed_submission(api, run):
+    client = api(run=run)
     id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
     wait(client, id)
     submit(client, id)
     wait(client, id, 1)
-    for format in ("json", "report", "pdb"):
-        assert client.get(f"/Data/{id}?submitId=1&format={format}").status_code == 404
+    for format in ("json", "report", "pdb", "pymol"):
+        response = client.get(f"/Data/{id}?submitId=1&format={format}")
+        assert response.status_code == 404
+        assert response.json()["ErrorMsg"] == "Submission 1 has no results, it has not finished or it failed."
+    assert client.get(f"/Data/{id}?submitId=1&format=molecule").status_code == 200
+
+
+def test_no_results_while_running(api):
+    client = api(run=RESULTS + "; " + UNTIL_GO)
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    wait(client, id)
+    submit(client, id)
+    folder = client.app.state.settings.working_directory / id / "1"
+    wait_for_file(folder / "started")
+    assert (folder / "json" / "data.json").exists()  # MOLE writes as it goes
+    assert client.get(f"/Data/{id}?submitId=1").status_code == 404
+    (folder / "go").touch()
+    assert wait(client, id, 1)["Status"] == "Finished"
+    assert client.get(f"/Data/{id}?submitId=1").status_code == 200
+    assert sorted(p.name for p in folder.glob("report.zip*")) == ["report.zip"]  # written under another name first
+
+
+def test_results_of_the_load(api):
+    client = api(load=RESULTS)
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    assert wait(client, id)["Status"] == "Initialized"
+    assert client.get(f"/Data/{id}?submitId=0").json() == {"Channels": {}}
 
 
 def test_unknown_and_deleted_computation(finished):
