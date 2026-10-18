@@ -25,8 +25,7 @@ from .csa import CSA, CSAResidue
 from .paths import AspNetPaths
 from .computation import Computation, Report, Status
 from .config import Settings
-from .parameters import (DEFAULT_PORES_INTERIOR_THRESHOLD, DEFAULT_PORES_PROBE_RADIUS, MoleParameters, PoresParameters,
-                         PoresRequest)
+from .parameters import MoleParameters, PoresParameters, PoresRequest
 from .runner import Runner, Step
 from .versions import read_mole_version
 
@@ -347,10 +346,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             tool_input.write_text(PoresParameters(
                 Structure=str(c.structure_path()), PdbId=c.PdbId if c.DbModePores else None, WorkingDirectory=str(directory),
                 Membrane=str(c.folder() / "membrane.json"), Memembed=str(settings.memembed), OpmCache=str(settings.opm_cache),
-                InMembrane=parameters.InMembrane, IsBetaBarrel=parameters.IsBetaBarrel,
-                Chains=parameters.Chains or [],
-                ProbeRadius=DEFAULT_PORES_PROBE_RADIUS if parameters.ProbeRadius is None else parameters.ProbeRadius,
-                InteriorThreshold=DEFAULT_PORES_INTERIOR_THRESHOLD if parameters.InteriorThreshold is None else parameters.InteriorThreshold,
+                **parameters.model_dump(),
             ).model_dump_json(indent=2))
             return [Step([*PORES_TOOL, str(tool_input)]), run_mole(settings, directory / mole.INPUT)]
 

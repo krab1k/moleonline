@@ -110,6 +110,9 @@ def test_the_web_request(client):
     id = loaded(client)
     body = {"InMembrane": False, "IsBetaBarrel": True, "Chains": None, "InteriorThreshold": None, "ProbeRadius": None}  # as the web sends it
     assert submit(client, id, body).status_code == 200
+    wait(client, id, 1)
+    assert client.get(f"/CompInfo/{id}").json()["Submissions"][0]["PoresConfig"] == {  # null: the default
+        "InMembrane": False, "IsBetaBarrel": True, "Chains": [], "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
 
 
 def test_unknown_and_deleted_computation(client):
