@@ -75,6 +75,26 @@ def test_run_interrupted_by_a_restart(client, settings, running, failed, ended):
     assert saved["ComputationUnits"][0]["Submitted"] == "2026-10-17T09:33:00.717235Z"
 
 
+def test_marking_an_interrupted_run_keeps_a_new_submission(settings, monkeypatch):
+    """A request reads the interrupted run; before it marks it, another request marks it and starts a new submission
+    (status requests run in threads)"""
+    id = written_by_csharp(settings.working_directory, last="Running")
+    path = settings.working_directory / id / STATUS_FILE
+    read = computation._read
+
+    def meanwhile(path: Path) -> Computation:
+        stale = read(path)
+        monkeypatch.setattr(computation, "_read", read)  # once
+        other = computation.load(settings.working_directory, id)  # marks it
+        other.add_submission("2.5.1")
+        other.change_status(Status.Running)
+        return stale
+    monkeypatch.setattr(computation, "_read", meanwhile)
+    loaded = computation.load(settings.working_directory, id)
+    assert [u.Status for u in loaded.ComputationUnits] == [Status.Finished, Status.Error, Status.Running]
+    assert [u["Status"] for u in json.loads(path.read_text())["ComputationUnits"]] == ["Finished", "Error", "Running"]
+
+
 def test_run_of_this_api_process_continues(client, settings):
     id = written_by_csharp(settings.working_directory, last="Running", instance=computation.API_INSTANCE)
     assert client.get(f"/Status/{id}?submitId=-1").json()["Status"] == "Running"

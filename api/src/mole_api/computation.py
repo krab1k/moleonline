@@ -80,6 +80,10 @@ class Computation(BaseModel):
             return Report(ComputationId=self.ComputationId, SubmitId=submit_id, Status=Status.Error, ErrorMsg=f"SubmitId {submit_id} not found.")
         return Report(ComputationId=self.ComputationId, SubmitId=unit.SubmitId, Status=unit.Status, ErrorMsg=unit.ErrorMsg)
 
+    def is_interrupted(self) -> bool:
+        """Running or loading in another API process, i.e. one before a restart"""
+        return self.last.Status in (Status.Running, Status.Initializing) and self.ApiInstance != API_INSTANCE
+
     def has_results(self, submit_id: int) -> bool:
         """Its results are complete: the load (0) succeeded, the submission finished"""
         if submit_id == 0:
@@ -136,7 +140,7 @@ class Computation(BaseModel):
             Path(temp.name).replace(path)
 
 
-_status_writes = threading.Lock()
+_status_writes = threading.RLock()  # re-entrant: marking an interrupted run reads and saves under it
 
 
 def _saved_as_deleted(path: Path) -> bool:
@@ -166,12 +170,21 @@ def load(working_directory: Path, computation_id: str) -> Computation | None:
     """None when it does not exist. A run or load interrupted by a restart of the API is marked as failed."""
     if not COMPUTATION_ID.match(computation_id):
         return None
+    path = working_directory / computation_id / STATUS_FILE
     try:
-        computation = Computation.model_validate_json((working_directory / computation_id / STATUS_FILE).read_bytes())
+        computation = _read(path)
     except FileNotFoundError:
         return None
-    status = computation.last.Status
-    if status in (Status.Running, Status.Initializing) and computation.ApiInstance != API_INSTANCE:
-        computation.change_status(Status.Error if status == Status.Running else Status.FailedInitialization,
-                                  "The computation was interrupted by a restart of the server. Please, run it again.")
+    if computation.is_interrupted():
+        # read again under the lock of the writes: meanwhile, another request may have marked it and started a new
+        # submission, which this copy would write over
+        with _status_writes:
+            computation = _read(path)
+            if computation.is_interrupted():
+                computation.change_status(Status.Error if computation.last.Status == Status.Running else Status.FailedInitialization,
+                                          "The computation was interrupted by a restart of the server. Please, run it again.")
     return computation
+
+
+def _read(path: Path) -> Computation:
+    return Computation.model_validate_json(path.read_bytes())
