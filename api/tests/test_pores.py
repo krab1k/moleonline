@@ -54,12 +54,16 @@ def test_tools_run_one_after_another(api, settings):
     assert wait(client, id, 1)["Status"] == "Finished"
 
 
-def test_warning_of_the_pores_tool_is_no_error(api):
-    # the pores tool fails with its exit code (unlike MOLE), a warning on stderr (e.g. numpy's) does not fail the run
-    client = api(pores="echo 'RuntimeWarning: Mean of empty slice' >&2", run=PORE)
+def test_warning_of_the_pores_tool_is_no_error(api, caplog):
+    # the pores tool fails with its exit code (unlike MOLE), a warning on stderr (e.g. numpy's) does not fail the run;
+    # it is logged, in one line
+    client = api(pores="printf 'RuntimeWarning: Mean of empty slice\\n  return x.mean()\\n' >&2", run=PORE)
     id = loaded(client)
     submit(client, id)
     assert wait(client, id, 1)["Status"] == "Finished"
+    [record] = [r for r in caplog.records if "stderr" in r.getMessage()]
+    assert record.levelname == "WARNING"
+    assert record.getMessage().endswith(f"/{id}/1/pores.json succeeded with output on stderr: RuntimeWarning: Mean of empty slice return x.mean()")
 
 
 def test_opm_membrane_for_the_preferred_assembly(client, settings):

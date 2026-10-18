@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import logging
 import os
 import signal
 from collections.abc import Awaitable, Callable
@@ -10,6 +11,8 @@ from datetime import UTC, datetime
 
 from .computation import Computation, Status
 from .config import Settings
+
+log = logging.getLogger("uvicorn.error")  # the API's log, in uvicorn's format, one line per event
 
 
 @dataclass(frozen=True)
@@ -114,4 +117,6 @@ async def run_process(step: Step) -> str | None:
         return "The computation was terminated by the system, most likely it ran out of memory."
     if code != 0:
         return f"The computation failed with exit code {code}."
+    if stderr:  # not an error (see Step), e.g. a numpy warning, which may still point at a problem
+        log.warning("%s succeeded with output on stderr: %s", " ".join(step.command), " ".join(stderr.decode(errors="replace").split()))
     return None
