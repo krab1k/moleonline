@@ -29,6 +29,11 @@ class Membrane:
     def to_membrane_frame(self, xyz) -> np.ndarray:
         return self.rotation.T @ (np.asarray(xyz, dtype=float) - self.translation)
 
+    def is_finite(self) -> bool:
+        """No NaN or infinity anywhere, e.g. from a superposition of too few atoms"""
+        return bool(np.isfinite(self.rmsd) and np.isfinite(self.rotation).all() and np.isfinite(self.translation).all()
+                    and all(np.isfinite(p).all() for p, _ in self.points) and all(np.isfinite(h).all() for h in self.heights.values()))
+
     def is_flat(self) -> bool:
         """Two parallel planes; OPM models some membranes as curved surfaces."""
         return all(np.ptp(h) < 0.01 for h in self.heights.values())

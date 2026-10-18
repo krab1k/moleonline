@@ -16,6 +16,8 @@ import os
 import sys
 from pathlib import Path
 
+import numpy as np
+
 from ..parameters import PoresParameters
 from .membrane import MembraneError, membrane_json, read_structure
 from .memembed import membrane_from_memembed
@@ -49,9 +51,14 @@ def run(parameters_path: Path) -> None:
         if not memembed:
             raise PoresError("MEMEMBED is not configured, the membrane position cannot be predicted.")
         membrane = membrane_from_memembed(structure, memembed, parameters.IsBetaBarrel, chains)
+    # numpy computes with NaN after a problem it only warns about; nothing invalid is written for the web or MOLE
+    if not membrane.is_finite():
+        raise MembraneError("The membrane position could not be computed, it contains invalid numbers.")
     Path(parameters.Membrane).write_text(json.dumps(membrane_json(membrane), separators=(",", ":")))
 
     start, end = end_points(structure, membrane, parameters.InMembrane, chains)
+    if not np.isfinite([start, end]).all():
+        raise PathError("The ends of the pore could not be computed, they contain invalid numbers.")
     (working_directory / "input.xml").write_text(mole_input(structure_path, working_directory, start, end,
                                                           parameters.ProbeRadius, parameters.InteriorThreshold, chains))
 

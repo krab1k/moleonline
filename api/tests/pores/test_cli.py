@@ -4,9 +4,13 @@ import json
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+from mole_api.pores import cli
 from mole_api.pores.cli import PoresError, main, run
+from mole_api.pores.membrane import MembraneError
+from mole_api.pores.path import PathError
 
 REFERENCE = Path(__file__).parent / "data"
 
@@ -32,11 +36,15 @@ def test_unknown_chains(tmp_path, chains, message):
         run(parameters(tmp_path, chains))
 
 
-def test_writes_membrane_and_mole_input(tmp_path, monkeypatch):
+def opm_in_cache(tmp_path, monkeypatch) -> None:
     cache = tmp_path / "opm"
     cache.mkdir()
     shutil.copy(REFERENCE / "1k4c" / "opm_1k4c.pdb", cache / "1k4c.pdb")  # fresh in the cache, nothing is downloaded
     monkeypatch.setenv("PORES_OPM_CACHE", str(cache))
+
+
+def test_writes_membrane_and_mole_input(tmp_path, monkeypatch):
+    opm_in_cache(tmp_path, monkeypatch)
     run(parameters(tmp_path, ["C", "C_2"]))
 
     computation = tmp_path / "computation"
@@ -54,3 +62,26 @@ def test_unexpected_error_is_one_line(tmp_path, monkeypatch, capsys):
         main()
     assert exit.value.code == 1
     assert capsys.readouterr().err == "The pore computation failed unexpectedly (IndexError).\n"
+
+
+def test_invalid_membrane_is_not_written(tmp_path, monkeypatch):
+    """numpy only warns and computes on with NaN: neither the web nor MOLE gets it."""
+    opm_in_cache(tmp_path, monkeypatch)
+    computed = cli.membrane_from_opm
+
+    def with_nan(*arguments):
+        membrane = computed(*arguments)
+        membrane.translation = np.full(3, np.nan)
+        return membrane
+    monkeypatch.setattr(cli, "membrane_from_opm", with_nan)
+    with pytest.raises(MembraneError, match="invalid numbers"):
+        run(parameters(tmp_path, []))
+    assert not (tmp_path / "computation" / "membrane.json").exists()
+
+
+def test_invalid_pore_ends_are_not_written(tmp_path, monkeypatch):
+    opm_in_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "end_points", lambda *arguments: (np.zeros(3), np.array([0.0, np.nan, 1.0])))
+    with pytest.raises(PathError, match="invalid numbers"):
+        run(parameters(tmp_path, []))
+    assert not (tmp_path / "computation" / "1" / "input.xml").exists()
