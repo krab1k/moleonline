@@ -15,7 +15,7 @@ import pytest
 from mole_api.pores.membrane import read_structure
 from mole_api.pores.memembed import membrane_from_memembed
 from mole_api.pores.opm import membrane_from_opm
-from mole_api.pores.path import end_points, mole_input
+from mole_api.pores.path import end_points, write_mole_input
 
 REFERENCE = Path(__file__).parent / "data"
 MEMEMBED = os.environ.get("MEMEMBED")
@@ -58,8 +58,7 @@ def test_upload_same_path_as_production(tmp_path):
     working_directory = tmp_path / "1"
     working_directory.mkdir()
     start, end = end_points(structure, membrane, True, [])
-    (working_directory / "input.xml").write_text(mole_input(structure_path, working_directory, start, end, 10.0, 0.8, []))
-    subprocess.run([MOLE, str(working_directory / "input.xml")], check=True, capture_output=True)
+    subprocess.run([MOLE, str(write_mole_input(structure_path, working_directory, start, end, 10.0, 0.8, []))], check=True, capture_output=True)
 
     ours = json.loads((working_directory / "json" / "data.json").read_text())["Channels"]["Paths"][0]["Profile"]
     theirs = json.loads((REFERENCE / "3ldc_upload" / "data_json").read_text())["Channels"]["Paths"][0]["Profile"]

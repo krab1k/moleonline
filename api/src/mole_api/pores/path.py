@@ -9,11 +9,12 @@ MOLE moves the points to its nearest cavity points, so paths start and end close
 """
 
 from pathlib import Path
-from xml.sax.saxutils import escape, quoteattr
+from xml.etree import ElementTree as ET
 
 import gemmi
 import numpy as np
 
+from .. import mole
 from .membrane import Membrane
 
 AXIS_RADIUS = 10.0  # Å, atoms around the axis that define where the protein ends, the membrane surfaces it crosses
@@ -65,33 +66,29 @@ def end_points(structure: gemmi.Structure, membrane: Membrane, in_membrane: bool
     return membrane.to_structure([0.0, 0.0, bottom]), membrane.to_structure([0.0, 0.0, top])
 
 
-def _point(xyz: np.ndarray) -> str:
-    return f'<Point X="{xyz[0]:.3f}" Y="{xyz[1]:.3f}" Z="{xyz[2]:.3f}" />'
+def _point(xyz: np.ndarray) -> ET.Element:
+    return mole.element("Point", **{axis: mole.number(round(float(v), 3)) for axis, v in zip("XYZ", xyz)})
 
 
-def mole_input(structure_path: Path, working_directory: Path, start: np.ndarray, end: np.ndarray,
-               probe_radius: float, interior_threshold: float, chains: list[str]) -> str:
-    name = quoteattr(structure_path.stem)
-    return f"""<Tunnels>
-  <Input SpecificChains={quoteattr(",".join(chains))} ReadAllModels="0">{escape(str(structure_path))}</Input>
-  <WorkingDirectory>{escape(str(working_directory))}</WorkingDirectory>
-  <Params>
-    <Cavity ProbeRadius="{probe_radius}" InteriorThreshold="{interior_threshold}" IgnoreHETAtoms="1" IgnoreHydrogens="0" />
-    <Tunnel WeightFunction="Length" />
-  </Params>
-  <Export>
-    <Formats ChargeSurface="0" PyMol="1" PDBProfile="1" VMD="1" Chimera="1" CSV="1" JSON="1" />
-    <Types Cavities="0" Tunnels="0" PoresAuto="0" PoresMerged="0" PoresUser="0" />
-    <PyMol PDBId={name} SurfaceType="Spheres" />
-    <VMD PDBId={name} SurfaceType="Spheres" />
-    <Chimera PDBId={name} SurfaceType="Spheres" />
-  </Export>
-  <Paths>
-    <Path>
-      <Start>{_point(start)}</Start>
-      <End>{_point(end)}</End>
-    </Path>
-  </Paths>
-</Tunnels>
-"""
+def write_mole_input(structure_path: Path, working_directory: Path, start: np.ndarray, end: np.ndarray,
+                     probe_radius: float, interior_threshold: float, chains: list[str]) -> Path:
+    """MOLE's input (mole.INPUT in working_directory): the path from start to end, weighted by its length, through
+    the protein without HET atoms"""
+    root = mole.element("Tunnels")
+    root.append(mole.element("Input", str(structure_path), SpecificChains=",".join(chains), ReadAllModels="0"))
+    root.append(mole.element("WorkingDirectory", str(working_directory)))
+    params = mole.element("Params")
+    params.append(mole.element("Cavity", ProbeRadius=mole.number(probe_radius), InteriorThreshold=mole.number(interior_threshold),
+                               IgnoreHETAtoms="1", IgnoreHydrogens="0"))
+    params.append(mole.element("Tunnel", WeightFunction="Length"))
+    root.append(params)
+    root.append(mole.export(structure_path))
+    path = mole.element("Path")
+    for tag, xyz in (("Start", start), ("End", end)):
+        path.append(parent := mole.element(tag))
+        parent.append(_point(xyz))
+    paths = mole.element("Paths")
+    paths.append(path)
+    root.append(paths)
+    return mole.write(root, working_directory / mole.INPUT)
 
