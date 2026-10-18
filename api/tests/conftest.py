@@ -82,3 +82,13 @@ def running(pid: int) -> bool:
         return Path(f"/proc/{pid}/stat").read_text().split()[2] != "Z"
     except (FileNotFoundError, ProcessLookupError):  # gone, also while being read
         return False
+
+
+def gone(pid: int, seconds: float = 2) -> bool:
+    """The process ends within seconds: a killed process does not end at once"""
+    end = time.monotonic() + seconds
+    while running(pid):
+        if time.monotonic() > end:
+            return False
+        time.sleep(0.02)
+    return True

@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from .conftest import STRUCTURE, running, upload, wait, wait_for_file
+from .conftest import STRUCTURE, gone, upload, wait, wait_for_file
 
 # the fake MOLE marks that it started (next to its input), then waits until the test lets it go
 STARTED = 'touch "$(dirname "$1")/started"'
@@ -63,11 +63,7 @@ def test_time_limit_kills_the_whole_process_tree(api):
     assert status["Status"] == "FailedInitialization"
     assert status["ErrorMsg"] == "The computation exceeded the time limit of 30 minutes."
     child = int((client.app.state.settings.working_directory / id / "0" / "child").read_text())
-    for _ in range(100):
-        if not running(child):
-            break
-        time.sleep(0.02)
-    assert not running(child)
+    assert gone(child)
 
 
 def test_stopping_the_api_kills_runs(api, tmp_path):
@@ -77,5 +73,5 @@ def test_stopping_the_api_kills_runs(api, tmp_path):
     wait_for_file(folder / id / "0" / "started")
     child = int((folder / id / "0" / "child").read_text())
     client.__exit__(None, None, None)  # the API stops
-    assert not running(child)
+    assert gone(child)
     assert json.loads((folder / id / "_object.json").read_text())["ComputationUnits"][0]["Status"] == "Initializing"  # marked by the next API
