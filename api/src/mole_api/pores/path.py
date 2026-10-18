@@ -14,7 +14,7 @@ from xml.sax.saxutils import escape, quoteattr
 import gemmi
 import numpy as np
 
-from pores.membrane import Membrane
+from .membrane import Membrane
 
 AXIS_RADIUS = 10.0  # Å, atoms around the axis that define where the protein ends, the membrane surfaces it crosses
 FLAT_AT_AXIS = 1.0  # Å, a membrane surface is flat around the axis when its points there differ less in height

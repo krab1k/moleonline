@@ -2,6 +2,7 @@
 
 import functools
 import json
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from importlib.metadata import version
@@ -26,7 +27,7 @@ from .config import Settings
 from .parameters import (DEFAULT_PORES_INTERIOR_THRESHOLD, DEFAULT_PORES_PROBE_RADIUS, MoleParameters, PoresParameters,
                          PoresRequest)
 from .runner import Runner
-from .versions import read_versions
+from .versions import read_mole_version
 
 
 def respond(report: Report, status_code: int = 200) -> JSONResponse:
@@ -108,6 +109,8 @@ class CompInfo(BaseModel):
 
 
 PORES_PARAMETERS = "pores.json"  # the input of the pores tool, also what the user submitted
+# a process of its own, as MOLE: a stop or the time limit kills it with MEMEMBED; the tests replace it
+PORES_TOOL = [sys.executable, "-m", "mole_api.pores"]
 
 
 def submission(c: Computation, unit: computation.Unit) -> Submission:
@@ -130,9 +133,8 @@ def pore_found(directory: Path) -> str | None:
 
 
 class Version(BaseModel):
-    APIVersion: str
+    APIVersion: str  # also of the pores tool, part of the API
     MoleVersion: str
-    PoresVersion: str
 
 
 async def create_from_upload(request: Request) -> Report | JSONResponse:
@@ -152,7 +154,7 @@ async def create_from_upload(request: Request) -> Report | JSONResponse:
         try:
             if refused := await run_in_threadpool(upload.store, file.file, gzipped, temp):
                 return error(None, *refused)
-            c = computation.create(settings.working_directory, request.app.state.versions.mole)
+            c = computation.create(settings.working_directory, request.app.state.mole_version)
             c.StructureFile = name[:-3] if gzipped else name
             temp.rename(c.structure_path())
             c.save()
@@ -168,7 +170,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.settings = settings or Settings()  # a wrong setting stops the start
-        app.state.versions = await read_versions(app.state.settings)
+        app.state.mole_version = await read_mole_version(app.state.settings)
         app.state.runner = Runner(app.state.settings)
         app.state.pdbe = pdbe.client()
         app.mount("/", StaticFiles(directory=STATIC_FILES))  # after the endpoints, it would hide them
@@ -197,9 +199,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/Version")
     def get_version(request: Request) -> Version:
-        """Versions of the API and of the MOLE and pores tool that compute"""
-        tools = request.app.state.versions
-        return Version(APIVersion=app.version, MoleVersion=tools.mole, PoresVersion=tools.pores)
+        """Versions of the API (with the pores tool) and of MOLE"""
+        return Version(APIVersion=app.version, MoleVersion=request.app.state.mole_version)
 
     @app.get("/Status/{computation_id}", responses=errors(404, 410))
     def get_status(request: Request, computation_id: str, submitId: int = 0) -> Report:
@@ -279,7 +280,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return error(None, 400, f"Invalid PDB id [{pdb_id}].")
             if not pdbe.ASSEMBLY.match(assembly):
                 return error(None, 400, f"Invalid assembly [{assembly}]. Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
-            c = computation.create(settings.working_directory, request.app.state.versions.mole, pdb_id.lower())
+            c = computation.create(settings.working_directory, request.app.state.mole_version, pdb_id.lower())
             created = c.ComputationId
             request.app.state.runner.start(c, lambda: [[str(settings.mole), str(mole.load_input(c))]], init=True,
                                            prepare=lambda: pdbe.download(request.app.state.pdbe, c, assembly))
@@ -303,7 +304,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return error(computation_id, *refused)
 
         settings: Settings = request.app.state.settings
-        found.add_submission(request.app.state.versions.mole)
+        found.add_submission(request.app.state.mole_version)
         directory = found.submit_directory(found.last.SubmitId)
         try:
             found.change_status(Status.Running)
@@ -331,7 +332,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return error(computation_id, *refused)
 
         settings: Settings = request.app.state.settings
-        found.add_submission(request.app.state.versions.mole)
+        found.add_submission(request.app.state.mole_version)
         directory = found.submit_directory(found.last.SubmitId)
         tool_input = directory / PORES_PARAMETERS
         try:
@@ -354,7 +355,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return None
 
         report = found.report()  # before the run can change it
-        request.app.state.runner.start(found, lambda: [[str(settings.pores), str(tool_input)], [str(settings.mole), str(directory / mole.INPUT)]],
+        request.app.state.runner.start(found, lambda: [[*PORES_TOOL, str(tool_input)], [str(settings.mole), str(directory / mole.INPUT)]],
                                        init=False, finish=finish)
         return report
 

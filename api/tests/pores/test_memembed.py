@@ -12,10 +12,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pores.membrane import read_structure
-from pores.memembed import membrane_from_memembed
-from pores.opm import membrane_from_opm
-from pores.path import end_points, mole_input
+from mole_api.pores.membrane import read_structure
+from mole_api.pores.memembed import membrane_from_memembed
+from mole_api.pores.opm import membrane_from_opm
+from mole_api.pores.path import end_points, mole_input
 
 REFERENCE = Path(__file__).parent / "data"
 MEMEMBED = os.environ.get("MEMEMBED")

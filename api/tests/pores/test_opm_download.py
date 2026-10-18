@@ -8,8 +8,8 @@ import urllib.error
 
 import pytest
 
-from pores import opm
-from pores.membrane import MembraneError
+from mole_api.pores import opm
+from mole_api.pores.membrane import MembraneError
 
 OPM_FILE = "REMARK OPM file\n"
 

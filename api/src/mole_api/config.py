@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     max_concurrent_computations: int = Field(4, ge=1)
     max_computation_minutes: int = Field(30, ge=1)  # one run (all its processes), the queue not included
     mole: Path = Path("/opt/mole2/mole2")
-    pores: Path = Path("/app/.venv/bin/pores")  # installed with the API
 
     @field_validator("working_directory")
     @classmethod
@@ -27,7 +26,7 @@ class Settings(BaseSettings):
             raise ValueError(f"'{path}' is not writable: {e}") from e
         return path
 
-    @field_validator("mole", "pores")
+    @field_validator("mole")
     @classmethod
     def executable(cls, path: Path) -> Path:
         if not path.is_absolute():

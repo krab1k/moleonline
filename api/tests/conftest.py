@@ -5,11 +5,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from mole_api import main
 from mole_api.config import Settings
 from mole_api.main import create_app
 
 MOLE_VERSION = "9.8.7.6"  # what the fake MOLE reports when started without arguments, as MOLE does
-PORES_VERSION = "5.4.3"  # what the fake pores tool reports for --version
 STRUCTURE = (Path(__file__).parent / "data" / "1tqn.cif").read_bytes()
 
 
@@ -20,17 +20,14 @@ def script(directory: Path, name: str, body: str) -> Path:
     return path
 
 
-def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", pores: str = "exit 0", slots: int = 4,
-                  mole: Path | None = None) -> Settings:
+def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", slots: int = 4, mole: Path | None = None) -> Settings:
     """The API's own working directory. The fake MOLE runs load for a load (input in folder 0), run for a
-    computation, and reports its version without arguments; the fake pores tool runs pores (input: pores.json) and
-    reports its version for --version. mole: a real MOLE instead."""
+    computation, and reports its version without arguments. mole: a real MOLE instead."""
     fake = f"case \"$1\" in\n  '') echo 'WebChemistry Tunnels {MOLE_VERSION}, (c) test' ;;\n  */0/input.xml) {load} ;;\n  *) {run} ;;\nesac"
     return Settings(
         working_directory=directory / "computations",
         max_concurrent_computations=slots,
         mole=mole or script(directory, "mole", fake),
-        pores=script(directory, "pores", f"if [ \"$1\" = --version ]; then echo 'pores {PORES_VERSION}'; else {pores}; fi"),
     )
 
 
@@ -40,11 +37,15 @@ def settings(tmp_path: Path) -> Settings:
 
 
 @pytest.fixture
-def api(tmp_path: Path):
-    """api(load=..., run=..., slots=...): a started API (the versions are read) with these fake MOLE scripts; its
-    runs are killed when the test ends"""
+def api(tmp_path: Path, monkeypatch):
+    """api(load=..., run=..., pores=..., slots=...): a started API (MOLE's version is read) with these fake MOLE
+    scripts and a fake pores tool running pores (input: pores.json); its runs are killed when the test ends"""
+    def start(pores: str = "exit 0", **fake) -> TestClient:
+        monkeypatch.setattr(main, "PORES_TOOL", [str(script(tmp_path, "pores", pores))])
+        return started.enter_context(TestClient(create_app(make_settings(tmp_path, **fake))))
+
     with contextlib.ExitStack() as started:
-        yield lambda **fake: started.enter_context(TestClient(create_app(make_settings(tmp_path, **fake))))
+        yield start
 
 
 @pytest.fixture

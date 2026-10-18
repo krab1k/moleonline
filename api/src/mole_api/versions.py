@@ -1,36 +1,24 @@
-"""Versions of the configured MOLE and pores tool, read when the API starts, so they are always the tools that run.
-MOLE without arguments prints "WebChemistry Tunnels 2.5.26.10.17, (c) ..." first, the pores tool with --version
-"pores 2.0.0". Without a version the API does not start."""
+"""The version of the configured MOLE, read when the API starts, so it is always the MOLE that runs. MOLE without
+arguments prints "WebChemistry Tunnels 2.5.26.10.17, (c) ..." first. Without a version the API does not start."""
 
 import asyncio
 import os
 import re
 import signal
-from dataclasses import dataclass
 from pathlib import Path
 
 from .config import Settings
 
 MOLE_LINE = re.compile(r"^WebChemistry Tunnels (\S+),")
-PORES_LINE = re.compile(r"^pores (\S+)$")
 
 
 class ToolError(Exception):
     """A tool did not report its version"""
 
 
-@dataclass(frozen=True)
-class ToolVersions:
-    mole: str
-    pores: str
-
-
-async def read_versions(settings: Settings, timeout: float = 30) -> ToolVersions:
-    """timeout: how long a tool may take to report its version"""
-    return ToolVersions(
-        mole=await read_version("MOLE", settings.mole, [], MOLE_LINE, timeout),
-        pores=await read_version("PORES", settings.pores, ["--version"], PORES_LINE, timeout),
-    )
+async def read_mole_version(settings: Settings, timeout: float = 30) -> str:
+    """timeout: how long MOLE may take to report its version"""
+    return await read_version("MOLE", settings.mole, [], MOLE_LINE, timeout)
 
 
 async def read_version(setting: str, path: Path, arguments: list[str], version: re.Pattern, timeout: float) -> str:

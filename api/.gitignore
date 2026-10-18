@@ -1,2 +1,4 @@
 .venv/
 __pycache__/
+# all production results of Pores.exe, the tests use a trimmed copy in tests/pores/data/
+tests/pores/reference/

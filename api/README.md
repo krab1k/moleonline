@@ -6,9 +6,9 @@ cavities, tunnels and pores with [MOLE 2](https://github.com/sb-ncbr/webchemistr
 The container contains:
 
 - the API (Python, FastAPI, `src/mole_api`), with the .NET runtime for MOLE,
+- the pores tool (`src/mole_api/pores`, part of the API, run as a process of its own): the membrane position for
+  pore computations, from [OPM](https://opm.phar.umich.edu/) or predicted by MEMEMBED,
 - MOLE 2, from the image `sbncbr/mole2`,
-- the pores tool (`tools/pores`): the membrane position for pore computations, from
-  [OPM](https://opm.phar.umich.edu/) or predicted by MEMEMBED,
 - [MEMEMBED](https://github.com/psipred/MemEmbed), built from source (GPL v2, its source and licence
   are in `/opt/memembed` in the image).
 
@@ -86,7 +86,6 @@ Settings are environment variables, the defaults are the container's (`src/mole_
 | `MAX_CONCURRENT_COMPUTATIONS` | `4` | MOLE and pore runs at once (loads included), others wait in a queue |
 | `MAX_COMPUTATION_MINUTES` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
 | `MOLE` | `/opt/mole2/mole2` | full path |
-| `PORES` | `/app/.venv/bin/pores` | full path |
 
 The pores tool reads `MEMEMBED` (the MEMEMBED executable) and `PORES_OPM_CACHE` (the OPM file cache)
 from the environment; the image sets both. All times the API stores are in UTC.
@@ -115,7 +114,7 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 | `GET /CSA/{id}` | catalytic active sites of the PDB entry from M-CSA, one per copy, starting points for tunnels |
 | `POST /Kill/{id}` | stop the running submission |
 | `DELETE /Delete/{id}` | delete the computation |
-| `GET /Version` | versions of the API, MOLE and Pores |
+| `GET /Version` | versions of the API (also of the pores tool) and MOLE |
 
 The active sites of `/CSA` come from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (Ribeiro et al., Nucleic
 Acids Research 2018, CC BY 4.0), converted by `tools/mcsa/convert.py` into `src/mole_api/resources/mcsa_sites.csv.gz`.
@@ -131,23 +130,14 @@ fails to load.
 
 ```sh
 uv sync
-WORKING_DIRECTORY=/tmp/mole MOLE=/path/to/mole2 PORES=$PWD/.venv/bin/pores \
-uv run uvicorn mole_api.main:app
-uv run pytest    # with a fake MOLE and pores tool, and a fake PDBe
-MOLE2=/path/to/mole2 uv run pytest    # also a tunnel computation with the real MOLE, skipped without
+WORKING_DIRECTORY=/tmp/mole MOLE=/path/to/mole2 MEMEMBED=/path/to/memembed uv run uvicorn mole_api.main:app
+uv run pytest    # with a fake MOLE and pores tool in the API's tests, and a fake PDBe
+MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # also the tests needing them, skipped without
 ```
 
-### Pores tool
-
-The pores tool is a project of its own in the API's [uv](https://docs.astral.sh/uv/) workspace (one lock, one
-environment, `.venv`), installed with the API; its input is described in `tools/pores/src/pores/cli.py`:
-
-```sh
-cd tools/pores
-MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # tests needing them are skipped without
-```
-
-The tests compare with production results of the original Pores, in `tools/pores/tests/data/` (see its README).
+The pores tool (`src/mole_api/pores`) runs as `python -m mole_api.pores <pores.json>`, its input is described in
+`cli.py`. Its tests (`tests/pores`) compare with production results of the original Pores, in `tests/pores/data/`
+(see its README).
 
 ## Licence
 

@@ -16,7 +16,7 @@ from pathlib import Path
 import gemmi
 import numpy as np
 
-from pores.membrane import Membrane, MembraneError, kabsch, rmsd
+from .membrane import Membrane, MembraneError, kabsch, rmsd
 
 
 def _atoms(structure: gemmi.Structure) -> np.ndarray:

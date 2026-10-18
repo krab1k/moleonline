@@ -22,7 +22,7 @@ from pathlib import Path
 import gemmi
 import numpy as np
 
-from pores.membrane import Membrane, MembraneError, kabsch, rmsd
+from .membrane import Membrane, MembraneError, kabsch, rmsd
 
 OPM_URL = "https://opm-assets.storage.googleapis.com/pdb/{pdb_id}.pdb"
 OPM_TIMEOUT = 30  # s, per network operation

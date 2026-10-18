@@ -1,8 +1,5 @@
 .git/
 .venv/
-tools/pores/.venv/
-tools/pores/reference/
-tools/pores/tests/
 tests/
 **/__pycache__/
 **/.pytest_cache/

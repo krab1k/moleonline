@@ -7,8 +7,8 @@ import gemmi
 import numpy as np
 import pytest
 
-from pores.membrane import kabsch, membrane_json, read_structure
-from pores.opm import membrane_from_opm
+from mole_api.pores.membrane import kabsch, membrane_json, read_structure
+from mole_api.pores.opm import membrane_from_opm
 
 REFERENCE = Path(__file__).parent / "data"
 

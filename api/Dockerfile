@@ -1,4 +1,4 @@
-# MOLEonline API (src/mole_api) with MOLE 2, the pores tool (tools/pores) and MEMEMBED; MOLE needs the .NET runtime.
+# MOLEonline API (src/mole_api, with the pores tool) with MOLE 2 and MEMEMBED; MOLE needs the .NET runtime.
 # Computations, the submission log and downloaded OPM files are kept in /data.
 
 # MEMEMBED (GPL v2): https://github.com/psipred/MemEmbed, unmodified, built without -Werror (newer compilers warn);
@@ -11,14 +11,13 @@ RUN git clone https://github.com/psipred/MemEmbed.git . && git checkout d18b9f55
     && mkdir /opt/memembed && cp bin/memembed LICENSE /usr/share/common-licenses/GPL-2 /opt/memembed/ \
     && git archive -o /opt/memembed/source.tar.gz HEAD
 
-# the API and the pores tool in one environment, with Python, installed by uv
+# the API with Python, installed by uv
 FROM mcr.microsoft.com/dotnet/runtime:10.0 AS api
 COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /usr/local/bin/uv
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 COPY pyproject.toml uv.lock .python-version ./
 COPY src src
-COPY tools/pores tools/pores
 RUN uv sync --frozen --no-dev --no-editable
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0
