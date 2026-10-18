@@ -53,6 +53,24 @@ def test_name_cannot_leave_the_folder(client, settings):
     assert (settings.working_directory / id / "x.pdb").exists()
 
 
+@pytest.mark.parametrize("name, stored", [
+    ("my protein (1).PDB", "my_protein__1_.pdb"),
+    ("1tqn.model-1.cif.GZ", "1tqn.model-1.cif"),
+    ("蛋白.cif", "structure.cif"),  # nothing of the name is left
+    ("..cif", "structure.cif"),
+    ("\"quoted\\name\".cif", "_22quoted_name_22.cif"),  # clients send quotes as %22, as browsers do
+])
+def test_name_is_stored_with_safe_characters(client, settings, name, stored):
+    """Other characters broke the structure's download (Content-Disposition) and would go into MOLE's viewer scripts."""
+    id = upload(client, name, gzip.compress(STRUCTURE) if name.endswith("GZ") else STRUCTURE).json()["ComputationId"]
+    assert wait(client, id)["Status"] == "Initialized"
+    assert json.loads((settings.working_directory / id / "_object.json").read_text())["StructureFile"] == stored
+    response = client.get(f"/Data/{id}", params={"format": "molecule"})
+    assert response.status_code == 200
+    assert response.headers["content-disposition"] == f'attachment; filename="{stored}"'
+    assert response.content == STRUCTURE  # unpacked, also under the shortened name
+
+
 GZIP = gzip.compress(STRUCTURE)
 
 

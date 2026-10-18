@@ -150,16 +150,15 @@ async def create_from_upload(request: Request) -> Report | JSONResponse:
         file = form.get("file")
         if not isinstance(file, UploadFile) or not file.size:
             return error(None, 400, upload.NO_FILE)
-        name = Path(file.filename or "").name  # from the client, never let it leave the folder
-        if not upload.STRUCTURE_NAME.search(name.lower()):
+        if (name := upload.stored_name(file.filename or "")) is None:
             return error(None, 400, upload.UNSUPPORTED)
-        gzipped = name.lower().endswith(".gz")
+        gzipped = (file.filename or "").lower().endswith(".gz")
         temp = settings.working_directory / f".upload-{uuid.uuid4().hex}"  # a computation only for a structure that fits
         try:
             if refused := await run_in_threadpool(upload.store, file.file, gzipped, temp):
                 return error(None, *refused)
             c = computation.create(settings.working_directory, request.app.state.mole_version)
-            c.StructureFile = name[:-3] if gzipped else name
+            c.StructureFile = name
             temp.rename(c.structure_path())
             c.save()
         finally:

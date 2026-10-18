@@ -19,6 +19,17 @@ NO_FILE = "No structure file was uploaded or the file is empty."
 UNSUPPORTED = "Unsupported file type. Supported are PDB (*.pdb) and mmCIF (*.cif) files, also gzipped (*.pdb.gz, *.cif.gz)."
 
 
+def stored_name(name: str) -> str | None:
+    """The name the structure is stored under, unpacked; None when its type is not supported. Only letters, digits and
+    . _ - are kept, others become _: the name goes into downloads (Content-Disposition) and MOLE's viewer scripts.
+    "structure" when nothing of the name is left."""
+    name = Path(name).name  # from the client, never let it leave the folder
+    if not (extension := STRUCTURE_NAME.search(name.lower())):
+        return None
+    stem = re.sub(r"[^A-Za-z0-9._-]", "_", name[:extension.start()]).lstrip(".")
+    return (stem if stem.strip("._-") else "structure") + f".{extension[1]}"
+
+
 def store(source: BinaryIO, gzipped: bool, target: Path) -> tuple[int, str] | None:
     """Copies the structure to target, unpacked; returns the HTTP status and the reason when it is refused (target
     then holds a part). gzip checks the whole file: a truncated or corrupt one fails, several members are read."""
