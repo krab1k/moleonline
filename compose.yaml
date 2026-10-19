@@ -27,11 +27,12 @@ services:
     environment:
       # The entrypoint writes the templates to conf.d with the container's DNS servers
       NGINX_ENTRYPOINT_LOCAL_RESOLVERS: 1
+    # z: labels the files for containers under SELinux (podman on Fedora), ignored on hosts without it
     volumes:
-      - ./web/docker/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./web/docker/site.conf:/etc/nginx/site.conf:ro
-      - ./web/docker/conf.d/devel.conf.template:/etc/nginx/templates/server.conf.template:ro
-      - ./web/docker/conf.d/api.conf.template:/etc/nginx/templates/api.conf.template:ro
+      - ./web/docker/nginx.conf:/etc/nginx/nginx.conf:ro,z
+      - ./web/docker/site.conf:/etc/nginx/site.conf:ro,z
+      - ./web/docker/conf.d/devel.conf.template:/etc/nginx/templates/server.conf.template:ro,z
+      - ./web/docker/conf.d/api.conf.template:/etc/nginx/templates/api.conf.template:ro,z
     logging:
       driver: journald
       options:
