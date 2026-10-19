@@ -22,7 +22,7 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-Settings, in the environment or in `.env` next to `compose.yaml`:
+Settings, in the environment or in `.env` next to `compose.yaml` (locally; on the servers `.env` is the instance's, see below):
 
 | Setting | Default | |
 |---|---|---|
@@ -31,34 +31,41 @@ Settings, in the environment or in `.env` next to `compose.yaml`:
 
 The API's data (computations, the submission log, OPM files) is in the volume `moleonline_data`.
 
-### Production
+### Production and testing
 
-For production, you need to have a certbot installed with Let's Encrypt certificates (using
-[certbot](https://certbot.eff.org/instructions?ws=other&os=snap)) for both `moleonline.cz` and
-`moleonline.biodata.ceitec.cz` domains. [`compose.production.yaml`](compose.production.yaml) serves the site on
-ports 80 and 443 with them. Assuming running Ubuntu 24.04 LTS, use the following commands to run the application:
+There are two instances, on separate machines, which differ only in their domains:
+
+| Instance | Domains | Settings |
+|---|---|---|
+| production | `moleonline.biodata.ceitec.cz`, `moleonline.cz` | [`deploy/production.env`](deploy/production.env) |
+| testing | `moleonline-dev.biodata.ceitec.cz` | [`deploy/dev.env`](deploy/dev.env) |
+
+On each machine, `.env` in the repository's root links to the instance's settings. They add
+[`compose.production.yaml`](compose.production.yaml), which serves the site on ports 80 and 443 with the
+machine's Let's Encrypt certificate (using [certbot](https://certbot.eff.org/instructions?ws=other&os=snap)),
+so plain `docker compose` commands run the instance. Assuming running Ubuntu 24.04 LTS:
 
 ```bash
-# 0. Clone the repository into /home/ubuntu/moleonline
-git clone https://github.com/sb-ncbr/moleonline
+# 0. Clone the repository into /home/ubuntu/moleonline and select the instance (dev.env on the testing machine)
+git clone https://github.com/sb-ncbr/moleonline /home/ubuntu/moleonline
+cd /home/ubuntu/moleonline
+ln -s deploy/production.env .env
 
-# 1. Install certbot and issue the certificates
-# - Follow certbot instructions
-# - Use moleonline.biodata.ceitec.cz domain first, then moleonline.cz
+# 1. Install certbot and issue the certificate for the instance's domains (SERVER_NAMES in .env); certbot names
+#    it after the first domain, which has to be CERT_NAME in .env
 sudo snap install certbot
-sudo certbot certonly --standalone
+sudo certbot certonly --standalone -d moleonline.biodata.ceitec.cz -d moleonline.cz    # testing: -d moleonline-dev.biodata.ceitec.cz
 
 # 2. Setup certificates renewal cron job
-cp /home/ubuntu/moleonline/web/docker/renew_certificates.sh /usr/local/bin
-chmod +x /usr/local/bin/renew_certificates.sh
-ln -s /usr/local/bin/renew_certificates.sh /etc/cron.weekly/renew_certificates.sh
+sudo cp web/docker/renew_certificates.sh /usr/local/bin
+sudo chmod +x /usr/local/bin/renew_certificates.sh
+sudo ln -s /usr/local/bin/renew_certificates.sh /etc/cron.weekly/renew_certificates.sh
 
 # 3. Build and run the application
-# - Application assumes the certificates stored on the host in /etc/letsencrypt/live/moleonline.biodata.ceitec.cz directory
-cd /home/ubuntu/moleonline
-docker compose -f compose.yaml -f compose.production.yaml build
-docker compose -f compose.yaml -f compose.production.yaml up -d
+docker compose up -d --build
 ```
+
+To deploy a new version: `git pull && docker compose up -d --build`, first on the testing machine.
 
 ## History
 
