@@ -1,0 +1,25 @@
+.quick-help{
+    margin: auto auto;
+    bottom: 0;
+    top: 0;
+    height: 31vh;
+    position: relative;
+    overflow: auto;
+    padding: 15px 15px 10px;
+    width: 100%;
+}
+.quick-help ul{
+    padding-left: 20px;
+    margin-bottom:0;
+}
+
+.quick-help h3{
+    border-bottom: 1px solid #aaa;
+    padding-bottom: 3px;
+    margin-top: 0;
+}
+
+.quick-help ul li{
+    text-align: justify;    
+    margin-bottom: 5px;
+}

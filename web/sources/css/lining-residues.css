@@ -1,0 +1,37 @@
+.lining-residues.select-controls{
+    position: relative;
+    text-align: right;
+    padding-right: 6px;
+}
+
+.lining-residues.select-controls .bt-ionizable{
+    margin-right: 1px;
+}
+
+.lining-residues.select-controls .btn {
+    font-size: small !important;
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+}
+
+#right-tabs-2 .datagrid .col.col-1,
+#right-tabs-2 .datagrid * .col.col-1{
+	width: 18%;
+    min-width: 105px;
+}
+
+#dg-lining-residues tr.residue-class-blue {
+    background-color: #c3e3ff;
+}
+#dg-lining-residues tr.residue-class-red {
+    background-color: #ffa596;
+}
+#dg-lining-residues tr.residue-class-yellow {
+    background-color: #ffff8c;
+}
+#dg-lining-residues tr.residue-class-purple {
+    background-color: #e3b6ff;
+}
+#dg-lining-residues tr.residue-class-green {
+    background-color: #adffad;
+}

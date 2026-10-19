@@ -1,0 +1,58 @@
+.aglomered-parameters .aglomered-parameters-ui{
+    left:0;
+    height: 30vh;/*17vh;*/
+    min-width:120px;
+    min-height:120px;
+    background-color: white;
+    color: black;
+}
+
+.bottom-panel-toggled .aglomered-parameters .aglomered-parameters-ui{
+    height:63vh;
+}
+
+
+#dg-aglomered-parameters.datagrid .icon.bottleneck{
+    background-image: url(/images/bottleneck-radius-white.png);
+    background-repeat: no-repeat;
+    background-position: center center;
+    height: 1em;
+    width: 1em;
+    background-size: 1em 1em;
+    display: inline-block;
+    vertical-align: text-top;
+}
+#dg-aglomered-parameters.datagrid .col.col-1{
+    min-width: 80px;
+    width:15%;
+}
+
+.bottom-tabs-toggled .aglomered-parameters * table * .ATable-label,
+.bottom-tabs-toggled #dg-aglomered-parameters.datagrid * .ATable-label{
+    display:none;
+}
+
+#dg-aglomered-parameters.datagrid .col.col-2,
+#dg-aglomered-parameters.datagrid .col.col-3{
+    min-width:35px;
+    width:8%;
+}
+
+#dg-aglomered-parameters.datagrid .col.col-4,
+#dg-aglomered-parameters.datagrid .col.col-5,
+#dg-aglomered-parameters.datagrid .col.col-6,
+#dg-aglomered-parameters.datagrid .col.col-7,
+#dg-aglomered-parameters.datagrid .col.col-8,
+#dg-aglomered-parameters.datagrid .col.col-9,
+#dg-aglomered-parameters.datagrid .col.col-10,
+#dg-aglomered-parameters.datagrid .col.col-11{
+    min-width: 30px;
+    width:7.5%;
+}
+
+@media only screen and (max-width: 1300px),
+only screen and (max-height: 900px) {
+    .bottom-panel-toggled .aglomered-parameters .aglomered-parameters-ui{
+        height:53vh;
+    }
+}

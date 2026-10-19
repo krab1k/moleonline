@@ -1,0 +1,240 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Copyright (c) 2018-2021 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ *
+ * @author Alexander Rose <alexander.rose@weirdbyte.de>
+ * @author David Sehnal <david.sehnal@gmail.com>
+ */
+
+import * as React from 'react';
+import { PluginUIComponent } from 'molstar/lib/mol-plugin-ui/base';
+import { PluginStateObject as PSO } from 'molstar/lib/mol-plugin-state/objects';
+import { Structure, StructureElement, StructureProperties as SP } from 'molstar/lib/mol-model/structure';
+import { SequenceWrapper } from 'molstar/lib/mol-plugin-ui/sequence/wrapper';
+import { PolymerSequenceWrapper } from 'molstar/lib/mol-plugin-ui/sequence/polymer';
+import { ParamDefinition as PD } from 'molstar/lib/mol-util/param-definition';
+import { HeteroSequenceWrapper } from 'molstar/lib/mol-plugin-ui/sequence/hetero';
+import { StateSelection } from 'molstar/lib/mol-state';
+import { elementLabel } from 'molstar/lib/mol-theme/label';
+import { Icon, HelpOutlineSvg } from 'molstar/lib/mol-plugin-ui/controls/icons';
+import { arrayEqual } from 'molstar/lib/mol-util/array';
+import { MoleSequence } from './MoleSequence';
+import { getModelEntityOptions, getOperatorOptions, getSequenceWrapper, getStructureOptions, splitModelEntityId } from 'molstar/lib/mol-plugin-ui/sequence';
+
+// TODO: add virtualized Select controls (at best with a search box)?
+const MaxSelectOptionsCount = 1000;
+// const MaxSequenceWrappersCount = 30; // uncomment for boundary
+
+export function getChainOptions(structure: Structure, modelEntityId: string): [number, string, string][] {
+    const options: [number, string, string][] = [];
+    const l = StructureElement.Location.create(structure);
+    const seen = new Set<number>();
+    const [modelIdx, entityId] = splitModelEntityId(modelEntityId);
+
+    for (const unit of structure.units) {
+        StructureElement.Location.set(l, structure, unit, unit.elements[0]);
+        if (structure.getModelIndex(unit.model) !== modelIdx) continue;
+        if (SP.entity.id(l) !== entityId) continue;
+
+        const id = unit.chainGroupId;
+        const chainName = SP.chain.auth_asym_id(l);
+        if (seen.has(id)) continue;
+
+        // TODO handle special case
+        // - more than one chain in a unit
+        const label = elementLabel(l, { granularity: 'chain', hidePrefix: true, htmlStyling: false });
+
+        options.push([id, label, chainName]);
+        seen.add(id);
+
+        if (options.length > MaxSelectOptionsCount) {
+            return [[-1, 'Too many chains', '']];
+        }
+    }
+
+    if (options.length === 0) options.push([-1, 'No chains', '']);
+    return options;
+}
+
+export type SequenceViewMode = 'single' | 'polymers' | 'all'
+const SequenceViewModeParam = PD.Select<SequenceViewMode>('all', [['single', 'Chain'], ['polymers', 'Polymers'], ['all', 'Everything']]);
+
+type SequenceViewState = {
+    structureOptions: { options: [string, string][], all: Structure[] },
+    structure: Structure,
+    structureRef: string,
+    modelEntityId: string,
+    chainGroupId: number,
+    operatorKey: string,
+    mode: SequenceViewMode,
+    operatorName: string,
+}
+
+export class MoleSequenceView extends PluginUIComponent<{ defaultMode?: SequenceViewMode }, SequenceViewState> {
+    // constructor(props: { defaultMode?: SequenceViewMode }) {
+    //     super(props);
+    //     // this.setState({ structureOptions: { options: [], all: [] }, structure: Structure.Empty, structureRef: '', modelEntityId: '', chainGroupId: -1, operatorKey: '', mode: 'all', operatorName: '' })
+    // }
+
+    state: SequenceViewState = { structureOptions: { options: [], all: [] }, structure: Structure.Empty, structureRef: '', modelEntityId: '', chainGroupId: -1, operatorKey: '', mode: 'all', operatorName: '' };
+
+    componentDidMount() {
+        if (this.plugin.state.data.select(StateSelection.Generators.rootsOfType(PSO.Molecule.Structure)).length > 0) this.setState(this.getInitialState());
+
+        this.subscribe(this.plugin.state.events.object.updated, ({ ref, obj }) => {
+            if (ref === this.state.structureRef && obj && obj.type === PSO.Molecule.Structure.type && obj.data !== this.state.structure) {
+                this.sync();
+            }
+        });
+
+        this.subscribe(this.plugin.state.events.object.created, ({ obj }) => {
+            if (obj && obj.type === PSO.Molecule.Structure.type) {
+                this.sync();
+            }
+        });
+
+        this.subscribe(this.plugin.state.events.object.removed, ({ obj }) => {
+            if (obj && obj.type === PSO.Molecule.Structure.type && obj.data === this.state.structure) {
+                this.sync();
+            }
+        });
+    }
+
+    private sync() {
+        const structureOptions = getStructureOptions(this.plugin.state.data);
+        if (arrayEqual(structureOptions.all, this.state.structureOptions.all)) return;
+        this.setState(this.getInitialState());
+    }
+
+    private getStructure(ref: string) {
+        const state = this.plugin.state.data;
+        const cell = state.select(ref)[0];
+        if (!ref || !cell || !cell.obj) return Structure.Empty;
+        return (cell.obj as PSO.Molecule.Structure).data;
+    }
+
+    private getSequenceWrapper(params: MoleSequenceView['params']) {
+        return {
+            wrapper: getSequenceWrapper(this.state, this.plugin.managers.structure.selection),
+            label: `${PD.optionLabel(params.chain, this.state.chainGroupId)}${PD.optionLabel(params.operatorName, "_" + this.state.operatorName)} | ${PD.optionLabel(params.entity, this.state.modelEntityId)}`,
+            operatorName: '',
+            chainName: '',
+        };
+    }
+
+    private getSequenceWrappers(params: MoleSequenceView['params']) {
+        if (this.state.mode === 'single') return [this.getSequenceWrapper(params)];
+
+        const structure = this.getStructure(this.state.structureRef);
+        const wrappers: { wrapper: (string | SequenceWrapper.Any), label: string, operatorName: string, chainName: string }[] = [];
+
+        for (const [modelEntityId, eLabel] of getModelEntityOptions(structure, this.state.mode === 'polymers')) {
+            for (const [chainGroupId, cLabel, chainName] of getChainOptions(structure, modelEntityId)) {
+                for (const [operatorKey, operatorName] of getOperatorOptions(structure, modelEntityId, chainGroupId)) {
+                    const wrapper = getSequenceWrapper({
+                        structure,
+                        modelEntityId,
+                        chainGroupId,
+                        operatorKey
+                    }, this.plugin.managers.structure.selection);
+                    if (wrapper instanceof PolymerSequenceWrapper || (wrapper instanceof HeteroSequenceWrapper && wrapper.residueLabel(0) !== 'HOH')) {
+                        wrappers.push({
+                            wrapper,
+                            label: `${cLabel}${/\d/.test(operatorName) 
+                                ? (operatorName).replace(/.*?(\d+).*/, "$1") === '1'
+                                    ? ''
+                                    : '_' + (operatorName).replace(/.*?(\d+).*/, "$1")
+                                : ''} | ${eLabel}`,
+                            operatorName,
+                            chainName,
+                        });
+                    }
+                    // if (wrappers.length > MaxSequenceWrappersCount) return wrappers;
+                }
+            }
+        }
+        return wrappers;
+    }
+
+    private getInitialState(): SequenceViewState {
+        const structureOptions = getStructureOptions(this.plugin.state.data);
+        const structureRef = structureOptions.options[0][0];
+        const structure = this.getStructure(structureRef);
+        let modelEntityId = getModelEntityOptions(structure)[0][0];
+        let chainGroupId = getChainOptions(structure, modelEntityId)[0][0];
+        let [operatorKey, operatorName] = getOperatorOptions(structure, modelEntityId, chainGroupId)[0];
+        if (this.state.structure && this.state.structure === structure) {
+            modelEntityId = this.state.modelEntityId;
+            chainGroupId = this.state.chainGroupId;
+            operatorKey = this.state.operatorKey;
+            operatorName = this.state.operatorName;
+        }
+        return { structureOptions, structure, structureRef, modelEntityId, chainGroupId, operatorKey, mode: this.props.defaultMode ?? 'all', operatorName };
+    }
+
+    private get params() {
+        const { structureOptions, structure, modelEntityId, chainGroupId } = this.state;
+        const entityOptions = getModelEntityOptions(structure);
+        const chainOptions = getChainOptions(structure, modelEntityId);
+        const operatorOptions = getOperatorOptions(structure, modelEntityId, chainGroupId);
+        return {
+            structure: PD.Select(structureOptions.options[0][0], structureOptions.options, { shortLabel: true }),
+            entity: PD.Select(entityOptions[0][0], entityOptions, { shortLabel: true }),
+            chain: PD.Select(chainOptions[0][0], chainOptions, { shortLabel: true, twoColumns: true, label: 'Chain' }),
+            operator: PD.Select(operatorOptions[0][0], operatorOptions, { shortLabel: true, twoColumns: true }),
+            mode: SequenceViewModeParam,
+            operatorName: PD.Select(operatorOptions[0][1], operatorOptions, { shortLabel: true, twoColumns: true }),
+        };
+    }
+
+    private get values(): PD.Values<MoleSequenceView['params']> {
+        return {
+            structure: this.state.structureRef,
+            entity: this.state.modelEntityId,
+            chain: this.state.chainGroupId,
+            operator: this.state.operatorKey,
+            mode: this.state.mode,
+            operatorName: this.state.operatorName
+        };
+    }
+
+    render() {
+        if (this.getStructure(this.state.structureRef) === Structure.Empty) {
+            return <div className='msp-sequence'>
+                <div className='msp-sequence-select'>
+                    <Icon svg={HelpOutlineSvg} style={{ cursor: 'help', position: 'absolute', right: 0, top: 0 }}
+                        title='Shows a sequence of one or more chains. Use the controls to alter selection.' />
+
+                    <span>Sequence</span><span style={{ fontWeight: 'normal' }}>No structure available</span>
+                </div>
+            </div>;
+        }
+
+        const params = this.params;
+        const values = this.values;
+        const sequenceWrappers = this.getSequenceWrappers(params);
+
+        return <div className='msp-sequence'>
+            <NonEmptySequenceWrapper>
+                {sequenceWrappers.map((s, i) => {
+                    const elem = typeof s.wrapper === 'string'
+                        ? <div key={i} className='msp-sequence-wrapper'>{s.wrapper}</div>
+                        : <MoleSequence key={i} sequenceWrapper={s.wrapper} operatorName={s.operatorName} chainName={s.chainName}/>;
+
+                    if (values.mode === 'single') return elem;
+
+                    return <React.Fragment key={i}>
+                        <div className='msp-sequence-chain-label'>{s.label}</div>
+                        {elem}
+                    </React.Fragment>;
+                })}
+            </NonEmptySequenceWrapper>
+        </div>;
+    }
+}
+
+function NonEmptySequenceWrapper({ children }: { children: React.ReactNode }) {
+    return <div className='msp-sequence-wrapper-non-empty'>
+        {children}
+    </div>;
+}

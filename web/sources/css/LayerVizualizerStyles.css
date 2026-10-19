@@ -1,0 +1,141 @@
+.layer-vizualizer-canvas,
+.fake-canvas {
+	border:none;
+    width:100%;
+	height:20vh;
+	position:absolute;
+}
+
+.layer-vizualizer-canvas{
+	position:absolute;
+}
+
+.canvas-wrapper{
+	position:relative;
+	width:98%;
+	padding-left:1%;
+	padding-right:1%;
+	height:20vh;/**/
+}
+.wrapper-container{
+	width: 100%;
+    position: relative;
+    margin: auto auto;
+    padding-top: 3px;
+    padding-left: 4px;
+}
+.bottom-panel-toggled .wrapper-container,
+.bottom-panel-toggled .bottom-tabs-toggled .wrapper-container{
+	width:100%;
+	position:relative;
+}
+.bottom-tabs-toggled .wrapper-container{
+	width:100%;
+}
+.bottom-panel-toggled .wrapper-container{
+	height:50vh;
+}
+
+.layerVizualizer .properties{
+	width:100%;
+}
+.layer-vizualizer-hint-div{
+	text-align: center;
+	padding: 5.5vh 2vw;
+	font-size: 24pt;
+	font-weight: bold;
+	color: #333;
+    text-shadow: 1px 1px #aaa;
+	display:block;
+}
+
+.layerVizualizer * .controls{
+	margin-bottom: 5px;
+	font-size:9pt;
+	display: flex;
+	flex-direction: row;
+}
+
+.layerVizualizer * .controls .btn{
+	margin-right:0;
+}
+
+.layerVizualizer * .controls .control-label{
+	padding-left:8px;
+	font-weight: bold;
+	padding-right: 8px;
+	display: inline-block;
+}
+
+.bottom-tabs-toggled .layerVizualizer * .controls .control-label{
+	display:none;
+}
+
+.layerVizualizer * .controls > .block-like:first-child > .control-label{
+	padding-left:0;
+}
+
+.layerVizualizer * .controls .common-area{
+    padding-top: 3px;
+}
+
+.layerVizualizer * .controls .color-bounds-button-container {
+	margin-left:5px;
+	display: inline-block;
+}
+
+.layerVizualizer * h3{
+	line-height:22px;
+	font-size:12pt;
+	font-weight:400;
+	float:none;
+	clear:both;
+	margin-top:0;
+	margin-bottom:0;
+	padding-top:15px;
+}
+
+.bottom-tabs-toggled .layerVizualizer * h3{
+	padding-top:8px;
+}
+
+.layerVizualizer * h3:first-child{
+	padding-top:0;
+}
+
+.layerVizualizer * .block-like{
+	display: inline-block;
+}
+
+.layerVizualizer * .canvas-wrapper * area{
+	cursor: pointer;
+}
+
+.btn-sm-vizualizer {
+	--bs-btn-padding-y: 0.05rem !important;
+	--bs-btn-padding-x: 0.30rem !important;
+	--bs-btn-font-size: 0.775 rem !important;
+}
+
+@media only screen and (max-width: 1300px) {
+	.layerVizualizer * .controls .common-area{
+		position:relative;
+		display:inline-block;
+	}
+	/* } */
+}
+
+@media only screen and (max-width: 1366px), only screen and (max-height: 800px) {
+	.bottom-panel-toggled .layerVizualizer * h3{
+		padding-top:2px;
+	}
+	.bottom-panel-toggled .bottom-tabs-toggled .layerVizualizer * h3{
+		padding-top:10px;
+	}
+	.bottom-panel-toggled .bottom-tabs-toggled .layerVizualizer * h3:first-child{
+		padding-top:0;
+	}
+	.bottom-tabs-toggled .wrapper-container{
+		width:100%;
+	}
+}

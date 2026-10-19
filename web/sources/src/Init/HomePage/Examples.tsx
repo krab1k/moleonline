@@ -1,0 +1,146 @@
+import React from "react";
+import { ApiService, CompInfo, InitResponse, MoleConfig, PoresConfig } from "../../MoleAPIService";
+import { describeError } from "../../Http";
+import { Events } from "../../Bridge";
+import { ComputationInfo, JobStatus } from "../../DataProxy";
+
+export class Examples extends React.Component<{}, { activeButton: number }> {
+    private computationId!: string;
+    private submitId!: number;
+
+    state = { activeButton: -1 }; // the example being started
+
+    private handleFormSubmit(pdbId: string) {
+        ApiService.initWithPdbId(pdbId, "preferred")
+            .then((response) => {
+                this.handleFormSubmitResponse(response);
+            })
+            .catch((reason) => this.showError(describeError(reason, "The MOLE API could not be reached, please try again later.")))
+
+        return false;
+    }
+
+    private async loadSumbission(computationId: string) {
+        try {
+            const response = await fetch(`/static/${this.examples[this.state.activeButton].id}.json`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch parameters`)
+            }
+            let result;
+
+            const data = await response.json();
+            if (data.Mode === "Mole") {
+                result = await ApiService.submitMoleJob(computationId, data.Config as MoleConfig);
+            } else {
+                result = await ApiService.submitPoresJob(computationId, data.Config as PoresConfig);
+            }
+
+            ComputationInfo.DataProvider.get(result.ComputationId, ((compId: string, info: CompInfo) => {
+                JobStatus.Watcher.registerOnChangeHandler(result.ComputationId, result.SubmitId, (status) => {
+                    if (status.Status !== "Running") {
+                        location.replace(`/online/${result.ComputationId}/${result.SubmitId}`);
+                    }
+                }, (err) => {
+                    Events.invokeNotifyMessage({
+                        messageType: "Danger",
+                        message: describeError(err, "Job status cannot be tracked. Please try to refresh the page.")
+                    });
+                })
+            }).bind(this), true, (_compId, error) => this.showError(error));
+        } catch (error: any) {
+            console.error('The example could not be started:', error);
+            this.showError(describeError(error, "The example could not be started."));
+        }
+    }
+
+    private showError(message: string) {
+        this.setState({ activeButton: -1 });
+        Events.invokeNotifyMessage({
+            messageType: "Danger",
+            message
+        });
+    }
+
+    private async handleFormSubmitResponse(response: InitResponse) {
+        if (response.Status === "FailedInitialization") {
+            this.showError(`API was unable to initialize computation with specified parameters. API responded with message: ${response.ErrorMsg}`);
+            return;
+        }
+
+        this.computationId = response.ComputationId;
+        this.submitId = response.SubmitId;
+
+        if (response.Status === "Initialized") {
+            console.log("Initialized");
+            await this.loadSumbission(this.computationId);
+            return;
+        }
+
+        if (response.Status === "Initializing") {
+            console.log("Waiting for computation initialization...");
+            window.setTimeout(this.waitForComputationInitialization.bind(this), 500);
+            return;
+        }
+
+        this.showError(`Unexpected computation status received from API: ${response.Status}`);
+    }
+
+    private waitForComputationInitialization() {
+        ApiService.getStatus(this.computationId, this.submitId)
+            .then((response) => this.handleFormSubmitResponse(response))
+            .catch((reason) => this.showError(describeError(reason, "The MOLE API could not be reached, please try again later.")));
+    }
+
+    examples = [
+        { id: '1GPN', src: '/images/example_1GPN.png', title: '1GPN - complex of Tetronarce californica Acetylcholinesterase (AChE) with huperzine B - potential Alzheimer drug' },
+        { id: '1V9E', src: '/images/example_1V9E.png', title: '1V9E - bovine Carbonic anhydrase 2 (CA2)' },
+        { id: '2V61', src: '/images/example_2V61.png', title: '2V61 - human Amine oxidase B (MAOB) in complex with selective coumarine derivative inhibitor' },
+        { id: '2VV5', src: '/images/example_2VV5.png', title: '2VV5 - open form of an Escherichia coli mechanosensitive channel MscS' },
+        { id: '2XN8', src: '/images/example_2XN8.png', title: '2XN8 - substrate-free form of Mycobacterium tuberculosis Steroid C26-moooxygenase (cyp125)' },
+        { id: '3LDC', src: '/images/example_3LDC.png', title: '3LDC - open form of Methanothermobacter thermautotrophicus Calcium-gated potassium channel MthK' },
+    ];
+
+    private renderExample(example: { id: string, src: string, title: string }, index: number) {
+        const active = this.state.activeButton;
+        return <div key={example.id} className="col d-flex flex-column justify-content-center align-items-center position-relative">
+            {active === index && (
+                <div className="spinner-overlay">
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            )}
+            <figure
+                className={`figure ${active !== -1 && active !== index ? 'disabled' : ''}`}
+                style={{ maxWidth: '28rem', cursor: 'pointer' }}
+                onClick={() => { this.setState({ activeButton: index }); this.handleFormSubmit(example.id); }}
+                data-bs-toggle="tooltip"
+                data-bs-placement="bottom"
+                title={example.title}
+            >
+                <img
+                    className="img-fluid figure-img"
+                    style={{ objectFit: 'contain' }}
+                    src={example.src}
+                    alt={example.title}
+                />
+            </figure>
+        </div>;
+    }
+
+    render() {
+        return (
+            <div className="container-fluid text-center">
+                <div className="row">
+                    <div className="col">
+                        <h4><b>Examples</b></h4>
+                    </div>
+                </div>
+                {/* two rows of three */}
+                {[0, 3].map(start => <div key={start} className="row mb-3">
+                    {this.examples.slice(start, start + 3).map((example, i) => this.renderExample(example, start + i))}
+                </div>)}
+            </div>
+        );
+    }
+}

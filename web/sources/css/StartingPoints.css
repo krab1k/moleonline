@@ -1,0 +1,12 @@
+.starting-point-result-box .msp-control-row div.empty,
+.starting-point-control-container .msp-control-row div.info{
+    line-height: 30px;
+    padding-left:10px;
+    padding-right:10px;
+    overflow: hidden;
+}
+
+.starting-point-result-box .msp-control-row:first-child > span{
+    width: 100% !important;
+    text-align: center;
+}

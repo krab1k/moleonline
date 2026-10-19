@@ -1,0 +1,22 @@
+.current-pbdbid-sign{
+    width: 140px;
+    height: 32px;
+    position: absolute;
+    z-index: 900;
+    line-height: 30px;
+    text-align: center;
+    font-size: 13pt;
+    background-color: #f8f8f8;
+    right: 0;
+    color: #777;
+    padding: 0 60px 0 10px;
+    border-bottom: 1px solid #ccc;
+}
+
+.current-pbdbid-sign .href-ico{
+    font-size: 11pt; 
+}
+
+.current-pbdbid-sign a{
+    color: #777;
+}

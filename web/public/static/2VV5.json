@@ -1,0 +1,11 @@
+{
+  "Mode": "Pores",
+  "PoresInit":true,
+  "Config": {
+    "Chains": [],
+    "InMembrane": false,
+    "IsBetaBarrel": false,
+    "InteriorThreshold": 0.8,
+    "ProbeRadius": 13
+  }
+}

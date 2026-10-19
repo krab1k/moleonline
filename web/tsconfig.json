@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "strict": true,
+    "types": ["node", "vite/client"],
+    "noUnusedLocals": true,
+    "sourceMap": true,
+    "rootDir": "./sources",
+    "outDir": "./dist"
+  },
+  "include": ["sources/src/**/*"]
+}
+

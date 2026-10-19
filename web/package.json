@@ -1,0 +1,35 @@
+{
+  "name": "moleonline-web",
+  "version": "3.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "build-dev": "vite build --mode development --minify false --sourcemap",
+    "preview": "vite preview --mode development",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit --skipLibCheck --incremental --tsBuildInfoFile node_modules/.cache/tsbuildinfo"
+  },
+  "main": "index.js",
+  "typings": "index.d.ts",
+  "author": "Dominik Tousek tousekdominik@gmail.com>",
+  "homepage": "https://moleonline.biodata.ceitec.cz",
+  "keywords": [],
+  "license": "MIT",
+  "dependencies": {
+    "molstar": "^4.18.0",
+    "nanoid": "^5.1.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.2.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "sass": "1.83.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>MOLEonline | Home</title>
+	<meta name="description"
+		content="MOLE 2.5 is an universal toolkit for rapid and fully automated location and characterization of tunnels, channels and pores in (bio)molecular structures.">
+	<link rel="shortcut icon" href="/images/favicon.ico" type="image/icon">
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+	<link rel="stylesheet" href="/css/Init.css" type="text/css">
+
+	<script type="text/javascript">
+		// Bootstrap tooltips, also for the elements React renders later
+		document.addEventListener('DOMContentLoaded', function () {
+			new bootstrap.Tooltip(document.body, { selector: '[data-bs-toggle="tooltip"]' });
+		});
+	</script>
+</head>
+
+<body>
+
+	<div id="page">
+
+		<div class="card shadow-sm mb-4 sticky-top">
+			<div class="card-body d-flex align-items-center" style="position: relative;">
+				<div class="header-gradient-text fs-3 fw-bold px-3" style="margin-right: 15rem; color:#1674d8">
+					MOLEonline
+				</div>
+				<ul class="nav nav-pills nav-fill flex-grow-1">
+					<li class="nav-item">
+						<a class="nav-link active" aria-current="page" href="#">Home</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="https://github.com/sb-ncbr/moleonline-web/wiki" target="_blank">Documentation</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="./html/about.html">About</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="./html/news.html">News</a>
+					</li>
+				</ul>
+				<img src="/images/favicon.ico" alt="MOLE" class="header-icon">
+			</div>
+		</div>
+
+		<div class="card p-4" style="border: var(--bs-card-border-width) solid rgba(205, 205, 205, 0.18);">
+            <p>The <a href="/"><b>MOLEonline</b></a> web interface provides direct access to MOLE
+            functionality, providing online and easy-to-use interactive channel analysis. It is free for use by anyone,
+            including commercial users.</p>
+
+            <p><b>MOLE 2.5</b> is a universal toolkit for rapid and fully automated location and
+                characterization of channels, tunnels and pores in (bio)macromolecular structures, e.g.,
+                proteins, RNA, DNA and biomacromolecular assemblies.</p>
+
+            <p>The application uses session cookies to allow you to get easily to your last submissions.</p>
+
+			<hr style="border-color: rgb(110, 110, 110);">
+			<div class="row d-flex flex-row justify-content-center align-items-center w-50">
+				<div class="col mr-5">
+					<div class="card shadow"
+						style="height: auto; border-width: 2px;">
+						<div id="init-form"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<hr style="border-color: rgb(110, 110, 110);">
+		<p>
+			If you found MOLEonline helpful, please cite: Raček, T., Veľký, D., Bučeková, G., Schindler, O.,
+			Hutařová Vařeková, I., Špačková, A., Bazgier, V., Berka, K., Svobodová, R. (2025).
+			<a href="https://doi.org/10.1093/bioinformatics/btaf486" target="_blank" referrerpolicy="no-referrer">
+				MOLEonline: a web-based tool for analysing channels, tunnels, and pores (2025 update)</a>. Bioinformatics.
+		</p>
+		<hr style="border-color: rgb(110, 110, 110);">
+		<div id="examples"></div>
+		<hr style="border-color: rgb(110, 110, 110);">
+		<div class="row">
+			<div class="col-12 text-center">
+				<img src="/images/elixir_czechrepublic_white_background.png" alt="ELIXIR logo" style="height: 70px"><br>
+			</div>
+			<div class="col text-center mt-3">
+				<small>
+					<strong>
+						MOLEonline is a part of the services provided by
+						<a href="https://www.elixir-czech.cz/" target="_blank" rel="noreferrer">
+							ELIXIR CZ – Czech National Infrastructure for Biological Data</a>,
+						<br/> a part of <a href="https://elixir-europe.org/" target="_blank">ELIXIR – European life sciences
+						infrastructure</a>.
+						<br>
+						For other services provided by ELIXIR's Czech Republic Node visit
+						<a href="https://www.elixir-czech.cz/services" target="_blank" rel="noreferrer">
+							www.elixir-czech.cz/services</a>.
+					</strong>
+				</small>
+			</div>
+		</div>
+
+		<hr style="border-color: rgb(110, 110, 110);">
+
+		<div class="common-sponos-logos">
+			<a href="https://kfc.upol.cz/en" target="_blank"><img src="/images/UPlogo.png" height="75px"
+																  alt="The Department of Physical Chemistry at Palacký University Olomouc"
+																  title="The Department of Physical Chemistry at Palacký University Olomouc"></a>&nbsp;&nbsp;&nbsp;
+			<a href="https://sb.ncbr.muni.cz/en" target="_blank"><img src="/images/sb_ncbr.png" height="40px"
+																	  alt="Structural Bioinformatics Research Group at Masaryk University"
+																	  title="Structural Bioinformatics Research Group at Masaryk University"></a>&nbsp;&nbsp;&nbsp;
+			<a href="https://biodata.ceitec.cz" target="_blank"><img
+					src="/images/ceitec-clr-logo.png" height="50px" alt="CEITEC" title="CEITEC"></a>
+		</div>
+	</div>
+
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+			integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+			crossorigin="anonymous"></script>
+	<script type="module" src="/src/Init/App.tsx"></script>
+</body>
+
+</html>

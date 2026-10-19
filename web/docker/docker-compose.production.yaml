@@ -1,0 +1,12 @@
+name: moleonline-web
+
+services:
+    moleonline-web:
+        # replaces the base file's ports, which would otherwise be added to these
+        ports: !override
+            - "80:8080"
+            - "443:8443"
+        volumes:
+            - ./conf.d/production.conf:/etc/nginx/conf.d/server.conf:ro
+            - /etc/letsencrypt/live/moleonline.biodata.ceitec.cz/fullchain.pem:/etc/fullchain.pem:ro
+            - /etc/letsencrypt/live/moleonline.biodata.ceitec.cz/privkey.pem:/etc/privkey.pem:ro

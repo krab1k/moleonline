@@ -1,0 +1,540 @@
+import { SbNcbrTunnels, TunnelFromRawData, TunnelShapeProvider } from "molstar/lib/extensions/sb-ncbr";
+import { ANVILMembraneOrientation } from 'molstar/lib/extensions/anvil/behavior';
+import { StateTransforms } from "molstar/lib/mol-plugin-state/transforms";
+import { ParseCif, RawData } from "molstar/lib/mol-plugin-state/transforms/data";
+import { TrajectoryFromMmCif, ModelFromTrajectory, StructureFromModel, StructureComponent, TrajectoryFromPDB } from "molstar/lib/mol-plugin-state/transforms/model";
+import { StructureRepresentation3D } from "molstar/lib/mol-plugin-state/transforms/representation";
+import { PluginUIContext } from "molstar/lib/mol-plugin-ui/context";
+import { DefaultPluginUISpec, PluginUISpec } from "molstar/lib/mol-plugin-ui/spec";
+import { PluginLayoutControlsDisplay } from "molstar/lib/mol-plugin/layout";
+import { PluginSpec } from "molstar/lib/mol-plugin/spec";
+import { StateSelection } from "molstar/lib/mol-state";
+import { Color } from "molstar/lib/mol-util/color";
+import { Tunnel } from "../DataInterface";
+import { EmptyLoci, Loci } from "molstar/lib/mol-model/loci";
+import { MembraneShapeProvider, MoleObjectsNodeProvider, OriginShapeProvider, PickableRepresentation3D, SurfaceShapeProvider, TunnelPropertyColorRepresentation3D, TunnelPropertyColorShapeProvider, TunnelRepresentation3D } from "./VizualizerMol/objects";
+import { MembranePoint, Point, TunnelMetaInfo } from "../DataInterface";
+import { Canvas3DProps } from "molstar/lib/mol-canvas3d/canvas3d";
+import { ColorParams, QueryHelper, QueryParam } from "./VizualizerMol/helpers";
+import { PluginStateObject } from "molstar/lib/mol-plugin-state/objects";
+import { StructureComponentManager } from "molstar/lib/mol-plugin-state/manager/structure/component";
+import { ParamDefinition } from "molstar/lib/mol-util/param-definition";
+import { clearStructureOverpaint } from 'molstar/lib/mol-plugin-state/helpers/structure-overpaint';
+import { PluginCommands } from "molstar/lib/mol-plugin/commands";
+import { PluginBehaviors } from "molstar/lib/mol-plugin/behavior";
+import { StructureFocusRepresentation } from "molstar/lib/mol-plugin/behavior/dynamic/selection/structure-focus-representation"
+import { UUID } from "molstar/lib/mol-util";
+import { Tunnels } from "./CommonUtils/Tunnels";
+import { TunnelName } from "../Cache";
+import { OrderedSet } from 'molstar/lib/mol-data/int';
+import { Vec3 } from "molstar/lib/mol-math/linear-algebra";
+import { getPropertyProps } from "./VizualizerMol/color-tunnels/data-model";
+import { ColorBound, Property } from "./VizualizerMol/color-tunnels/property-color";
+import { Events } from "../Bridge";
+import { cumulativeDistances } from "./VizualizerMol/color-tunnels/algorithm";
+import { requestError } from "../Http";
+import { StructureElement, StructureProperties } from "molstar/lib/mol-model/structure";
+
+const MySpec: PluginUISpec = {
+    ...DefaultPluginUISpec(),
+    layout: {
+        initial: {
+            isExpanded: false,
+            showControls: false,
+            controlsDisplay: 'landscape' as PluginLayoutControlsDisplay,
+            regionState: {
+                bottom: "full",
+                left: "full",
+                right: "full",
+                top: "full",
+            },
+        },
+    },
+    behaviors: [
+        PluginSpec.Behavior(SbNcbrTunnels),
+        PluginSpec.Behavior(ANVILMembraneOrientation),
+        PluginSpec.Behavior(PluginBehaviors.Representation.HighlightLoci),
+        PluginSpec.Behavior(PluginBehaviors.Representation.SelectLoci),
+        PluginSpec.Behavior(PluginBehaviors.Representation.DefaultLociLabelProvider),
+        PluginSpec.Behavior(PluginBehaviors.Representation.FocusLoci),
+        // PluginSpec.Behavior(PluginBehaviors.Camera.FocusLoci), //tu
+        PluginSpec.Behavior(PluginBehaviors.Camera.CameraAxisHelper),
+        PluginSpec.Behavior(PluginBehaviors.Camera.CameraControls),
+        PluginSpec.Behavior(StructureFocusRepresentation),
+
+        PluginSpec.Behavior(PluginBehaviors.CustomProps.StructureInfo),
+        PluginSpec.Behavior(PluginBehaviors.CustomProps.AccessibleSurfaceArea),
+        PluginSpec.Behavior(PluginBehaviors.CustomProps.BestDatabaseSequenceMapping),
+        PluginSpec.Behavior(PluginBehaviors.CustomProps.Interactions),
+        PluginSpec.Behavior(PluginBehaviors.CustomProps.SecondaryStructure),
+        PluginSpec.Behavior(PluginBehaviors.CustomProps.ValenceModel),
+        PluginSpec.Behavior(PluginBehaviors.CustomProps.CrossLinkRestraint),
+        // ...DefaultPluginUISpec().behaviors,
+        // ...DefaultPluginSpec().behaviors,
+    ],
+    canvas3d: {
+        renderer: {
+            // backgroundColor: Color(0xffffff),
+            selectColor: Color(0xffffff)
+        }
+    },
+};
+
+export class Context {
+    public plugin: PluginUIContext;
+    // The chains of the loaded structure by label (label_asym_id), copies named like PDBe and ChannelsDB do ("A-2");
+    // null when no structure was loaded
+    private resolveStructureChains!: (chains: Set<string> | null) => void;
+    private structureChains = new Promise<Set<string> | null>(res => this.resolveStructureChains = res);
+
+    public getStructureChains() {
+        return this.structureChains;
+    }
+
+    // No structure will be loaded (e.g. the submission failed): nobody should wait for its chains
+    public noStructure() {
+        this.resolveStructureChains(null);
+    }
+    private assemblyRef = '';
+    // Whether the last selection added representations that clearing removes
+    private selectedParams: { addedRepr?: boolean } | undefined;
+    defaultRendererProps?: Canvas3DProps['renderer'];
+    defaultMarkingProps?: Canvas3DProps['marking'];
+
+    private static instance: Context;
+
+    public constructor(MySpec: PluginUISpec) {
+        this.plugin = new PluginUIContext(MySpec);
+        this.plugin.init().then(async () => {
+            await this.attachMoleObjectsNode();
+            this.surfaceSolidFormToggler();
+        });
+    }
+
+    // Remembers the current colours as the ones visual.resetSelectColor() restores, unless defaults are already set
+    private saveDefaultColorProps() {
+        if (!this.plugin.canvas3d || this.defaultRendererProps) return;
+        this.defaultRendererProps = { ...this.plugin.canvas3d.props.renderer };
+        this.defaultMarkingProps = { ...this.plugin.canvas3d.props.marking };
+    }
+
+    public static getInstance(): Context {
+        if (!Context.instance) {
+            Context.instance = new Context(MySpec);
+        }
+        return Context.instance;
+    }
+
+    private async attachMoleObjectsNode() {
+        const update = this.plugin.build();
+        await update.toRoot()
+            .apply(MoleObjectsNodeProvider, {}, { ref: 'mole-objects', state: { isGhost: true } })
+            .commit();
+    }
+
+    // Holding Ctrl shows the surfaces solid and pickable, so that a point on them can be clicked
+    private surfaceSolidFormToggler() {
+        // Updates only what is not in the wanted form yet: a held key repeats its key down, and new surfaces start see-through
+        const setSolid = (solid: boolean) => {
+            const cells = this.plugin.state.data.select(StateSelection.Generators.byRef('mole-objects')
+                .subtree()
+                .ofType(PluginStateObject.Shape.Provider)
+                .filter(cell => cell.obj !== undefined && cell.obj.data.data.data.tag === 'Surface')
+            )
+            cells.map(async cell => {
+                const children = this.plugin.state.data.select(StateSelection.children(cell.transform.ref).ofType(PluginStateObject.Shape.Representation3D))
+                    .filter(child => child.transform.params?.pickable !== solid);
+                if (cell.transform.params?.solidForm !== solid) {
+                    await this.plugin.state.data.build()
+                        .to(cell.transform.ref)
+                        .update(old => {
+                            old.solidForm = solid;
+                        })
+                        .commit()
+                }
+                for (const child of children) {
+                    await this.plugin.state.data.build()
+                        .to(child.transform.ref)
+                        .update(old => {
+                            old.alpha = solid ? 1 : 0.65;
+                            old.emissive = solid ? 0 : 0.20;
+                            old.pickable = solid;
+                        })
+                        .commit()
+                }
+            })
+        };
+        this.plugin.behaviors.interaction.key.subscribe(({ modifiers }) => {
+            if (modifiers.control) setSolid(true);
+        })
+        // releasing Ctrl itself ends it, releasing another key while Ctrl is held does not
+        this.plugin.behaviors.interaction.keyReleased.subscribe(({ key, modifiers }) => {
+            if (key === 'Control' || !modifiers.control) setSolid(false);
+        })
+    }
+
+    private determineFileType(text: string): "pdb" | "cif" | "unknown" {
+        // Read the first few lines of the file
+        const lines = text.split("\n").map(line => line.trim());
+
+        // Check for .cif characteristics
+        if (lines.some(line => line.startsWith("data_") || line.startsWith("_"))) {
+            return "cif";
+        }
+
+        // Check for .pdb characteristics
+        if (lines.some(line => line.startsWith("ATOM") || line.startsWith("HETATM") || line.startsWith("HEADER"))) {
+            return "pdb";
+        }
+
+        return "unknown"; // If it doesn't match either format
+    }
+
+    public async load(url: string, isBinary: boolean, assemblyId?: string | null) {
+        if (this.plugin.state.data.cells.has('protein-data')) return;
+        let update = this.plugin.build();
+        let structure;
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                // the API serves every structure unpacked, as plain PDB or mmCIF text
+                const dataNode = await this.plugin.build().toRoot()
+                    .apply(RawData, { data: await response.text() })
+                    .commit();
+                const type = this.determineFileType(dataNode.data as string);
+                update = this.plugin.build();
+                let trajectory;
+                if (type === "cif") {
+                    trajectory = update.to(dataNode).apply(ParseCif).apply(TrajectoryFromMmCif);
+                } else if (type === "pdb") {
+                    trajectory = update.to(dataNode).apply(TrajectoryFromPDB);
+                } else {
+                    throw Error("Unkown type of input file")
+                }
+                structure = trajectory.apply(ModelFromTrajectory).apply(StructureFromModel, {
+                    type: assemblyId === null || assemblyId === '' ? { name: 'model', params: {} } : { name: 'assembly', params: { id: assemblyId } }
+                });
+            } else {
+                throw await requestError("GET", url, response);
+            }
+        } catch (error) {
+            Events.invokeNotifyMessage({
+                messageType: "Danger",
+                message: `${error}`
+            })
+            this.noStructure();
+            return;
+        }
+
+        const polymer = structure.apply(StructureComponent, { type: { name: 'static', params: 'polymer' } }, { ref: "protein-data" });
+        const het = structure.apply(StateTransforms.Model.StructureComplexElement, { type: 'atomic-het' }, { ref: "het" });
+
+        polymer.apply(StructureRepresentation3D, {
+            type: { name: 'cartoon', params: { alpha: 1 } },
+            colorTheme: { name: 'chain-id', params: {} },
+        });
+        het.apply(StructureRepresentation3D, {
+            type: { name: 'ball-and-stick', params: { alpha: 1 } },
+            colorTheme: { name: 'element-symbol', params: {} },
+            sizeTheme: { name: 'physical', params: {} },
+        });
+        await update.commit();
+
+        // A copy in an assembly is the chain under another operator: the model server's file maps "A_2" to chain A
+        // with operator "ASM_2", the deposited chain keeps "1_555"
+        const loaded = structure.selector.obj?.data;
+        const chains = new Set<string>();
+        for (const unit of loaded?.units ?? []) {
+            const location = StructureElement.Location.create(loaded, unit, unit.elements[0]);
+            const copy = /^ASM_(\d+)$/.exec(unit.conformation.operator.name);
+            chains.add(StructureProperties.chain.label_asym_id(location) + (copy !== null && copy[1] !== "1" ? `-${copy[1]}` : ""));
+        }
+        this.resolveStructureChains(loaded === undefined ? null : chains);
+
+        const pivotIndex = this.plugin.managers.structure.hierarchy.selection.structures.length - 1;
+        const pivot = this.plugin.managers.structure.hierarchy.selection.structures[pivotIndex];
+        if (pivot && pivot.cell.parent) {
+            this.assemblyRef = pivot.cell.transform.ref;
+        }
+
+        this.visual.setDefaultColor({ r: 255, g: 0, b: 255 });
+
+        return polymer;
+    }
+
+    // The labels of a rendered channel
+    private tunnelProps(channel: Tunnel & TunnelMetaInfo) {
+        const len = Tunnels.getLength(channel as Tunnel);
+        const name = TunnelName.get(channel.GUID);
+        const namePart = name ? `(${name})` : '';
+        return {
+            id: channel.Id,
+            type: channel.Type,
+            highlight_label: `<b>${channel.Type} ${namePart}</b>, Length: ${len} Å`,
+            label: `${channel.Type} ${channel.Id} ${namePart}`,
+            description: `Length: ${len} Å`,
+        };
+    }
+
+    public async renderTunnel(channel: Tunnel & TunnelMetaInfo): Promise<[Loci, string]> {
+        const update = this.plugin.build();
+        const webgl = this.plugin.canvas3dContext?.webgl;
+        const props = this.tunnelProps(channel);
+
+        const repr = await update
+            .toRoot()
+            .apply(TunnelFromRawData, { data: { data: channel.Profile, props } })
+        const tunnlRepr = await repr
+            .apply(TunnelShapeProvider, {
+                webgl,
+                colorTheme: channel.__color
+            })
+            .apply(TunnelRepresentation3D, { tunnel: channel as Tunnel })
+            .commit();
+
+        return [tunnlRepr.data!.repr.getAllLoci()[0], repr.ref];
+    }
+
+    public async renderPropertyColorTunnel(channel: Tunnel & TunnelMetaInfo, colorOptions: { property: Property, colorBounds: ColorBound }): Promise<[Loci, string]> {
+        const update = this.plugin.build();
+        const webgl = this.plugin.canvas3dContext?.webgl;
+        const props = this.tunnelProps(channel);
+
+        // the channel's data stays as loaded: it is rendered again on every change
+        const profile = channel.Caver ? cumulativeDistances(channel.Profile) : channel.Profile;
+
+        const repr = await update
+            .toRoot()
+            .apply(TunnelFromRawData, { data: { data: profile, props } })
+        const tunnlRepr = await repr
+            .apply(TunnelPropertyColorShapeProvider, {
+                webgl,
+                colorTheme: {
+                    name: 'colorProperty', params: {
+                        property: getPropertyProps(colorOptions.property),
+                        colorBounds: colorOptions.colorBounds,
+                        showLayers: true,
+                        skipMiddleColors: false
+                    }
+                },
+                layers: channel.Layers.LayersInfo
+            })
+            .apply(TunnelPropertyColorRepresentation3D, { tunnel: channel as Tunnel })
+            .commit();
+
+        return [tunnlRepr.data!.repr.getAllLoci()[0], repr.ref];
+    }
+
+    public async renderSurface(triangles: number[], vertices: number[], color?: Color, tag?: string, label?: string) {
+        if ((triangles === undefined || triangles.length === 0) || (vertices === undefined || vertices.length === 0)) {
+            return null;
+        }
+        const node = this.plugin.state.data.select(StateSelection.first('mole-objects'))[0];
+        const update = this.plugin.build();
+
+        const moleObjectsNode = update.to(node)
+
+        const providerRepr = moleObjectsNode
+            .apply(SurfaceShapeProvider, { triangleIndices: triangles, vertices, colorTheme: color, solidForm: false, tag, label }, {tags: 'Surface'});
+        await providerRepr
+            .apply(PickableRepresentation3D, { alpha: 0.65, emissive: 0.20, pickable: false }, { state: { /*isGhost: true*/ } })
+            .commit();
+
+        return providerRepr;
+    }
+
+    public async renderMembrane(data: MembranePoint[]) {
+        const update = this.plugin.build();
+        const repr = await update
+            .toRoot()
+            .apply(MembraneShapeProvider, { data }, { ref: 'membrane'});
+        await repr
+            .apply(PickableRepresentation3D, { pickable: false })
+            .commit();
+        return repr;
+    }
+
+    public async renderOrigin(data: Point[], color?: Color, ref?: string, tag?: string, type?: string, subType?: string) {
+        const update = this.plugin.build();
+        const refId = ref ? ref : UUID.create22();
+        const repr = await update
+            .toRoot()
+            .apply(OriginShapeProvider, { data, colorTheme: color, type, subType, tag, ref: refId }, { ref: refId, tags: 'Origins' })
+        await repr
+            .apply(StateTransforms.Representation.ShapeRepresentation3D)
+            .commit()
+        return repr.selector;
+    }
+
+    public selectLocis(locis: Loci[]) {
+        for (let loci of locis) {
+            this.plugin.managers.interactivity.lociSelects.select({ loci });
+        }
+        this.selectedParams = { addedRepr: true }
+    }
+
+    private getLociForParams(params: QueryParam[]) {
+        if (this.assemblyRef === '') return EmptyLoci;
+        const data = (this.plugin.state.data.select(this.assemblyRef)[0].obj as PluginStateObject.Molecule.Structure).data;
+        if (!data) return EmptyLoci;
+        return QueryHelper.getInteractivityLoci(params, data);
+    }
+
+    private normalizeColor(colorVal: ColorParams) {
+        return Color.fromRgb(colorVal.r, colorVal.g, colorVal.b);
+    }
+
+    // Sets the colour of selected things; returns the settings it applied
+    private async applySelectColor(color: ColorParams) {
+        const renderer = { ...this.plugin.canvas3d!.props.renderer };
+        const marking = { ...this.plugin.canvas3d!.props.marking };
+        renderer.selectColor = this.normalizeColor(color);
+        marking.selectEdgeColor = Color.darken(this.normalizeColor(color), 1);
+        await PluginCommands.Canvas3D.SetSettings(this.plugin, { settings: { renderer, marking } });
+        return { renderer, marking };
+    }
+
+    private computeCenterAndRadius(vectors: Vec3[]) {
+        if (vectors.length === 0) {
+            throw new Error("Array of vectors is empty.");
+        }
+
+        let center = Vec3.toObj(Vec3.zero());
+
+        vectors.forEach((v) => {
+            let vec = Vec3.toObj(v);
+            center.x += vec.x;
+            center.y += vec.y;
+            center.z += vec.z;
+        });
+
+        center.x /= vectors.length;
+        center.y /= vectors.length;
+        center.z /= vectors.length;
+
+        let radius = 0;
+
+        vectors.forEach((v) => {
+            let vec = Vec3.toObj(v);
+            const dx = vec.x - center.x;
+            const dy = vec.y - center.y;
+            const dz = vec.z - center.z;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            radius = Math.max(radius, distance);
+        });
+
+        return { center: Vec3.fromObj(center), radius };
+    }
+
+    visual = {
+        // focusCenter: focuses the centre of all the residues instead of each one with param.focus
+        select: async (params: { data: QueryParam[], focusCenter?: boolean }) => {
+
+            // clear prvious selection
+            if (this.selectedParams) {
+                await this.visual.clearSelection();
+            }
+
+            const structureData = this.plugin.managers.structure.hierarchy.current.structures;
+            let addedRepr = false;
+
+            this.plugin.canvas3d?.pause(true);
+            // apply individual selections
+            let centerFocusPositions: Vec3[] = [];
+            for await (const param of params.data) {
+                // get loci from param
+                const loci = this.getLociForParams([param]);
+                if (Loci.isEmpty(loci)) continue;
+                if (loci.kind === 'element-loci') {
+                    if (params.focusCenter) {
+                        const { serialMapping } = loci.structure;
+                        const { elementIndices } = serialMapping;
+                        const element = loci.elements[0];
+                        OrderedSet.toArray(element.indices).forEach((e) => {
+                            centerFocusPositions.push(element.unit.conformation.position(elementIndices[e], Vec3()));
+                        })
+                    }
+                }
+                // set default selection color to minimise change display
+                this.visual.setColor({ select: param.color ? param.color : { r: 255, g: 112, b: 3 } });
+                // apply selection
+                this.plugin.managers.interactivity.lociSelects.select({ loci });
+                // create theme param values and apply them to create overpaint
+                const themeParams = StructureComponentManager.getThemeParams(this.plugin, this.plugin.managers.structure.component.pivotStructure);
+                const colorValue = ParamDefinition.getDefaultValues(themeParams);
+                colorValue.action.params = { color: param.color ? this.normalizeColor(param.color) : Color.fromRgb(255, 112, 3), opacity: 1 };
+                await this.plugin.managers.structure.component.applyTheme(colorValue, structureData);
+                // add new representations
+                if (param.sideChain) {
+                    const defaultParams = StructureComponentManager.getAddParams(this.plugin, { allowNone: false, hideSelection: true, checkExisting: true });
+                    const defaultValues = ParamDefinition.getDefaultValues(defaultParams);
+                    defaultValues.options = { label: '[Focus] Target - Lining Residues', checkExisting: true };
+                    const values = { ...defaultValues, ...{ representation: 'ball-and-stick' } };
+                    const structures = this.plugin.managers.structure.hierarchy.getStructuresWithSelection();
+                    await this.plugin.managers.structure.component.add(values, structures);
+
+                    addedRepr = true;
+                }
+                // focus loci
+                if (param.focus && !params.focusCenter) this.plugin.managers.camera.focusLoci(loci);
+                // remove selection
+                this.plugin.managers.interactivity.lociSelects.deselect({ loci });
+            }
+            if (params.focusCenter && centerFocusPositions.length > 0) {
+                this.plugin.managers.camera.focusSphere(this.computeCenterAndRadius(centerFocusPositions));
+            }
+            this.plugin.canvas3d?.pause(false);
+
+            // reset selection color
+            this.visual.resetSelectColor();
+            // save selection params to optimise clear
+            this.selectedParams = { addedRepr };
+
+        },
+        clearSelection: async () => {
+            const structure = this.plugin.managers.structure.hierarchy.current.structures[0];
+            this.plugin.managers.interactivity.lociSelects.deselectAll();
+            // no structure (not loaded yet, or its loading failed): nothing more to clear
+            if (!structure) {
+                this.selectedParams = undefined;
+                return;
+            }
+            // remove overpaints
+            await clearStructureOverpaint(this.plugin, structure.components);
+            // remove selection representations
+            if (this.selectedParams && this.selectedParams.addedRepr) {
+                const selReprCells = [];
+                for (const c of structure.components) {
+                    if (c.cell && c.cell.params && c.cell.params.values && c.cell.params.values.label && c.cell.params.values.label.includes('[Focus]')) selReprCells.push(c.cell);
+                }
+                if (selReprCells.length > 0) {
+                    for await (const selReprCell of selReprCells) {
+                        await PluginCommands.State.RemoveObject(this.plugin, { state: selReprCell.parent!, ref: selReprCell.transform.ref });
+                    };
+                }
+
+            }
+            this.selectedParams = undefined;
+        },
+        setColor: async (param: { select: ColorParams }) => {
+            if (!this.plugin.canvas3d) return;
+            this.saveDefaultColorProps();
+            await this.applySelectColor(param.select);
+        },
+        setDefaultColor: async (color: ColorParams) => {
+            if (!this.plugin.canvas3d) return;
+            const { renderer, marking } = await this.applySelectColor(color);
+            this.defaultRendererProps = { ...renderer };
+            this.defaultMarkingProps = { ...marking };
+        },
+        resetSelectColor: async () => {
+            // No defaults saved means no colour was changed, so there is nothing to restore
+            if (!this.plugin.canvas3d || !this.defaultRendererProps || !this.defaultMarkingProps) return;
+            const renderer = { ...this.plugin.canvas3d.props.renderer };
+            const marking = { ...this.plugin.canvas3d.props.marking };
+            renderer.selectColor = this.defaultRendererProps.selectColor;
+            marking.selectEdgeColor = this.defaultMarkingProps.selectEdgeColor;
+            await PluginCommands.Canvas3D.SetSettings(this.plugin, { settings: { renderer, marking } });
+        },
+    }
+}

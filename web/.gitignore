@@ -1,0 +1,10 @@
+###################
+node_modules/
+build/
+debug.log
+.vscode/
+.idea
+tmp/
+dev/
+dist/
+.env*.local
