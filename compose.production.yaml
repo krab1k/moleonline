@@ -1,5 +1,5 @@
-# Production, on top of compose.yaml: HTTPS with the host's Let's Encrypt certificates for the domains in
-# SERVER_NAMES, which the instance's .env sets (deploy/production.env or deploy/dev.env)
+# Production, on top of compose.yaml: HTTPS for the domains in SERVER_NAMES, which the instance's .env sets
+# (deploy/production.env or deploy/dev.env), with a Let's Encrypt certificate renewed by certbot --webroot
 services:
   web:
     # replaces the base file's ports, which would otherwise be added to these
@@ -10,5 +10,5 @@ services:
       SERVER_NAMES: ${SERVER_NAMES:?set in .env, see deploy/}
     volumes:
       - ./web/docker/conf.d/production.conf.template:/etc/nginx/templates/server.conf.template:ro
-      - /etc/letsencrypt/live/${CERT_NAME:?set in .env, see deploy/}/fullchain.pem:/etc/fullchain.pem:ro
-      - /etc/letsencrypt/live/${CERT_NAME}/privkey.pem:/etc/privkey.pem:ro
+      - /var/www/certbot:/var/www/certbot:ro # certbot's webroot
+      - /var/lib/moleonline/certs:/etc/nginx/certs:ro # written by deploy/certbot-deploy-hook.sh
