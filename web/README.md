@@ -15,9 +15,9 @@ Our latest version of MOLEonline brings many notable improvements, including:
 
 ## Deployment
 
-The site's nginx serves the [MOLE API](https://github.com/sb-ncbr/moleonline-api) under `/api`: it forwards
+The site's nginx serves the [MOLE API](../api) under `/api`: it forwards
 `/api/...` to the API's compose service `api` (port 8080) on the Docker network `moleonline`, which both compose
-projects join. Create the network once, then start the API from its repository:
+projects join. Create the network once, then start the API from `api/`:
 
 ```bash
 docker network create moleonline
@@ -34,8 +34,8 @@ To run the MOLEonline front end locally in Docker, you need to have Docker insta
 network `moleonline`. The app listens on port 8080 unless specified otherwise by setting the environment variable MOLEONLINE_PORT. The complete run is as simple as:
 
 ```bash
-git clone https://github.com/sb-ncbr/moleonline-web
-cd moleonline-web
+git clone https://github.com/sb-ncbr/moleonline
+cd moleonline/web
 docker compose -f docker/docker-compose.yaml up --build
 # Alternatively, when using a different port, use:
 # MOLEONLINE_PORT=8888 docker compose -f docker/docker-compose.yaml up
@@ -46,8 +46,8 @@ docker compose -f docker/docker-compose.yaml up --build
 For production, you need to have a certbot installed with Let's Encrypt certificates (using [certbot](https://certbot.eff.org/instructions?ws=other&os=snap)) for both `moleonline.cz` and `moleonline.biodata.ceitec.cz` domains. Assuming running Ubuntu 24.04 LTS, use the following commands to run the application:
 
 ```bash
-# 0. Clone the repository into /home/ubuntu/moleonline-web
-git clone https://github.com/sb-ncbr/moleonline-web
+# 0. Clone the repository into /home/ubuntu/moleonline
+git clone https://github.com/sb-ncbr/moleonline
 
 # 1. Install certbot and issue the certificates
 # - Follow certbot instructions
@@ -56,13 +56,13 @@ sudo snap install certbot
 sudo certbot certonly --standalone
 
 # 2. Setup certificates renewal cron job
-cp /home/ubuntu/moleonline-web/docker/renew_certificates.sh /usr/local/bin
+cp /home/ubuntu/moleonline/web/docker/renew_certificates.sh /usr/local/bin
 chmod +x /usr/local/bin/renew_certificates.sh
 ln -s /usr/local/bin/renew_certificates.sh /etc/cron.weekly/renew_certificates.sh
 
 # 3. Build and run the application
 # - Application assumes the certificates stored on the host in /etc/letsencrypt/live/moleonline.biodata.ceitec.cz directory
-cd /home/ubuntu/moleonline-web
+cd /home/ubuntu/moleonline/web
 docker compose -f docker/docker-compose.yaml -f docker/docker-compose.production.yaml build
 docker compose -f docker/docker-compose.yaml -f docker/docker-compose.production.yaml up
 ```

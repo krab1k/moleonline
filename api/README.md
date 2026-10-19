@@ -1,6 +1,6 @@
 # MOLEonline API
 
-Backend of [MOLEonline](https://github.com/sb-ncbr/moleonline-web): loads protein structures, computes
+Backend of [MOLEonline](../web): loads protein structures, computes
 cavities, tunnels and pores with [MOLE 2](https://github.com/sb-ncbr/webchemistry) and serves the results.
 
 The container contains:
@@ -39,7 +39,7 @@ services:
 
 ### nginx
 
-The web's nginx container (`moleonline-web`, `docker/nginx.site.conf`) serves the API under `/api` and
+The web's nginx container (`moleonline-web`, `web/docker/site.conf` and `web/docker/conf.d/api.conf.template`) serves the API under `/api` and
 proxies it to `api:8080` over the network `moleonline`. The network has to exist before either project
 starts. The API takes the client address from `X-Forwarded-For` when the request comes from loopback or
 a private network, as the Docker network is (the IP log, see below). The API runs with `--root-path /api`, so its
@@ -143,4 +143,4 @@ The pores tool (`src/mole_api/pores`) runs as `python -m mole_api.pores <pores.j
 
 ## Licence
 
-MIT, see `LICENSE`. MEMEMBED in the container image is GPL v2.
+MIT, see [`LICENSE`](../LICENSE). MEMEMBED in the container image is GPL v2.
