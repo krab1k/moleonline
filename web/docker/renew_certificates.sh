@@ -1,7 +1,10 @@
 #!/bin/bash
 
-docker compose -f /home/ubuntu/moleonline/web/docker/docker-compose.yaml -f /home/ubuntu/moleonline/web/docker/docker-compose.production.yaml stop
+# certbot's standalone server needs port 80, so only the web stops; the API keeps running
+COMPOSE="docker compose -f /home/ubuntu/moleonline/compose.yaml -f /home/ubuntu/moleonline/compose.production.yaml"
+
+$COMPOSE stop web
 
 certbot renew
 
-docker compose -f /home/ubuntu/moleonline/web/docker/docker-compose.yaml -f /home/ubuntu/moleonline/web/docker/docker-compose.production.yaml start
+$COMPOSE start web

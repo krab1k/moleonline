@@ -1,0 +1,41 @@
+# MOLEonline: the web's nginx serves the site and proxies /api/ to the API (web/docker/site.conf),
+# which has no port on the host. Production: also compose.production.yaml.
+name: moleonline
+
+services:
+  api:
+    build: api
+    image: moleonline-api
+    restart: unless-stopped
+    init: true # reaps processes left by killed computations
+    # all computations together; above it the kernel kills the largest process, a computation, not the whole host
+    mem_limit: ${API_MEMORY_LIMIT:-24g}
+    volumes:
+      - data:/data # computations, the submission log, OPM files
+
+  web:
+    build:
+      context: web
+      dockerfile: docker/Dockerfile
+      args:
+        # The API is served by this site's nginx under /api (site.conf)
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    image: moleonline-web
+    restart: unless-stopped
+    ports:
+      - "${MOLEONLINE_PORT:-8080}:8080"
+    environment:
+      # The entrypoint writes the templates to conf.d with the container's DNS servers
+      NGINX_ENTRYPOINT_LOCAL_RESOLVERS: 1
+    volumes:
+      - ./web/docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./web/docker/site.conf:/etc/nginx/site.conf:ro
+      - ./web/docker/conf.d/devel.conf:/etc/nginx/conf.d/server.conf:ro
+      - ./web/docker/conf.d/api.conf.template:/etc/nginx/templates/api.conf.template:ro
+    logging:
+      driver: journald
+      options:
+        tag: moleonline-web
+
+volumes:
+  data:

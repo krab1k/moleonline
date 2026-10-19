@@ -14,12 +14,14 @@ The container contains:
 
 ## Running
 
+The API runs with the web from the repository's [`compose.yaml`](../compose.yaml), see the
+[README](../README.md#running). From the repository's root:
+
 ```sh
-docker network create moleonline    # once, shared with the web's compose project
 docker compose up -d --build
 ```
 
-The API has no port on the host. It listens on port 8080 in the Docker network `moleonline`, as the
+The API has no port on the host. It listens on port 8080 in the compose project's network, as the
 service `api`, for the web's nginx container. Startup checks the configuration: if a path is wrong, the
 container stops and its log says what is wrong.
 
@@ -28,7 +30,7 @@ docker compose logs -f api    # one line per event; requests are not logged, err
 ```
 
 To reach the API from the host, e.g. for debugging, publish the port in `compose.override.yaml`
-(compose reads it next to `compose.yaml`):
+(compose reads it next to `compose.yaml`, in the repository's root):
 
 ```yaml
 services:
@@ -39,10 +41,10 @@ services:
 
 ### nginx
 
-The web's nginx container (`moleonline-web`, `web/docker/site.conf` and `web/docker/conf.d/api.conf.template`) serves the API under `/api` and
-proxies it to `api:8080` over the network `moleonline`. The network has to exist before either project
-starts. The API takes the client address from `X-Forwarded-For` when the request comes from loopback or
-a private network, as the Docker network is (the IP log, see below). The API runs with `--root-path /api`, so its
+The web's nginx container (the service `web`, `web/docker/site.conf` and `web/docker/conf.d/api.conf.template`)
+serves the API under `/api` and proxies it to `api:8080` over the compose project's network. The API takes the
+client address from `X-Forwarded-For` when the request comes from loopback or a private network, as the Docker
+network is (the IP log, see below). The API runs with `--root-path /api`, so its
 documentation (`/api/docs`) and "Try it out" use the proxy's URLs; on a port published for debugging the endpoints
 work, the documentation does not.
 
@@ -70,7 +72,7 @@ Usage per month or year (computations, PDB entries and uploads, submissions and 
 addresses), from the status files and the IP log:
 
 ```sh
-docker compose exec -T api /app/.venv/bin/python -I - /data/computations month < tools/stats.py
+docker compose exec -T api /app/.venv/bin/python -I - /data/computations month < api/tools/stats.py
 ```
 
 Computations running during a restart are reported as failed ("interrupted by a restart"); the user
@@ -92,7 +94,7 @@ Settings are environment variables, the defaults are the container's (`src/mole_
 All times the API stores are in UTC.
 
 The container's memory, all computations together, is limited to `API_MEMORY_LIMIT` (compose, default `24g`, e.g. in
-`.env` next to `compose.yaml`). Above it the kernel stops the largest process, a computation, which is reported as
+`.env` next to the repository's `compose.yaml`). Above it the kernel stops the largest process, a computation, which is reported as
 having run out of memory; the API keeps running.
 
 ## Endpoints

@@ -12,8 +12,5 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Build the API with Docker Compose
-        run: docker compose -f api/compose.yaml build
-
-      - name: Build the web with Docker Compose
-        run: docker compose -f web/docker/docker-compose.yaml build
+      - name: Build the API and the web with Docker Compose
+        run: docker compose build
