@@ -2,13 +2,14 @@
  * Copyright (c) 2016 - now David Sehnal, licensed under Apache 2.0, See LICENSE file for more info.
  */
 import { DataProxyCSAResidues, JobStatus, SessionInfo, SessionStatus } from "../DataProxy";
-import { ChannelsDBChannels, ChannelsDBData, firstNonEmptyCategory, Membrane, MoleData, Origins, Tunnel, TunnelMetaInfo } from "../DataInterface";
+import { ChannelsDBChannels, ChannelsDBData, firstNonEmptyCategory, Membrane, MembranePoint, MoleData, Origins, Tunnel, TunnelMetaInfo } from "../DataInterface";
+import { membraneCandidates } from "./CommonUtils/Misc";
 import { ChannelsDBData as ChannelsDBDataCache, LastVisibleChannels } from "../Cache";
 import { getParameters } from "../Common/Util/Router";
 import { ApiService, CSAResidues } from "../MoleAPIService";
 import { isNotFound } from "../Http";
 import { Context } from "./Context";
-import { CommonOptions, DataSources } from "../../config/common";
+import { CommonOptions } from "../../config/common";
 import { Residues } from "./CommonUtils/Residues";
 import { ParseJson, RawData } from "molstar/lib/mol-plugin-state/transforms/data";
 import { UUID } from "molstar/lib/mol-util";
@@ -152,17 +153,29 @@ function generateGuidMole(moleData: MoleData) {
     return moleData
 }
 
-// Only a pore submission computes the membrane
-async function hasPoresSubmission(computationId: string) {
-    return (await SessionInfo.get(computationId)).jobs.some(j => j.type === "pores");
+// The membrane of the first candidate that has one (membraneCandidates); the session read again, the cached one may
+// miss a job finished on this page
+async function membraneData(computationId: string, submitId: number): Promise<MembranePoint[] | null> {
+    const jobs = (await ApiService.getSession(computationId)).jobs;
+    for (const job of membraneCandidates(jobs, submitId)) {
+        try {
+            return await ApiService.getMembraneData(computationId, job);
+        } catch (err) {
+            if (!isNotFound(err)) { // 404: no membrane, e.g. the pores tool failed
+                throw err;
+            }
+        }
+    }
+    return null;
 }
 
-async function downloadMembraneData(computationId: string) {
-    if (!await hasPoresSubmission(computationId).catch(() => false)) {
-        return;
-    }
+async function downloadMembraneData(computationId: string, submitId: number) {
     return new Promise<any>((res, rej) => {
-        ApiService.getMembraneData(computationId).then((data) => {
+        membraneData(computationId, submitId).then((data) => {
+            if (data === null) {
+                res(null);
+                return;
+            }
             const update = Context.getInstance().plugin.build();
             update
                 .toRoot()
@@ -176,9 +189,7 @@ async function downloadMembraneData(computationId: string) {
                     rej(err);
                 });
         }).catch(err => {
-            if (!isNotFound(err)) { // 404: no membrane
-                console.log("Membrane data not available!", err);
-            }
+            console.log("Membrane data not available!", err);
             res(null);
         });
     }).then(() => {
@@ -188,7 +199,8 @@ async function downloadMembraneData(computationId: string) {
 export async function downloadChannelsData(computationId: string, submitId: number) {
     await removeChannelsData();
     return new Promise<any>((res, rej) => {
-        ApiService.getChannelsData(computationId, submitId).then((data) => {
+        // the session's page (0) shows what the load found, a job's page the job's channels
+        (submitId === 0 ? ApiService.getSessionData(computationId) : ApiService.getJobData(computationId, submitId)).then((data) => {
             let update = Context.getInstance().plugin.build();
             update
                 .toRoot()
@@ -261,11 +273,11 @@ async function downloadChannelsDBData(computationId: string) {
     });
 }
 
-function downloadProteinData(computationId: string, submitId: number) {
+function downloadProteinData(computationId: string) {
     return new Promise<any>(async (res, rej) => {
         try {
             const p = await SessionInfo.get(computationId);
-            await Context.getInstance().load(`${DataSources.API_URL}/Data/${computationId}?submitId=${submitId}&format=molecule`, false, p.assembly_id)
+            await Context.getInstance().load(ApiService.structureUrl(computationId), false, p.assembly_id)
                 .then((data) => {
                     res(data);
                 })
@@ -352,7 +364,7 @@ function acquireData(computationId: string, submitId: number, res: any, rej: any
         if (CommonOptions.DEBUG_MODE)
             console.log("reloading protein structure");
         let proteinAndCSA = new Promise<any>((res, rej) => {
-            downloadProteinData(computationId, submitId)
+            downloadProteinData(computationId)
                 .then(() => {
                     if (CommonOptions.DEBUG_MODE)
                         console.log("reloading CSA Origins");
@@ -366,9 +378,7 @@ function acquireData(computationId: string, submitId: number, res: any, rej: any
         promises.push(proteinAndCSA);
     }
     if (channels && !channelsDB) {
-        //Download and show membrane data if available
-        //TODO when submit will be programmed, check if this work correctly
-        promises.push(downloadMembraneData(computationId)); //TODO when submit tunnels will be ready and membrane will be generated
+        promises.push(downloadMembraneData(computationId, submitId));
         if (CommonOptions.DEBUG_MODE)
             console.log("reloading channels");
         promises.push(downloadChannelsData(computationId, submitId));

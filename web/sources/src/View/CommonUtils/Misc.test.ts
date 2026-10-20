@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { flattenPoints, flattenResidues, flattenResiduesArray, parsePoint, parseResidues } from './Misc';
+import { Job } from '../../MoleAPIService';
+import { flattenPoints, flattenResidues, flattenResiduesArray, membraneCandidates, parsePoint, parseResidues } from './Misc';
 
 describe('parseResidues', () => {
     it('reads "chain number" items in either order, separated by commas', () => {
@@ -42,5 +43,27 @@ describe('parsePoint', () => {
             expect(parsePoint(value), value).toBeUndefined();
         }
         expect(parsePoint(undefined)).toBeUndefined();
+    });
+});
+
+describe('membraneCandidates', () => {
+    const job = (number: number, type: 'tunnels' | 'pores', state: Job['state']): Job => ({
+        number, state, error: '', submitted: null, started: null, finished: null,
+        ...(type === 'tunnels' ? { type, parameters: {} } : { type, parameters: { InteriorThreshold: null, ProbeRadius: null } }),
+    });
+
+    it('includes a pore job that failed: its membrane may have been placed before MOLE failed', () => {
+        expect(membraneCandidates([job(1, 'tunnels', 'finished'), job(2, 'pores', 'failed')], 1)).toEqual([2]);
+    });
+
+    it('starts with the job shown, then the other pore jobs from the newest', () => {
+        const jobs = [job(1, 'pores', 'finished'), job(2, 'pores', 'failed'), job(3, 'tunnels', 'finished'), job(4, 'pores', 'cancelled')];
+        expect(membraneCandidates(jobs, 2)).toEqual([2, 4, 1]);
+        expect(membraneCandidates(jobs, 3)).toEqual([4, 2, 1]);
+        expect(membraneCandidates(jobs, 0)).toEqual([4, 2, 1]); // the session's page
+    });
+
+    it('leaves out tunnel jobs and pore jobs still queued or running', () => {
+        expect(membraneCandidates([job(1, 'tunnels', 'finished'), job(2, 'pores', 'queued'), job(3, 'pores', 'running')], 0)).toEqual([]);
     });
 });

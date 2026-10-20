@@ -1,4 +1,4 @@
-import { MoleConfigPoint, MoleConfigResidue } from "../../MoleAPIService";
+import { isDone, Job, MoleConfigPoint, MoleConfigResidue } from "../../MoleAPIService";
 import { StringPoint } from "./Selection";
 
 declare function $(p: any): any;
@@ -114,4 +114,12 @@ export function parsePoint(value: string | undefined): StringPoint | undefined {
         return void 0;
     }
     return { x: parts[0], y: parts[1], z: parts[2] };
+}
+
+// The pore jobs whose membrane to show, in this order: the job shown, then the others from the newest. Only a pore job
+// places a membrane, also when MOLE then failed or found no pore; one that is still queued or running has none yet,
+// and a failed or cancelled one may have none (the first one that has it is shown).
+export function membraneCandidates(jobs: Job[], shown: number): number[] {
+    const pores = jobs.filter(j => j.type === "pores" && isDone(j.state)).map(j => j.number).sort((a, b) => b - a);
+    return pores.includes(shown) ? [shown, ...pores.filter(n => n !== shown)] : pores;
 }

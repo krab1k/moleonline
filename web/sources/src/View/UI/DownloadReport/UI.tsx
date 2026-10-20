@@ -1,7 +1,7 @@
 import React from "react";
 import { Events } from "../../../Bridge";
 import { getParameters } from "../../../Common/Util/Router";
-import { DataSources } from "../../../../config/common";
+import { ApiService, ResultFormat } from "../../../MoleAPIService";
 import { Tunnels } from "../../CommonUtils/Tunnels";
 import { cleanCifContent, JSON2CIF } from "../../VizualizerMol/mmcif-tunnels/converter";
 import { describeError, requestError } from "../../../Http";
@@ -60,10 +60,7 @@ class DownloadResultsMenu extends React.Component<{}, DownloadResultsMenuState> 
     }
 
     private async generateMoleculeContent() {
-        let computationId = this.state.computationId;
-        let submitId = `?submitId=${this.state.submitId}`;
-        let linkBase = `${DataSources.API_URL}/Data/${computationId}${submitId}`;
-        const url = `${linkBase}&format=molecule`
+        const url = ApiService.structureUrl(this.state.computationId);
 
         const response = await fetch(url)
         if (!response.ok) {
@@ -118,36 +115,34 @@ ${auditLine}
 
     render() {
         let computationId = this.state.computationId;
-        let submitId = `?submitId=${this.state.submitId}`;
-
-        let linkBase = `${DataSources.API_URL}/Data/${computationId}${submitId}`;
+        const result = (format: ResultFormat) => ApiService.jobResultUrl(computationId, this.state.submitId, format);
 
         let items: JSX.Element[] = [];
 
         if (computationId !== void 0) {
             items.push(
-                <BootstrapDropDownMenuItem key={'mmcif'} linkText="mmCIF" /*link={`${linkBase}&format=molecule`}*/ targetBlank={true} onClick={() => {
+                <BootstrapDropDownMenuItem key={'mmcif'} linkText="mmCIF" targetBlank={true} onClick={() => {
                     this.generateMoleculeContent();
                 }} />
             );
             if (this.state.submitId > 0) {
                 items.push(
-                    <BootstrapDropDownMenuItem key={'pymol'} linkText="PyMol" link={`${linkBase}&format=pymol`} targetBlank={true} />
+                    <BootstrapDropDownMenuItem key={'pymol'} linkText="PyMol" link={result("pymol")} targetBlank={true} />
                 );
                 items.push(
-                    <BootstrapDropDownMenuItem key={'vmd'} linkText="VMD" link={`${linkBase}&format=vmd`} targetBlank={true} />
+                    <BootstrapDropDownMenuItem key={'vmd'} linkText="VMD" link={result("vmd")} targetBlank={true} />
                 );
                 items.push(
-                    <BootstrapDropDownMenuItem key={'pdb'} linkText="PDB" link={`${linkBase}&format=pdb`} targetBlank={true} />
+                    <BootstrapDropDownMenuItem key={'pdb'} linkText="PDB" link={result("pdb")} targetBlank={true} />
                 );
                 items.push(
-                    <BootstrapDropDownMenuItem key={'chimera'} linkText="Chimera" link={`${linkBase}&format=chimera`} targetBlank={true} />
+                    <BootstrapDropDownMenuItem key={'chimera'} linkText="Chimera" link={result("chimera")} targetBlank={true} />
                 );
                 items.push(
-                    <BootstrapDropDownMenuItem key={'json'} linkText="JSON" link={`${linkBase}`} targetBlank={true} />
+                    <BootstrapDropDownMenuItem key={'json'} linkText="JSON" link={result("data")} targetBlank={true} />
                 );
                 items.push(
-                    <BootstrapDropDownMenuItem key={'results'} linkText="Results" link={`${linkBase}&format=report`} targetBlank={true} />
+                    <BootstrapDropDownMenuItem key={'results'} linkText="Results" link={result("report")} targetBlank={true} />
                 );
             }
             if (this.state.submitId !== 0) {

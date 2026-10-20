@@ -5,29 +5,19 @@
 
 
 export interface paths {
-  "/Version": {
+  "/version": {
     /**
      * Get Version
      * @description Versions of the API (with the pores tool) and of MOLE
      */
     get: operations["get_version"];
   };
-  "/CSA/{computation_id}": {
+  "/cofactors": {
     /**
-     * Get Csa
-     * @description Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per
-     * copy, as tunnel starting points; none for an uploaded structure
+     * Get Cofactors
+     * @description Cofactors by residue name, with the PatternQuery expression of their atoms, as tunnel starting points
      */
-    get: operations["get_csa"];
-  };
-  "/Data/{computation_id}": {
-    /**
-     * Get Data
-     * @description A result of a submission (-1: the last one, 0: the load) to download. Formats: json (MOLE's data.json, what
-     * the web shows), report (zip of all), molecule (the structure), pymol, chimera, vmd (scripts), pdb (zip of the
-     * tunnels' profiles), membrane (membrane.json of a pore computation).
-     */
-    get: operations["get_data"];
+    get: operations["get_cofactors"];
   };
   "/sessions": {
     /**
@@ -57,6 +47,28 @@ export interface paths {
      */
     delete: operations["delete_session"];
   };
+  "/sessions/{session_id}/structure": {
+    /**
+     * Get Structure
+     * @description The session's structure, as loaded (a gzipped upload unpacked)
+     */
+    get: operations["get_structure"];
+  };
+  "/sessions/{session_id}/data": {
+    /**
+     * Get Session Data
+     * @description What the load found, MOLE's data.json: the cavities and the origins (tunnel starting points)
+     */
+    get: operations["get_session_data"];
+  };
+  "/sessions/{session_id}/active-sites": {
+    /**
+     * Get Active Sites
+     * @description Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per
+     * copy, as tunnel starting points; none for an uploaded structure
+     */
+    get: operations["get_active_sites"];
+  };
   "/sessions/{session_id}/cancel": {
     /**
      * Cancel Session
@@ -80,6 +92,15 @@ export interface paths {
      * @description The job's state: queued, running, then finished, failed (with the error) or cancelled
      */
     get: operations["get_job"];
+  };
+  "/sessions/{session_id}/jobs/{number}/results/{format}": {
+    /**
+     * Get Job Result
+     * @description A result of the job: data (MOLE's data.json, what the web shows), report (a zip of all), pymol, chimera, vmd
+     * (scripts of the viewers), pdb (a zip of the tunnels' profiles), membrane (of a pore job, also when MOLE then
+     * failed). Only a finished job has results.
+     */
+    get: operations["get_job_result"];
   };
   "/sessions/{session_id}/jobs/{number}/cancel": {
     /**
@@ -385,6 +406,13 @@ export interface components {
       ErrorMsg: string;
     };
     /**
+     * ResultFormat
+     * @description A job's results: MOLE's data.json (what the web shows), all of them zipped, scripts of the viewers, the tunnels'
+     * profiles (a zip of PDB files), the membrane of a pore job
+     * @enum {string}
+     */
+    ResultFormat: "data" | "report" | "pymol" | "chimera" | "vmd" | "pdb" | "membrane";
+    /**
      * Session
      * @description A structure loaded by MOLE, on which jobs run
      */
@@ -431,10 +459,10 @@ export interface components {
     };
     /** Version */
     Version: {
-      /** Apiversion */
-      APIVersion: string;
-      /** Moleversion */
-      MoleVersion: string;
+      /** Api */
+      api: string;
+      /** Mole */
+      mole: string;
     };
   };
   responses: never;
@@ -465,98 +493,17 @@ export interface operations {
     };
   };
   /**
-   * Get Csa
-   * @description Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per
-   * copy, as tunnel starting points; none for an uploaded structure
+   * Get Cofactors
+   * @description Cofactors by residue name, with the PatternQuery expression of their atoms, as tunnel starting points
    */
-  get_csa: {
-    parameters: {
-      path: {
-        computation_id: string;
-      };
-    };
+  get_cofactors: {
     responses: {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": components["schemas"]["CSAResidue"][][];
-        };
-      };
-      /** @description Not Found */
-      404: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Gone */
-      410: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-    };
-  };
-  /**
-   * Get Data
-   * @description A result of a submission (-1: the last one, 0: the load) to download. Formats: json (MOLE's data.json, what
-   * the web shows), report (zip of all), molecule (the structure), pymol, chimera, vmd (scripts), pdb (zip of the
-   * tunnels' profiles), membrane (membrane.json of a pore computation).
-   */
-  get_data: {
-    parameters: {
-      query?: {
-        submitId?: number;
-        format?: string;
-      };
-      path: {
-        computation_id: string;
-      };
-    };
-    responses: {
-      /** @description The file, as an attachment */
-      200: {
-        content: never;
-      };
-      /** @description Bad Request */
-      400: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Not Found */
-      404: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Gone */
-      410: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        content: {
-          "application/json": components["schemas"]["Report"];
+          "application/json": {
+            [key: string]: string;
+          };
         };
       };
     };
@@ -728,6 +675,132 @@ export interface operations {
     };
   };
   /**
+   * Get Structure
+   * @description The session's structure, as loaded (a gzipped upload unpacked)
+   */
+  get_structure: {
+    parameters: {
+      path: {
+        session_id: string;
+      };
+    };
+    responses: {
+      /** @description The file, as an attachment */
+      200: {
+        content: never;
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Gone */
+      410: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Session Data
+   * @description What the load found, MOLE's data.json: the cavities and the origins (tunnel starting points)
+   */
+  get_session_data: {
+    parameters: {
+      path: {
+        session_id: string;
+      };
+    };
+    responses: {
+      /** @description The file, as an attachment */
+      200: {
+        content: never;
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Gone */
+      410: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Active Sites
+   * @description Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per
+   * copy, as tunnel starting points; none for an uploaded structure
+   */
+  get_active_sites: {
+    parameters: {
+      path: {
+        session_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["CSAResidue"][][];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Gone */
+      410: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+    };
+  };
+  /**
    * Cancel Session
    * @description Stops loading the structure (also its download): the session fails. Only a queued or loading session can
    * be cancelled; jobs are cancelled on their own.
@@ -862,6 +935,51 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Job"];
         };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Gone */
+      410: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Job Result
+   * @description A result of the job: data (MOLE's data.json, what the web shows), report (a zip of all), pymol, chimera, vmd
+   * (scripts of the viewers), pdb (a zip of the tunnels' profiles), membrane (of a pore job, also when MOLE then
+   * failed). Only a finished job has results.
+   */
+  get_job_result: {
+    parameters: {
+      path: {
+        session_id: string;
+        number: number;
+        format: components["schemas"]["ResultFormat"];
+      };
+    };
+    responses: {
+      /** @description The file, as an attachment */
+      200: {
+        content: never;
       };
       /** @description Not Found */
       404: {

@@ -36,7 +36,7 @@ def test_pore_is_computed(api, settings):
 
     folder = settings.working_directory / id
     assert json.loads((folder / "1" / "pores.json").read_text()) == {
-        "Structure": str(folder / "1tqn.cif"), "PdbId": None, "WorkingDirectory": str(folder / "1"), "Membrane": str(folder / "membrane.json"),
+        "Structure": str(folder / "1tqn.cif"), "PdbId": None, "WorkingDirectory": str(folder / "1"), "Membrane": str(folder / "1" / "membrane.json"),
         "Memembed": str(settings.memembed), "OpmCache": str(settings.opm_cache), "InMembrane": True, "IsBetaBarrel": False, "Chains": ["A", "A_2"], "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
     with zipfile.ZipFile(folder / "1" / "report.zip") as report:
         assert sorted(report.namelist()) == ["1tqn.cif", "json/data.json"]
@@ -119,3 +119,24 @@ def test_unknown_and_deleted_session(client):
     id = loaded(client)
     client.delete(f"/sessions/{id}")
     assert submit(client, id).status_code == 410
+
+
+def test_membrane_of_each_pore_job(api):
+    # the fake pores tool writes the job's number as its membrane, next to pores.json, where the API tells it to
+    client = api(pores='d="$(dirname "$1")"; echo "[$(basename "$d")]" > "$d/membrane.json"', run=PORE)
+    id = loaded(client)
+    submit(client, id)
+    assert wait(client, id, 1)["state"] == "finished"
+    submit(client, id)
+    assert wait(client, id, 2)["state"] == "finished"
+    assert client.get(f"/sessions/{id}/jobs/1/results/membrane").json() == [1]  # not replaced by the second job's
+    assert client.get(f"/sessions/{id}/jobs/2/results/membrane").json() == [2]
+
+
+def test_membrane_when_no_pore_was_found(api):
+    client = api(pores='echo "[]" > "$(dirname "$1")/membrane.json"', run=NO_PORE)
+    id = loaded(client)
+    submit(client, id)
+    assert wait(client, id, 1)["state"] == "failed"
+    assert client.get(f"/sessions/{id}/jobs/1/results/membrane").json() == []  # the membrane was placed
+    assert client.get(f"/sessions/{id}/jobs/1/results/data").status_code == 404

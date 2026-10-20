@@ -149,7 +149,7 @@ export class ChannelsControl extends React.Component<ChannelsControlProps, Chann
             if (state === "finished" && !this.state.submissions.has(newSubmitId)) {
                 this.loadingSubmitIds.add(newSubmitId);
                 try {
-                    const data = await ApiService.getChannelsData(this.props.computationId, newSubmitId)
+                    const data = await ApiService.getJobData(this.props.computationId, newSubmitId)
                     let dataObj = JSON.parse(data) as MoleData;
                     const submissions = this.state.submissions;
                     let guidData = TunnelsId.generateGuidAll(dataObj.Channels)

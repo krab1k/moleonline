@@ -7,7 +7,6 @@ import { PluginReactContext } from "molstar/lib/mol-plugin-ui/base";
 import { Controls } from "./UI/Controls/UI";
 import { getParameters } from "../Common/Util/Router";
 import { Events } from "../Bridge";
-import { DataSources } from "../../config/common";
 import { addCaverTag, loadMoleData } from "./State";
 import { ChannelsDBChannels, MoleData } from "../DataInterface";
 import { SessionInfo } from "../DataProxy";
@@ -71,7 +70,7 @@ export class LeftPanel extends React.Component<{ context: Context }, { isLoading
             const submitId = job.number;
             let data;
             try {
-                data = await ApiService.getChannelsData(session.id, submitId);
+                data = await ApiService.getJobData(session.id, submitId);
             } catch (e) {
                 if (isNotFound(e)) {
                     continue; // no channels after all
@@ -105,7 +104,7 @@ export class LeftPanel extends React.Component<{ context: Context }, { isLoading
             if (pdbId === null) {
                 (async () => {
                     LoadingStatus.log('Parsing data from current session...');
-                    const data = await loadCifTunnels(`${DataSources.API_URL}/Data/${computationId}?submitId=0&format=molecule`);
+                    const data = await loadCifTunnels(ApiService.structureUrl(computationId));
                     if (data) {
                         const dataObj = { Channels: data.Channels } as MoleData;
                         let guidData = TunnelsId.generateGuidAll(dataObj.Channels);

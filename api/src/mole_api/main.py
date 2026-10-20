@@ -24,7 +24,6 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from . import computation, data, iplog, mole, pdbe, upload
 from .csa import CSA, CSAResidue
-from .paths import AspNetPaths
 from .computation import Computation, JobState, Report, SessionState, Status, Unit
 from .config import Settings
 from .parameters import MoleParameters, PoresParameters, PoresRequest
@@ -53,7 +52,8 @@ def find(request: Request, computation_id: str) -> Computation | JSONResponse:
     return found
 
 
-STATIC_FILES = Path(__file__).parent / "static"  # served at /: the example inputs, inputs/cofactors.json for the web
+STATIC_FILES = Path(__file__).parent / "static"  # served at /: the example inputs (inputs/)
+COFACTORS = STATIC_FILES / "inputs" / "cofactors.json"
 
 
 def can_run(request: Request, c: Computation) -> tuple[int, str] | None:
@@ -205,8 +205,8 @@ def created(request: Request, response: Response, c: Computation) -> Session:
 
 
 class Version(BaseModel):
-    APIVersion: str  # also of the pores tool, part of the API
-    MoleVersion: str
+    api: str  # also of the pores tool, part of the API
+    mole: str
 
 
 async def create_from_upload(request: Request) -> Computation | JSONResponse:
@@ -279,7 +279,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="MOLEonline API", version=version("mole-api"), lifespan=lifespan,
                   generate_unique_id_function=lambda route: route.name)
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=iplog.PROXIES)  # the client address, also for the log
-    app.add_middleware(AspNetPaths)
     app.add_middleware(GZipMiddleware)  # for clients that accept it; not zips, data.json often has megabytes
 
     @app.exception_handler(Exception)
@@ -293,53 +292,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             parts = [str(part) for part in loc if part != "body"]
             return ".".join(parts[1:] if parts and parts[0] in LOGGED_TYPES else parts)
         details = "; ".join(f"{where(error['loc'])}: {error['msg']}" for error in e.errors())
-        id = request.path_params.get("session_id") or request.path_params.get("computation_id")
-        return error(id, 400, f"Input format error. {details}")
+        return error(request.path_params.get("session_id"), 400, f"Input format error. {details}")
 
     @app.get("/", include_in_schema=False)
     def home() -> RedirectResponse:
         return RedirectResponse("docs")  # relative: also behind a proxy's prefix (/api/)
 
-    @app.get("/Version")
+    @app.get("/version")
     def get_version(request: Request) -> Version:
         """Versions of the API (with the pores tool) and of MOLE"""
-        return Version(APIVersion=app.version, MoleVersion=request.app.state.mole_version)
+        return Version(api=app.version, mole=request.app.state.mole_version)
 
-    @functools.cache
-    def csa() -> CSA:
-        return CSA()  # read on the first request (0.1 s), the tests start faster
-
-    @app.get("/CSA/{computation_id}", responses=errors(404, 410))
-    def get_csa(request: Request, computation_id: str) -> list[list[CSAResidue]]:
-        """Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per
-        copy, as tunnel starting points; none for an uploaded structure"""
-        found = find(request, computation_id)
-        if isinstance(found, JSONResponse):
-            return found
-        return [] if found.UserStructure else csa().get(found.PdbId)
-
-    @app.get("/Data/{computation_id}", responses={**errors(400, 404, 410), 200: {"description": "The file, as an attachment"}},
-             response_class=Response)
-    def get_data(request: Request, computation_id: str, submitId: int = -1, format: str = "json"):
-        """A result of a submission (-1: the last one, 0: the load) to download. Formats: json (MOLE's data.json, what
-        the web shows), report (zip of all), molecule (the structure), pymol, chimera, vmd (scripts), pdb (zip of the
-        tunnels' profiles), membrane (membrane.json of a pore computation)."""
-        found = find(request, computation_id)
-        if isinstance(found, JSONResponse):
-            return found
-        last = found.last.SubmitId
-        if submitId == -1:
-            submitId = last
-        if not 0 <= submitId <= last:
-            return error(computation_id, 404, f"Submission {submitId} does not exist.", submitId)
-        if format not in data.FORMATS:
-            return error(computation_id, 400, f"Unknown format '{format}', the formats are {', '.join(data.FORMATS)}.", submitId)
-        # MOLE's files appear while it runs, a failed run leaves some; the membrane is the computation's (pore computations)
-        if format not in ("molecule", "membrane") and not found.has_results(submitId):
-            return error(computation_id, 404, f"Submission {submitId} has no results, it has not finished or it failed.", submitId)
-        if (file := data.download(found, submitId, format)) is None:
-            return error(computation_id, 404, f"Data in format '{format}' are not available.", submitId)
-        return file
+    @app.get("/cofactors")
+    def get_cofactors() -> dict[str, str]:
+        """Cofactors by residue name, with the PatternQuery expression of their atoms, as tunnel starting points"""
+        return json.loads(COFACTORS.read_text())
 
     sessions = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -384,6 +351,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # cancel and delete stop runs: async, on the event loop as the runs, never in a worker thread (Runner is not
     # thread-safe, and the check, the stop and the status change must not interleave with a run ending)
+    FILE = {200: {"description": "The file, as an attachment"}}
+
+    @sessions.get("/{session_id}/structure", response_class=Response, responses={**errors(404, 410), **FILE})
+    def get_structure(request: Request, session_id: str):
+        """The session's structure, as loaded (a gzipped upload unpacked)"""
+        found = find(request, session_id)
+        if isinstance(found, JSONResponse):
+            return found
+        return data.structure(found) or error(session_id, 404, "The structure is not available, it has not been stored.")
+
+    @sessions.get("/{session_id}/data", response_class=Response, responses={**errors(404, 410), **FILE})
+    def get_session_data(request: Request, session_id: str):
+        """What the load found, MOLE's data.json: the cavities and the origins (tunnel starting points)"""
+        found = find(request, session_id)
+        if isinstance(found, JSONResponse):
+            return found
+        if found.session_state()[0] != SessionState.ready:
+            return error(session_id, 404, "The session has no data, its structure has not been loaded.")
+        return data.session_data(found) or error(session_id, 404, "The data of the session are not available.")
+
+    @functools.cache
+    def csa() -> CSA:
+        return CSA()  # read on the first request (0.1 s), the tests start faster
+
+    @sessions.get("/{session_id}/active-sites", responses=errors(404, 410))
+    def get_active_sites(request: Request, session_id: str) -> list[list[CSAResidue]]:
+        """Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per
+        copy, as tunnel starting points; none for an uploaded structure"""
+        found = find(request, session_id)
+        if isinstance(found, JSONResponse):
+            return found
+        return [] if found.UserStructure else csa().get(found.PdbId)
+
     @sessions.post("/{session_id}/cancel", responses=errors(404, 409, 410))
     async def cancel_session(request: Request, session_id: str) -> Session:
         """Stops loading the structure (also its download): the session fails. Only a queued or loading session can
@@ -436,7 +436,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 tool_input = directory / PORES_PARAMETERS
                 tool_input.write_text(PoresParameters(
                     Structure=str(c.structure_path()), PdbId=c.PdbId if c.DbModePores else None, WorkingDirectory=str(directory),
-                    Membrane=str(c.folder() / "membrane.json"), Memembed=str(settings.memembed), OpmCache=str(settings.opm_cache),
+                    Membrane=str(directory / "membrane.json"), Memembed=str(settings.memembed), OpmCache=str(settings.opm_cache),
                     **pores.model_dump(),
                 ).model_dump_json(indent=2))
                 return [Step([*PORES_TOOL, str(tool_input)]), run_mole(settings, directory / mole.INPUT)]
@@ -462,6 +462,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if (wanted := next((j for j in jobs(found) if j.number == number), None)) is None:
             return error(session_id, 404, f"Job {number} does not exist.", number)
         return wanted
+
+    @job_routes.get("/{session_id}/jobs/{number}/results/{format}", response_class=Response, responses={**errors(404, 410), **FILE})
+    def get_job_result(request: Request, session_id: str, number: int, format: data.ResultFormat):
+        """A result of the job: data (MOLE's data.json, what the web shows), report (a zip of all), pymol, chimera, vmd
+        (scripts of the viewers), pdb (a zip of the tunnels' profiles), membrane (of a pore job, also when MOLE then
+        failed). Only a finished job has results."""
+        found = find(request, session_id)
+        if isinstance(found, JSONResponse):
+            return found
+        if (wanted := next((j for j in jobs(found) if j.number == number), None)) is None:
+            return error(session_id, 404, f"Job {number} does not exist.", number)
+        # MOLE's files appear while it runs, a failed run leaves some; the membrane is complete once written
+        if format != data.ResultFormat.membrane and wanted.state != JobState.finished:
+            return error(session_id, 404, f"Job {number} has no results, it is {wanted.state}.", number)
+        return data.job_result(found, number, format) or error(session_id, 404, f"The job has no {format} results.", number)
 
     @job_routes.post("/{session_id}/jobs/{number}/cancel", responses=errors(404, 409, 410))
     async def cancel_job(request: Request, session_id: str, number: int) -> Job:

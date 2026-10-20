@@ -127,12 +127,6 @@ class Computation(BaseModel):
         """Running or loading in another API process, i.e. one before a restart"""
         return self.last.Status in (Status.Running, Status.Initializing) and self.ApiInstance != API_INSTANCE
 
-    def has_results(self, submit_id: int) -> bool:
-        """Its results are complete: the load (0) succeeded, the submission finished"""
-        if submit_id == 0:
-            return self.session_state()[0] == SessionState.ready
-        return any(u.SubmitId == submit_id and u.Status == Status.Finished for u in self.ComputationUnits)
-
     def add_submission(self, mole_version: str) -> None:
         """A new submission with its folder; the first one reuses the load's unit (Initialized)"""
         if self.last.Status != Status.Initialized:

@@ -17,6 +17,9 @@ export type NewJob = { type: "tunnels", parameters: MoleConfig } | { type: "pore
 export type Session = Omit<Schemas["Session"], "jobs"> & { jobs: Job[] };
 export type SessionState = Schemas["SessionState"];
 
+// A job's results to download: data (MOLE's data.json), report (a zip of all), pymol, chimera, vmd, pdb, membrane
+export type ResultFormat = Schemas["ResultFormat"];
+
 // A job no longer queued or running
 export function isDone(state: JobState): boolean {
     return state !== "queued" && state !== "running";
@@ -135,20 +138,34 @@ export class ApiService {
         return postEmpty(`${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/jobs/${number}/cancel`);
     }
 
-    public static getChannelsData(computationId: string, submitId: number): Promise<string> {
-        // the JSON as text: the viewer parses it itself
-        return getText(`${this.baseUrl}/Data/${computationId}?submitId=${submitId}`);
+    // The session's structure, also for the viewer and 2DProts, which download it themselves
+    public static structureUrl(sessionId: string): string {
+        return `${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/structure`;
     }
 
-    public static getMembraneData(computationId: string): Promise<MembranePoints> {
-        return getJson(`${this.baseUrl}/Data/${computationId}?format=membrane`);
+    public static jobResultUrl(sessionId: string, number: number, format: ResultFormat): string {
+        return `${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/jobs/${number}/results/${format}`;
     }
 
-    public static getCSAResidues(computationId: string): Promise<CSAResidues> {
-        return getJson(`${this.baseUrl}/CSA/${computationId}`);
+    // What the load found (cavities, origins), MOLE's data.json as text: the viewer parses it itself
+    public static getSessionData(sessionId: string): Promise<string> {
+        return getText(`${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/data`);
+    }
+
+    // The job's MOLE data.json (channels), as text
+    public static getJobData(sessionId: string, number: number): Promise<string> {
+        return getText(this.jobResultUrl(sessionId, number, "data"));
+    }
+
+    public static getMembraneData(sessionId: string, number: number): Promise<MembranePoints> {
+        return getJson(this.jobResultUrl(sessionId, number, "membrane"));
+    }
+
+    public static getActiveSites(sessionId: string): Promise<CSAResidues> {
+        return getJson(`${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/active-sites`);
     }
 
     public static getCofactors(): Promise<Cofactors> {
-        return getJson(`${this.baseUrl}/inputs/cofactors.json`).then(s => new Map(Object.entries(s)));
+        return getJson(`${this.baseUrl}/cofactors`).then(s => new Map(Object.entries(s)));
     }
 }

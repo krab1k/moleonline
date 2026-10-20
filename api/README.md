@@ -99,8 +99,8 @@ having run out of memory; the API keeps running.
 
 ## Endpoints
 
-The OpenAPI documentation is at `/docs` (`/openapi.json`). Endpoint names match in any case and a trailing slash
-is ignored, as in the former C# API (`/Data`, `/CSA`, `/Version`). All responses are JSON. A request that fails has an HTTP error status and a report with `Status: "Error"` and `ErrorMsg`:
+The OpenAPI documentation is at `/docs` (`/openapi.json`). Responses are JSON, except the files to download. A
+request that fails has an HTTP error status and a report with `Status: "Error"` and `ErrorMsg`:
 400 invalid request (parameters, file type, data format), 404 no such session, job or data, 409 a job runs on the session
 or its structure could not be loaded, 410 deleted, 413 upload too large, 503 all slots busy, 500 server error. A session
 or job that failed is a successful request, 200, with its `state` and `error`.
@@ -115,11 +115,14 @@ or job that failed is a successful request, 200, with its `state` and `error`.
 | `POST /sessions/{id}/jobs` | a job on the session's structure: `{"type": "tunnels", "parameters": <MOLE parameters>}`, or `{"type": "pores", "parameters": {"InMembrane", "IsBetaBarrel", "Chains" (list of chain names, empty: all), "ProbeRadius", "InteriorThreshold" (null: the default)}}` for a pore across the membrane; `202 Accepted` with `Location`; one job runs on a session at a time |
 | `GET /sessions/{id}/jobs/{n}` | the job: `state` `queued`, `running`, then `finished`, `failed` (`error` says why) or `cancelled`, its parameters and times; jobs are numbered from 1, `GET /sessions/{id}` lists them all |
 | `POST /sessions/{id}/jobs/{n}/cancel` | stop the job (cancelled); only a queued or running job |
-| `GET /Data/{id}?submitId=&format=` | results: `json`, `report` (zip), `molecule`, `pymol`, `chimera`, `vmd`, `pdb`, `membrane` |
-| `GET /CSA/{id}` | catalytic active sites of the PDB entry from M-CSA, one per copy, starting points for tunnels |
-| `GET /Version` | versions of the API (also of the pores tool) and MOLE |
+| `GET /sessions/{id}/jobs/{n}/results/{format}` | a finished job's results: `data` (MOLE's `data.json`, what the web shows), `report` (a zip of all), `pymol`, `chimera`, `vmd` (scripts of the viewers), `pdb` (a zip of the tunnels' profiles), `membrane` (of a pore job, also when no pore was found) |
+| `GET /sessions/{id}/structure` | the session's structure, as loaded (a gzipped upload unpacked) |
+| `GET /sessions/{id}/data` | what the load found, MOLE's `data.json`: the cavities and the origins |
+| `GET /sessions/{id}/active-sites` | catalytic active sites of the PDB entry from M-CSA, one per copy, starting points for tunnels |
+| `GET /cofactors` | cofactors by residue name, with the PatternQuery expression of their atoms, starting points for tunnels |
+| `GET /version` | versions of the API (also of the pores tool) and MOLE |
 
-The active sites of `/CSA` come from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (Ribeiro et al., Nucleic
+The active sites come from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (Ribeiro et al., Nucleic
 Acids Research 2018, CC BY 4.0), converted by `tools/mcsa/convert.py` into `src/mole_api/resources/mcsa_sites.csv.gz`.
 The example inputs (`/inputs/`) are in `src/mole_api/static/`; `/` redirects to the documentation, `/docs`.
 

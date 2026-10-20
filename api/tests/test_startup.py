@@ -14,13 +14,15 @@ from .conftest import MOLE_VERSION, script
 MOLE = "echo 'WebChemistry Tunnels 2.5.1, (c) test'"
 
 
-def test_documentation_and_version(client):
-    assert "/Version" in client.get("/openapi.json").json()["paths"]
+def test_documentation_version_and_cofactors(client):
+    assert "/version" in client.get("/openapi.json").json()["paths"]
     assert client.get("/docs").status_code == 200
-    response = client.get("/Version")
+    response = client.get("/version")
     assert response.status_code == 200
-    assert response.json()["APIVersion"]
-    assert response.json()["MoleVersion"] == MOLE_VERSION
+    assert response.json()["api"]
+    assert response.json()["mole"] == MOLE_VERSION
+    cofactors = client.get("/cofactors").json()
+    assert cofactors and all(isinstance(name, str) and isinstance(query, str) for name, query in cofactors.items())
 
 
 def test_wrong_settings_stop_the_api(tmp_path: Path):

@@ -70,7 +70,7 @@ def test_name_is_stored_with_safe_characters(client, settings, name, stored):
     id = upload(client, name, gzip.compress(STRUCTURE) if name.endswith("GZ") else STRUCTURE).json()["id"]
     assert wait_session(client, id)["state"] == "ready"
     assert json.loads((settings.working_directory / id / "_object.json").read_text())["StructureFile"] == stored
-    response = client.get(f"/Data/{id}", params={"format": "molecule"})
+    response = client.get(f"/sessions/{id}/structure")
     assert response.status_code == 200
     assert response.headers["content-disposition"] == f'attachment; filename="{stored}"'
     assert response.content == STRUCTURE  # unpacked, also under the shortened name

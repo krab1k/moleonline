@@ -5,7 +5,7 @@
     "version": "0.7.0"
   },
   "paths": {
-    "/Version": {
+    "/version": {
       "get": {
         "summary": "Get Version",
         "description": "Versions of the API (with the pores tool) and of MOLE",
@@ -24,169 +24,22 @@
         }
       }
     },
-    "/CSA/{computation_id}": {
+    "/cofactors": {
       "get": {
-        "summary": "Get Csa",
-        "description": "Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per\ncopy, as tunnel starting points; none for an uploaded structure",
-        "operationId": "get_csa",
-        "parameters": [
-          {
-            "name": "computation_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Computation Id"
-            }
-          }
-        ],
+        "summary": "Get Cofactors",
+        "description": "Cofactors by residue name, with the PatternQuery expression of their atoms, as tunnel starting points",
+        "operationId": "get_cofactors",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/CSAResidue"
-                    }
+                  "additionalProperties": {
+                    "type": "string"
                   },
-                  "title": "Response Get Csa"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "410": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Gone"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Internal Server Error"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/Data/{computation_id}": {
-      "get": {
-        "summary": "Get Data",
-        "description": "A result of a submission (-1: the last one, 0: the load) to download. Formats: json (MOLE's data.json, what\nthe web shows), report (zip of all), molecule (the structure), pymol, chimera, vmd (scripts), pdb (zip of the\ntunnels' profiles), membrane (membrane.json of a pore computation).",
-        "operationId": "get_data",
-        "parameters": [
-          {
-            "name": "computation_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Computation Id"
-            }
-          },
-          {
-            "name": "submitId",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": -1,
-              "title": "Submitid"
-            }
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "json",
-              "title": "Format"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The file, as an attachment"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "410": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Gone"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Internal Server Error"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "type": "object",
+                  "title": "Response Get Cofactors"
                 }
               }
             }
@@ -421,6 +274,218 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{session_id}/structure": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Get Structure",
+        "description": "The session's structure, as loaded (a gzipped upload unpacked)",
+        "operationId": "get_structure",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, as an attachment"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{session_id}/data": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Get Session Data",
+        "description": "What the load found, MOLE's data.json: the cavities and the origins (tunnel starting points)",
+        "operationId": "get_session_data",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, as an attachment"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{session_id}/active-sites": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Get Active Sites",
+        "description": "Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per\ncopy, as tunnel starting points; none for an uploaded structure",
+        "operationId": "get_active_sites",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CSAResidue"
+                    }
+                  },
+                  "title": "Response Get Active Sites"
+                }
+              }
+            }
           },
           "404": {
             "content": {
@@ -714,6 +779,89 @@
                 }
               }
             }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{session_id}/jobs/{number}/results/{format}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Job Result",
+        "description": "A result of the job: data (MOLE's data.json, what the web shows), report (a zip of all), pymol, chimera, vmd\n(scripts of the viewers), pdb (a zip of the tunnels' profiles), membrane (of a pore job, also when MOLE then\nfailed). Only a finished job has results.",
+        "operationId": "get_job_result",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ResultFormat"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, as an attachment"
           },
           "404": {
             "content": {
@@ -1332,6 +1480,20 @@
         "title": "Report",
         "description": "The state of a submission, the response of most requests; with an HTTP error status, ErrorMsg says why the\nrequest failed. A report of a computation that failed is not a failed request."
       },
+      "ResultFormat": {
+        "type": "string",
+        "enum": [
+          "data",
+          "report",
+          "pymol",
+          "chimera",
+          "vmd",
+          "pdb",
+          "membrane"
+        ],
+        "title": "ResultFormat",
+        "description": "A job's results: MOLE's data.json (what the web shows), all of them zipped, scripts of the viewers, the tunnels'\nprofiles (a zip of PDB files), the membrane of a pore job"
+      },
       "Session": {
         "properties": {
           "id": {
@@ -1480,19 +1642,19 @@
       },
       "Version": {
         "properties": {
-          "APIVersion": {
+          "api": {
             "type": "string",
-            "title": "Apiversion"
+            "title": "Api"
           },
-          "MoleVersion": {
+          "mole": {
             "type": "string",
-            "title": "Moleversion"
+            "title": "Mole"
           }
         },
         "type": "object",
         "required": [
-          "APIVersion",
-          "MoleVersion"
+          "api",
+          "mole"
         ],
         "title": "Version"
       }

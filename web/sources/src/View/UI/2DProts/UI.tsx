@@ -7,7 +7,7 @@ import { SelectionHelper } from "../../CommonUtils/Selection";
 import { Tunnel, TunnelMetaInfo } from "../../../DataInterface";
 import { LastVisibleChannels } from "../../../Cache";
 import { Color } from "molstar/lib/mol-util/color";
-import { DataSources } from "../../../../config/common";
+import { ApiService } from "../../../MoleAPIService";
 
 function highlightElement(elementId: string, highlightColour: string): void {
     const svgContainer = document.getElementById('svgContainer');
@@ -225,12 +225,11 @@ export class TwoDProts extends React.Component<{}, { isComputing: boolean, error
             this.setState({ isComputing: false, jobId: '', error: `Cannot get structure url` });
             return;
         }
-        const submitId = params.submitId;
         const computationId = params.computationId;
         try {
             TwoDProtsProxy.Watcher.startJob(
                 // 2DProts downloads the structure itself, so it needs the full address, also when the API is under /api
-                new URL(`${DataSources.API_URL}/Data/${computationId}?submitId=${submitId}&format=molecule`, window.location.origin).href,
+                new URL(ApiService.structureUrl(computationId), window.location.origin).href,
                 TwoDProtsBridge.getVizualizedChannels(),
                 (status, jobId, errorMsg) => {
                     console.log(`2DProts Job Status: ${status}`);

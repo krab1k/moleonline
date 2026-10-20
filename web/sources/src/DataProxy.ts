@@ -253,7 +253,7 @@ export namespace JobStatus {
 
 export namespace DataProxyCSAResidues {
     export const DataProvider = new KeyedDataProvider<CSAResidues>(
-        compId => ApiService.getCSAResidues(compId),
+        sessionId => ApiService.getActiveSites(sessionId),
         'Could not load CSA residues from the MOLE API.',
     );
 }

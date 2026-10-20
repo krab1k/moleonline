@@ -142,7 +142,7 @@ def test_session_of_a_csharp_computation_is_ready(client, settings):
     results = settings.working_directory / id / "0" / "json" / "data.json"  # what the load found
     results.parent.mkdir(parents=True)
     results.write_text('{"Channels": {}}')
-    response = client.get(f"/Data/{id}", params={"submitId": 0, "format": "json"})
+    response = client.get(f"/sessions/{id}/data")
     assert response.status_code == 200 and response.json() == {"Channels": {}}
 
 
