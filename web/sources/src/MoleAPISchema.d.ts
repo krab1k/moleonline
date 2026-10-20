@@ -141,23 +141,31 @@ export interface components {
        * @enum {string}
        */
       type: "tunnels" | "pores";
+      /** @default queued */
       state: components["schemas"]["JobState"];
-      /** Error */
+      /**
+       * Error
+       * @default
+       */
       error: string;
       /** Parameters */
       parameters: {
         [key: string]: unknown;
       };
-      /** Submitted */
-      submitted: string | null;
+      /**
+       * Submitted
+       * Format: date-time
+       */
+      submitted: string;
       /** Started */
       started: string | null;
       /** Finished */
       finished: string | null;
+      /** Mole Version */
+      mole_version: string;
     };
     /**
      * JobState
-     * @description Of a job, see Unit.job_state
      * @enum {string}
      */
     JobState: "queued" | "running" | "finished" | "failed" | "cancelled";
@@ -393,15 +401,18 @@ export interface components {
     };
     /**
      * Report
-     * @description The state of a submission, the response of most requests; with an HTTP error status, ErrorMsg says why the
-     * request failed. A report of a computation that failed is not a failed request.
+     * @description Why a request failed, with its HTTP error status
      */
     Report: {
       /** Computationid */
       ComputationId: string | null;
       /** Submitid */
       SubmitId: number;
-      Status: components["schemas"]["Status"];
+      /**
+       * Status
+       * @constant
+       */
+      Status: "Error";
       /** Errormsg */
       ErrorMsg: string;
     };
@@ -419,31 +430,37 @@ export interface components {
     Session: {
       /** Id */
       id: string;
+      /** @default queued */
       state: components["schemas"]["SessionState"];
-      /** Error */
+      /**
+       * Error
+       * @default
+       */
       error: string;
       /** Pdb Id */
       pdb_id: string | null;
       /** Assembly Id */
       assembly_id: string | null;
-      /** Created */
-      created: string | null;
+      /**
+       * Created
+       * Format: date-time
+       */
+      created: string;
       /** Loaded */
       loaded: string | null;
-      /** Jobs */
+      /** Mole Version */
+      mole_version: string;
+      /**
+       * Jobs
+       * @default []
+       */
       jobs: components["schemas"]["Job"][];
     };
     /**
      * SessionState
-     * @description Of the loaded structure, see Computation.session_state
      * @enum {string}
      */
     SessionState: "queued" | "loading" | "ready" | "failed";
-    /**
-     * Status
-     * @enum {string}
-     */
-    Status: "Aborted" | "Initialized" | "Initializing" | "Running" | "Finished" | "Error" | "Deleted" | "FailedInitialization";
     /** ValidationError */
     ValidationError: {
       /** Location */

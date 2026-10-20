@@ -8,7 +8,7 @@ vi.mock('./MoleAPIService', () => ({ ApiService: api }));
 import { SessionStatus } from './DataProxy';
 
 const session = (state: string, error = '') => ({
-    id: 'abc', state, error, pdb_id: '1tqn', assembly_id: null, created: null, loaded: null,
+    id: 'abc', state, error, pdb_id: '1tqn', assembly_id: null, created: '2026-10-20T08:00:00Z', loaded: null, mole_version: '2.5.26.10.17', jobs: [],
 });
 
 describe('SessionStatus.waitUntilLoaded', () => {

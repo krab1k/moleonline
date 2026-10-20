@@ -20,18 +20,16 @@ def test_waiting_for_a_slot(api):
     client = api(load=UNTIL_GO, slots=1)
     folder = client.app.state.settings.working_directory
     first, second = load(client), load(client)
-    wait_for_file(folder / first / "0" / "started")
+    wait_for_file(folder / first / "load" / "started")
     time.sleep(0.3)
-    saved = lambda id: json.loads((folder / id / "_object.json").read_text())["ComputationUnits"][0]
-    assert saved(second)["Started"] is None  # waits for the slot
-    assert client.get(f"/sessions/{second}").json()["state"] == "queued"
+    assert client.get(f"/sessions/{second}").json()["state"] == "queued"  # waits for the slot
     assert client.get(f"/sessions/{first}").json()["state"] == "loading"
 
-    (folder / first / "0" / "go").touch()
+    (folder / first / "load" / "go").touch()
     assert wait_session(client, first)["state"] == "ready"
-    wait_for_file(folder / second / "0" / "started")
-    assert saved(second)["Started"] > saved(second)["Submitted"]
-    (folder / second / "0" / "go").touch()
+    wait_for_file(folder / second / "load" / "started")
+    assert client.get(f"/sessions/{second}").json()["state"] == "loading"
+    (folder / second / "load" / "go").touch()
     assert wait_session(client, second)["state"] == "ready"
 
 
@@ -63,7 +61,7 @@ def test_time_limit_kills_the_whole_process_tree(api):
     session = wait_session(client, id)
     assert session["state"] == "failed"
     assert session["error"] == "The computation exceeded the time limit of 30 minutes."
-    child = int((client.app.state.settings.working_directory / id / "0" / "child").read_text())
+    child = int((client.app.state.settings.working_directory / id / "load" / "child").read_text())
     assert gone(child)
 
 
@@ -71,8 +69,8 @@ def test_stopping_the_api_kills_runs(api, tmp_path):
     client = api(load='sleep 30 & echo $! > "$(dirname "$1")/child"; ' + UNTIL_GO)
     folder = client.app.state.settings.working_directory
     id = load(client)
-    wait_for_file(folder / id / "0" / "started")
-    child = int((folder / id / "0" / "child").read_text())
+    wait_for_file(folder / id / "load" / "started")
+    child = int((folder / id / "load" / "child").read_text())
     client.__exit__(None, None, None)  # the API stops
     assert gone(child)
-    assert json.loads((folder / id / "_object.json").read_text())["ComputationUnits"][0]["Status"] == "Initializing"  # marked by the next API
+    assert json.loads((folder / id / "session.json").read_text())["state"] == "loading"  # marked by the next API

@@ -45,7 +45,7 @@ def create(client, pdb_id: str = "1tqn", **assembly):
 
 
 def saved(client, id: str) -> dict:
-    return json.loads((client.app.state.settings.working_directory / id / "_object.json").read_text())
+    return json.loads((client.app.state.settings.working_directory / id / "session.json").read_text())
 
 
 @pytest.mark.parametrize("requested, routes, file, assembly_id, pores", [
@@ -67,11 +67,10 @@ def test_structure_is_downloaded_and_loaded(client, requested, routes, file, ass
 
     assert file in pdbe.requests
     status = saved(client, id)
-    assert (status["PdbId"], status["StructureFile"], status["AssemblyId"], status["DbModePores"]) == ("1tqn", "1tqn.cif", assembly_id, pores)
-    assert not status["UserStructure"]
+    assert (status["pdb_id"], status["structure_file"], status["assembly_id"], status["opm"]) == ("1tqn", "1tqn.cif", assembly_id, pores)
     folder = client.app.state.settings.working_directory / id
     assert (folder / "1tqn.cif").read_bytes() == STRUCTURE
-    assert (folder / "0" / "input.xml").exists()
+    assert (folder / "load" / "input.xml").exists()
 
 
 ERROR_CIF = b"data_error\n_coordinate_server_error.message 'Entry not found.'\n"
@@ -91,7 +90,7 @@ def test_failed_download(client, answer, message):
     session = wait_session(client, id)
     assert session["state"] == "failed"
     assert session["error"] == message
-    assert not (client.app.state.settings.working_directory / id / "0").exists()  # MOLE did not run
+    assert not (client.app.state.settings.working_directory / id / "load").exists()  # MOLE did not run
     assert not list((client.app.state.settings.working_directory / id).glob("*.download"))
 
 

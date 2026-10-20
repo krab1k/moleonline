@@ -13,7 +13,7 @@ STOPPED = "Loading of the structure was stopped."
 
 def started_load(client) -> str:
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
-    wait_for_file(client.app.state.settings.working_directory / id / "0" / "started")
+    wait_for_file(client.app.state.settings.working_directory / id / "load" / "started")
     return id
 
 
@@ -32,7 +32,7 @@ def test_cancelled_load(api):
     client = api(load=CHILD + UNTIL_GO)
     id = started_load(client)
     assert client.get(f"/sessions/{id}").json()["state"] == "loading"
-    child = int((client.app.state.settings.working_directory / id / "0" / "child").read_text())
+    child = int((client.app.state.settings.working_directory / id / "load" / "child").read_text())
 
     response = client.post(f"/sessions/{id}/cancel")
     assert response.status_code == 200
@@ -55,10 +55,10 @@ def test_load_cancelled_while_waiting_for_a_slot(api):
     assert client.get(f"/sessions/{waiting}").json()["state"] == "queued"
     assert client.post(f"/sessions/{waiting}/cancel").json()["error"] == STOPPED
 
-    (folder / first / "0" / "go").touch()
+    (folder / first / "load" / "go").touch()
     assert wait_session(client, first)["state"] == "ready"
     time.sleep(0.3)  # the slot is free, the cancelled load must not start
-    assert not (folder / waiting / "0" / "started").exists()
+    assert not (folder / waiting / "load" / "started").exists()
     assert client.get(f"/sessions/{waiting}").json()["state"] == "failed"
 
 
@@ -71,7 +71,7 @@ def test_ready_session_cannot_be_cancelled_and_its_job_runs_on(api):
     assert response.json()["ErrorMsg"] == "The session is ready, only a queued or loading session can be cancelled."
 
     submit(client, id)
-    folder = client.app.state.settings.working_directory / id / "1"
+    folder = client.app.state.settings.working_directory / id / "jobs" / "1"
     wait_for_file(folder / "started")
     assert client.post(f"/sessions/{id}/cancel").status_code == 409  # jobs are cancelled on their own
     (folder / "go").touch()
@@ -81,7 +81,7 @@ def test_ready_session_cannot_be_cancelled_and_its_job_runs_on(api):
 def test_delete_stops_the_run_and_is_410_after(api):
     client = api(load=CHILD + UNTIL_GO)
     id = started_load(client)
-    child = int((client.app.state.settings.working_directory / id / "0" / "child").read_text())
+    child = int((client.app.state.settings.working_directory / id / "load" / "child").read_text())
 
     response = client.delete(f"/sessions/{id}")
     assert response.status_code == 204
@@ -91,7 +91,7 @@ def test_delete_stops_the_run_and_is_410_after(api):
     for response in (client.get(f"/sessions/{id}"), client.post(f"/sessions/{id}/cancel"), client.delete(f"/sessions/{id}"),
                      client.get(f"/sessions/{id}/jobs/1"), client.post(f"/sessions/{id}/jobs", json={"type": "tunnels", "parameters": {}})):
         assert response.status_code == 410
-        assert response.json()["ErrorMsg"] == "The computation has been deleted."
+        assert response.json()["ErrorMsg"] == "The session has been deleted."
 
 
 def test_delete_of_a_ready_session(client):
@@ -105,4 +105,4 @@ def test_delete_of_a_ready_session(client):
 def test_unknown_session(client, method, path):
     response = client.request(method, path)
     assert response.status_code == 404
-    assert response.json()["ErrorMsg"] == "ComputationId [nope] does not exists.\n"
+    assert response.json()["ErrorMsg"] == "Session [nope] does not exist."

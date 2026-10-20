@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 
 import httpx2
 
-from .computation import Computation, Status
+from .storage import SessionState, StoredSession
 from .upload import MAX_STRUCTURE_MB, MB
 
 PREFERRED, ASYMMETRIC = "preferred", "asymmetric"
@@ -31,13 +31,13 @@ async def preferred_assembly(http: httpx2.AsyncClient, pdb_id: str) -> str | Non
         return None
 
 
-async def download(http: httpx2.AsyncClient, c: Computation, assembly: str) -> bool:
-    """Downloads the structure into the computation; False when it failed, the status then says why.
+async def download(http: httpx2.AsyncClient, s: StoredSession, assembly: str) -> bool:
+    """Downloads the structure into the session; False when it failed, the session then says why.
     assembly: PREFERRED (the asymmetric unit when it cannot be looked up), ASYMMETRIC or an assembly id."""
-    pdb_id = c.PdbId
-    c.AssemblyId = None if assembly == ASYMMETRIC else await preferred_assembly(http, pdb_id) if assembly == PREFERRED else assembly
-    url = f"/model-server/v1/{pdb_id}/assembly?name={c.AssemblyId}" if c.AssemblyId else f"/model-server/v1/{pdb_id}/full"
-    file = c.folder() / f"{pdb_id}.cif"
+    pdb_id = s.pdb_id
+    s.assembly_id = None if assembly == ASYMMETRIC else await preferred_assembly(http, pdb_id) if assembly == PREFERRED else assembly
+    url = f"/model-server/v1/{pdb_id}/assembly?name={s.assembly_id}" if s.assembly_id else f"/model-server/v1/{pdb_id}/full"
+    file = s.folder() / f"{pdb_id}.cif"
     temp = file.with_name(file.name + ".download")  # the structure file appears only when complete
     failed = None
     try:
@@ -50,10 +50,10 @@ async def download(http: httpx2.AsyncClient, c: Computation, assembly: str) -> b
             failed = f"PDBe returned an error ({status}) when downloading structure [{pdb_id}]. Please, try again later."
         else:
             temp.rename(file)
-            c.StructureFile = file.name
+            s.structure_file = file.name
             failed = await asyncio.to_thread(server_error, file)
             # the preferred assembly, the one OPM has; unknown when the lookup failed, then the full structure was downloaded
-            c.DbModePores = c.AssemblyId is not None and (assembly == PREFERRED or c.AssemblyId == await preferred_assembly(http, pdb_id))
+            s.opm = s.assembly_id is not None and (assembly == PREFERRED or s.assembly_id == await preferred_assembly(http, pdb_id))
     except httpx2.HTTPError:
         failed = "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later."
     except Exception as e:
@@ -61,9 +61,9 @@ async def download(http: httpx2.AsyncClient, c: Computation, assembly: str) -> b
     finally:
         temp.unlink(missing_ok=True)
     if failed:
-        c.change_status(Status.FailedInitialization, failed)
+        s.update(None, SessionState.failed, failed)
         return False
-    c.save()
+    s.save()
     return True
 
 

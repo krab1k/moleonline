@@ -29,7 +29,7 @@ Settings, in the environment or in `.env` next to `compose.yaml` (locally; on th
 | `MOLEONLINE_PORT` | `8080` | the site's port on the host |
 | `API_MEMORY_LIMIT` | `24g` | memory of all computations together, see [`api/README.md`](api/README.md#configuration) |
 
-The API's data (computations, the submission log, OPM files) is in the volume `moleonline_data`.
+The API's data (sessions, the request log, OPM files) is in the volume `moleonline_data`.
 
 ### Production and testing
 

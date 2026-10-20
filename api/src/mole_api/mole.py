@@ -4,11 +4,10 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from .computation import Computation
 from .parameters import MoleOrigin, MoleParameters, MoleResidue
+from .storage import StoredSession
 
 INPUT = "input.xml"
-PARAMETERS = "mole.json"  # what the user submitted
 REPORT = "report.zip"
 
 
@@ -18,11 +17,11 @@ def element(tag: str, text: str | None = None, **attributes: str) -> ET.Element:
     return e
 
 
-def load_input(c: Computation) -> Path:
-    """The load (folder 0): MOLE reads the structure and writes its residues and chains (json/data.json), no tunnels"""
-    directory = c.submit_directory(0)
+def load_input(s: StoredSession) -> Path:
+    """The load (folder load/): MOLE reads the structure and writes its residues and chains (json/data.json), no tunnels"""
+    directory = s.load_directory()
     root = element("Tunnels")
-    root.append(element("Input", str(c.structure_path())))
+    root.append(element("Input", str(s.structure_path())))
     root.append(element("WorkingDirectory", str(directory)))
     params = element("Params")
     params.append(element("Cavity", ProbeRadius="5", InteriorThreshold="1.1", IgnoreHETAtoms="0", IgnoreHydrogens="0"))
@@ -67,12 +66,11 @@ def origins(origin: MoleOrigin, tag: str, item: str) -> ET.Element:
     return parent
 
 
-def computation_input(c: Computation, p: MoleParameters) -> Path:
-    """A tunnel computation of the last submission; only the first model of the structure is used. With exits and
-    no origin, MOLE computes pores between the exits (PoresUser) instead of tunnels."""
+def computation_input(s: StoredSession, p: MoleParameters, directory: Path) -> Path:
+    """A tunnel job in its folder; only the first model of the structure is used. With exits and no origin, MOLE
+    computes pores between the exits (PoresUser) instead of tunnels."""
     has_origin, has_exits = not p.Origin.is_empty(), not p.CustomExits.is_empty()
-    structure = c.structure_path()
-    directory = c.submit_directory(c.last.SubmitId)
+    structure = s.structure_path()
     root = element("Tunnels")
     root.append(element("Input", str(structure), SpecificChains=p.Input.SpecificChains))
     root.append(element("WorkingDirectory", str(directory)))

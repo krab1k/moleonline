@@ -7,6 +7,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
+from mole_api import storage
 from mole_api.main import STATIC_FILES
 
 from .conftest import MOLE_VERSION, STRUCTURE, upload, wait, wait_session, wait_for_file
@@ -44,21 +45,19 @@ def test_job_runs_and_finishes(api):
     assert done["submitted"] <= done["started"] <= done["finished"]
     assert client.get(f"/sessions/{id}").json()["jobs"] == [done]
 
-    folder = client.app.state.settings.working_directory / id / "1"
+    folder = client.app.state.settings.working_directory / id / "jobs" / "1"
     with zipfile.ZipFile(folder / "report.zip") as report:
         assert sorted(report.namelist()) == ["1tqn.cif", "json/data.json"]
-    saved = json.loads((folder / "mole.json").read_text())
-    assert saved["Cavity"] == {"IgnoreHETAtoms": False, "IgnoreHydrogens": False, "InteriorThreshold": 1.1, "ProbeRadius": 5.0}
-    assert saved["Origin"] == {"Points": None, "QueryExpression": None, "Residues": None}
-
-    unit = json.loads((folder.parent / "_object.json").read_text())["ComputationUnits"][0]
-    assert unit["Submitted"] <= unit["Started"] <= unit["Finished"]
-    assert unit["MoleVersion"] == MOLE_VERSION
+    [saved] = json.loads((folder.parent.parent / "session.json").read_text())["jobs"]  # the job's parameters with it
+    assert saved["parameters"]["Cavity"] == {"IgnoreHETAtoms": False, "IgnoreHydrogens": False, "InteriorThreshold": 1.1, "ProbeRadius": 5.0}
+    assert saved["parameters"]["Origin"] == {"Points": None, "QueryExpression": None, "Residues": None}
+    assert saved["submitted"] <= saved["started"] <= saved["finished"]
+    assert saved["mole_version"] == MOLE_VERSION
     assert submit(client, id).json()["number"] == 2
 
 
 def xml(client, id: str, submit_id: int) -> ET.Element:
-    return ET.parse(client.app.state.settings.working_directory / id / str(submit_id) / "input.xml").getroot()
+    return ET.parse(client.app.state.settings.working_directory / id / "jobs" / str(submit_id) / "input.xml").getroot()
 
 
 def test_input_of_the_examples(client):
@@ -68,7 +67,7 @@ def test_input_of_the_examples(client):
     submit(client, id, (EXAMPLES / "1tqn_residue_channels.json").read_text())
     root = xml(client, id, 1)
     assert root.findtext("Input") == str(folder / "1tqn.cif") and root.find("Input").get("SpecificChains") == ""
-    assert root.findtext("WorkingDirectory") == str(folder / "1")
+    assert root.findtext("WorkingDirectory") == str(folder / "jobs" / "1")
     assert root.find("Params/Cavity").attrib == {"ProbeRadius": "9", "InteriorThreshold": "1.25", "IgnoreHETAtoms": "0", "IgnoreHydrogens": "0"}
     assert root.find("Params/Tunnel").attrib == {"BottleneckRadius": "1.25", "BottleneckTolerance": "3", "MaxTunnelSimilarity": "0.7",
                                                  "OriginRadius": "5", "SurfaceCoverRadius": "10", "WeightFunction": "VoronoiScale", "UseCustomExitsOnly": "0"}
@@ -145,7 +144,7 @@ def test_busy_session_refuses_and_the_job_is_cancelled(api):
     client = api(run=UNTIL_GO)
     id = loaded(client)
     submit(client, id)
-    wait_for_file(client.app.state.settings.working_directory / id / "1" / "started")
+    wait_for_file(client.app.state.settings.working_directory / id / "jobs" / "1" / "started")
 
     assert client.get(f"/sessions/{id}/jobs/1").json()["state"] == "running"
     busy = submit(client, id)
@@ -213,3 +212,24 @@ def test_unknown_and_deleted_session(client):
     id = loaded(client)
     client.delete(f"/sessions/{id}")
     assert submit(client, id).status_code == 410
+
+
+def test_job_after_one_whose_save_failed(api, monkeypatch):
+    """The folder of a job whose save failed is left (e.g. a full disk); the next job gets its number and folder"""
+    client = api(run=RESULTS)
+    id = loaded(client)
+    session = storage.load(client.app.state.settings.working_directory, id)
+    save = storage.StoredSession.save
+
+    def failing(self):
+        monkeypatch.setattr(storage.StoredSession, "save", save)  # once
+        raise OSError("No space left on device")
+    monkeypatch.setattr(storage.StoredSession, "save", failing)
+    with pytest.raises(OSError):
+        session.add_job("tunnels", {}, MOLE_VERSION)
+    folder = client.app.state.settings.working_directory / id / "jobs" / "1"
+    assert folder.is_dir() and client.get(f"/sessions/{id}").json()["jobs"] == []
+
+    response = submit(client, id)
+    assert response.status_code == 202 and response.json()["number"] == 1
+    assert wait(client, id, 1)["state"] == "finished"

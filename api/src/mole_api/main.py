@@ -7,7 +7,6 @@ import uuid
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import version
-from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -22,33 +21,38 @@ from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import UploadFile
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from . import computation, data, iplog, mole, pdbe, upload
+from . import data, iplog, mole, pdbe, storage, upload
 from .csa import CSA, CSAResidue
-from .computation import Computation, JobState, Report, SessionState, Status, Unit
 from .config import Settings
 from .parameters import MoleParameters, PoresParameters, PoresRequest
 from .runner import Runner, Step
+from .storage import IN_PROGRESS, Job, JobState, Session, SessionState, StoredSession
 from .versions import read_mole_version
 
 
-def respond(report: Report, status_code: int = 200) -> JSONResponse:
+class Report(BaseModel):
+    """Why a request failed, with its HTTP error status"""
+    ComputationId: str | None  # the session's id; null when none was created (a refused upload)
+    SubmitId: int  # the job's number, 0 for none
+    Status: Literal["Error"]
+    ErrorMsg: str
+
+
+def error(session_id: str | None, status_code: int, message: str, number: int = 0) -> JSONResponse:
+    report = Report(ComputationId=session_id, SubmitId=number, Status="Error", ErrorMsg=message)
     return JSONResponse(report.model_dump(mode="json"), status_code)
-
-
-def error(computation_id: str | None, status_code: int, message: str, submit_id: int = 0) -> JSONResponse:
-    return respond(Report(ComputationId=computation_id, SubmitId=submit_id, Status=Status.Error, ErrorMsg=message), status_code)
 
 
 STOPPED_LOAD = "Loading of the structure was stopped."
 
 
-def find(request: Request, computation_id: str) -> Computation | JSONResponse:
-    """The computation, or the response when it does not exist (404) or is deleted (410)"""
-    found = computation.load(request.app.state.settings.working_directory, computation_id)
+def find(request: Request, session_id: str) -> StoredSession | JSONResponse:
+    """The session, or the response when it does not exist (404) or is deleted (410)"""
+    found = storage.load(request.app.state.settings.working_directory, session_id)
     if found is None:
-        return respond(computation.not_exists(computation_id), 404)
-    if found.is_deleted():
-        return error(computation_id, 410, "The computation has been deleted.")
+        return error(session_id, 404, f"Session [{session_id}] does not exist.")
+    if found.deleted:
+        return error(session_id, 410, "The session has been deleted.")
     return found
 
 
@@ -56,16 +60,15 @@ STATIC_FILES = Path(__file__).parent / "static"  # served at /: the example inpu
 COFACTORS = STATIC_FILES / "inputs" / "cofactors.json"
 
 
-def can_run(request: Request, c: Computation) -> tuple[int, str] | None:
+def can_run(request: Request, s: StoredSession) -> tuple[int, str] | None:
     """Why a new job cannot start, with the HTTP status"""
-    match c.last.Status:
-        case Status.Running:
-            return 409, "The previous job is still running. This one has not been started. Please, try again later."
-        case Status.Initializing:
-            return 409, "The structure is still being loaded. This job has not been started. Please, try again later."
-        case Status.FailedInitialization:
-            return 409, "The structure could not be loaded, no job can run on it."
-    if len(request.app.state.runner.jobs) >= request.app.state.settings.max_concurrent_computations:
+    if s.state in IN_PROGRESS:
+        return 409, "The structure is still being loaded. This job has not been started. Please, try again later."
+    if s.state == SessionState.failed:
+        return 409, "The structure could not be loaded, no job can run on it."
+    if s.last_job is not None and s.last_job.state in IN_PROGRESS:
+        return 409, "The previous job is still running. This one has not been started. Please, try again later."
+    if len(request.app.state.runner.runs) >= request.app.state.settings.max_concurrent_computations:
         return 503, "Server is under heavy load, the job has not started. Please try again later"
     return None
 
@@ -103,7 +106,7 @@ UPLOAD_FORM = {"requestBody": {"required": True, "content": {"multipart/form-dat
     "properties": {"file": {"type": "string", "format": "binary", "description": "*.pdb, *.cif, *.pdb.gz or *.cif.gz, at most 30 MB unpacked"}}}}}}}
 
 
-PORES_PARAMETERS = "pores.json"  # the input of the pores tool, also what the user submitted
+PORES_PARAMETERS = "pores.json"  # the input of the pores tool
 # a process of its own, as MOLE: a stop or the time limit kills it with MEMEMBED; the tests replace it
 PORES_TOOL = [sys.executable, "-m", "mole_api.pores"]
 
@@ -120,38 +123,6 @@ def pore_found(directory: Path) -> str | None:
     if not json.loads(results.read_bytes()).get("Channels", {}).get("Paths"):
         return "No pore was found along the membrane normal."
     return None
-
-
-class Job(BaseModel):
-    """A tunnel or pore computation on a session's structure"""
-    number: int  # from 1, in the session
-    type: Literal["tunnels", "pores"]
-    state: JobState
-    error: str  # why it failed, empty otherwise
-    # tunnels: MOLE's parameters (mole.json); pores: those of the pore (InMembrane, IsBetaBarrel, Chains, ProbeRadius,
-    # InteriorThreshold); as stored, with the defaults filled in
-    parameters: dict
-    submitted: datetime | None  # UTC; None in jobs of the former API
-    started: datetime | None  # got a slot
-    finished: datetime | None
-
-
-def job(c: Computation, unit: Unit) -> Job | None:
-    """The unit as a job; None for the load (no parameters)"""
-    folder = c.submit_directory(unit.SubmitId)
-    tunnels, pores = folder / mole.PARAMETERS, folder / PORES_PARAMETERS
-    if tunnels.exists():
-        type, parameters = "tunnels", json.loads(tunnels.read_text())
-    elif pores.exists():
-        type, parameters = "pores", PoresParameters.model_validate_json(pores.read_bytes()).user_parameters()
-    else:
-        return None
-    return Job(number=unit.SubmitId, type=type, state=unit.job_state(), error=unit.ErrorMsg, parameters=parameters,
-               submitted=unit.Submitted, started=unit.Started, finished=unit.Finished)
-
-
-def jobs(c: Computation) -> list[Job]:
-    return [j for u in c.ComputationUnits if (j := job(c, u)) is not None]
 
 
 class NewTunnelsJob(BaseModel):
@@ -172,24 +143,6 @@ class NewPoresJob(BaseModel):
 NewJob = Annotated[NewTunnelsJob | NewPoresJob, Body(discriminator="type")]
 
 
-class Session(BaseModel):
-    """A structure loaded by MOLE, on which jobs run"""
-    id: str
-    state: SessionState
-    error: str  # why it failed, empty otherwise
-    pdb_id: str | None  # None: an uploaded structure
-    assembly_id: str | None  # the PDB entry's assembly that was loaded; None: the asymmetric unit, or an upload
-    created: datetime | None  # UTC; None in sessions created before the times were recorded
-    loaded: datetime | None  # the load ended (ready or failed)
-    jobs: list[Job]
-
-
-def session(c: Computation) -> Session:
-    state, why = c.session_state()
-    return Session(id=c.ComputationId, state=state, error=why, pdb_id=None if c.UserStructure else c.PdbId,
-                   assembly_id=c.AssemblyId, created=c.Created, loaded=c.Loaded, jobs=jobs(c))
-
-
 class NewSession(BaseModel):
     """A session of a PDB entry"""
     model_config = ConfigDict(extra="forbid")
@@ -198,10 +151,10 @@ class NewSession(BaseModel):
     assembly: str = pdbe.PREFERRED
 
 
-def created(request: Request, response: Response, c: Computation) -> Session:
+def created(request: Request, response: Response, s: StoredSession) -> Session:
     """202 Accepted (the decorator's status) with Location, the session to poll"""
-    response.headers["Location"] = request.url_for("get_session", session_id=c.ComputationId).path
-    return session(c)
+    response.headers["Location"] = request.url_for("get_session", session_id=s.id).path
+    return s.public()
 
 
 class Version(BaseModel):
@@ -209,8 +162,8 @@ class Version(BaseModel):
     mole: str
 
 
-async def create_from_upload(request: Request) -> Computation | JSONResponse:
-    """A computation of the uploaded structure, or why it is refused"""
+async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
+    """A session of the uploaded structure, or why it is refused"""
     if int(request.headers.get("content-length") or 0) > upload.MAX_REQUEST_BYTES:  # not read at all
         return error(None, 413, upload.TOO_LARGE)
     settings: Settings = request.app.state.settings
@@ -221,42 +174,41 @@ async def create_from_upload(request: Request) -> Computation | JSONResponse:
         if (name := upload.stored_name(file.filename or "")) is None:
             return error(None, 400, upload.UNSUPPORTED)
         gzipped = (file.filename or "").lower().endswith(".gz")
-        temp = settings.working_directory / f".upload-{uuid.uuid4().hex}"  # a computation only for a structure that fits
+        temp = settings.working_directory / f".upload-{uuid.uuid4().hex}"  # a session only for a structure that fits
         try:
             if refused := await run_in_threadpool(upload.store, file.file, gzipped, temp):
                 return error(None, *refused)
-            c = computation.create(settings.working_directory, request.app.state.mole_version)
-            c.StructureFile = name
-            temp.rename(c.structure_path())
-            c.save()
+            s = storage.create(settings.working_directory, request.app.state.mole_version)
+            s.structure_file = name
+            temp.rename(s.structure_path())
+            s.save()
         finally:
             temp.unlink(missing_ok=True)
-    request.app.state.runner.start(c, lambda: [run_mole(settings, mole.load_input(c))], init=True)
-    return c
+    request.app.state.runner.start(s, None, lambda: [run_mole(settings, mole.load_input(s))])
+    return s
 
 
-def start_job(request: Request, session_id: str, parameters: MoleParameters | PoresRequest,
-              write_input: Callable[[Computation, Path], list[Step]], finish: Callable[[Computation, Path], str | None]) -> Job | JSONResponse:
+def start_job(request: Request, session_id: str, new: NewTunnelsJob | NewPoresJob,
+              write_input: Callable[[StoredSession, Path], list[Step]], finish: Callable[[StoredSession, Path], str | None]) -> Job | JSONResponse:
     """A new job of the session, run in the background, or why it is refused. write_input: writes its input into its
     folder, returns its processes; finish: after them, in a thread, returns why the run failed (see Runner)."""
     found = find(request, session_id)
     if isinstance(found, JSONResponse):
         return found
-    if problems := parameters.problems():
+    if problems := new.parameters.problems():
         return error(session_id, 400, problems)
     if refused := can_run(request, found):
         return error(session_id, *refused)
 
-    found.add_submission(request.app.state.mole_version)
-    directory = found.submit_directory(found.last.SubmitId)
+    job = found.add_job(new.type, new.parameters.model_dump(), request.app.state.mole_version)
+    directory = found.job_directory(job.number)
     try:
-        found.change_status(Status.Running)
         steps = write_input(found, directory)
     except Exception as e:  # e.g. the structure is missing
-        found.change_status(Status.Error, str(e))
-        return error(session_id, 500, str(e), found.last.SubmitId)
-    started = job(found, found.last)  # before the run can change it
-    request.app.state.runner.start(found, lambda: steps, init=False, finish=lambda: finish(found, directory))
+        found.update(job.number, JobState.failed, str(e))
+        return error(session_id, 500, str(e), job.number)
+    started = job.model_copy()  # before the run can change it
+    request.app.state.runner.start(found, job.number, lambda: steps, finish=lambda: finish(found, directory))
     return started
 
 
@@ -321,11 +273,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return error(None, 400, f"Invalid PDB id [{new.pdb_id}].")
             if not pdbe.ASSEMBLY.match(new.assembly):
                 return error(None, 400, f"Invalid assembly [{new.assembly}]. Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
-            c = computation.create(settings.working_directory, request.app.state.mole_version, new.pdb_id.lower())
-            created_id = c.ComputationId
-            request.app.state.runner.start(c, lambda: [run_mole(settings, mole.load_input(c))], init=True,
-                                           prepare=lambda: pdbe.download(request.app.state.pdbe, c, new.assembly))
-            return created(request, response, c)
+            s = storage.create(settings.working_directory, request.app.state.mole_version, new.pdb_id.lower())
+            created_id = s.id
+            request.app.state.runner.start(s, None, lambda: [run_mole(settings, mole.load_input(s))],
+                                           prepare=lambda: pdbe.download(request.app.state.pdbe, s, new.assembly))
+            return created(request, response, s)
         finally:
             iplog.write(settings.working_directory, "Init", request.client and request.client.host, "PDB", created_id)
 
@@ -338,7 +290,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             found = await create_from_upload(request)
             if isinstance(found, JSONResponse):
                 return found
-            created_id = found.ComputationId
+            created_id = found.id
             return created(request, response, found)
         finally:
             iplog.write(request.app.state.settings.working_directory, "Init", request.client and request.client.host, "Upload", created_id)
@@ -347,10 +299,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def get_session(request: Request, session_id: str) -> Session:
         """The session's state: queued, loading, then ready or failed (with the error)"""
         found = find(request, session_id)
-        return found if isinstance(found, JSONResponse) else session(found)
+        return found if isinstance(found, JSONResponse) else found.public()
 
-    # cancel and delete stop runs: async, on the event loop as the runs, never in a worker thread (Runner is not
-    # thread-safe, and the check, the stop and the status change must not interleave with a run ending)
     FILE = {200: {"description": "The file, as an attachment"}}
 
     @sessions.get("/{session_id}/structure", response_class=Response, responses={**errors(404, 410), **FILE})
@@ -367,7 +317,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         found = find(request, session_id)
         if isinstance(found, JSONResponse):
             return found
-        if found.session_state()[0] != SessionState.ready:
+        if found.state != SessionState.ready:
             return error(session_id, 404, "The session has no data, its structure has not been loaded.")
         return data.session_data(found) or error(session_id, 404, "The data of the session are not available.")
 
@@ -382,8 +332,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         found = find(request, session_id)
         if isinstance(found, JSONResponse):
             return found
-        return [] if found.UserStructure else csa().get(found.PdbId)
+        return [] if found.pdb_id is None else csa().get(found.pdb_id)
 
+    # cancel and delete stop runs: async, on the event loop as the runs, never in a worker thread (Runner is not
+    # thread-safe, and the check, the stop and the state change must not interleave with a run ending)
     @sessions.post("/{session_id}/cancel", responses=errors(404, 409, 410))
     async def cancel_session(request: Request, session_id: str) -> Session:
         """Stops loading the structure (also its download): the session fails. Only a queued or loading session can
@@ -391,11 +343,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         found = find(request, session_id)
         if isinstance(found, JSONResponse):
             return found
-        state, _ = found.session_state()
-        if state not in (SessionState.queued, SessionState.loading) or not request.app.state.runner.kill(session_id):
-            return error(session_id, 409, f"The session is {state}, only a queued or loading session can be cancelled.")
-        found.change_status(Status.FailedInitialization, STOPPED_LOAD)
-        return session(found)
+        if found.state not in IN_PROGRESS or not request.app.state.runner.kill(session_id):
+            return error(session_id, 409, f"The session is {found.state}, only a queued or loading session can be cancelled.")
+        found.update(None, SessionState.failed, STOPPED_LOAD)
+        return found.public()
 
     @sessions.delete("/{session_id}", status_code=204, response_class=Response, responses=errors(404, 410))
     async def delete_session(request: Request, session_id: str):
@@ -404,7 +355,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if isinstance(found, JSONResponse):
             return found
         request.app.state.runner.kill(session_id)
-        found.change_status(Status.Deleted)
+        found.delete()
         return Response(status_code=204)
 
     # creating and cancelling jobs: async, on the event loop as the runs (see cancel_session); creating them is logged
@@ -421,33 +372,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if isinstance(new, NewTunnelsJob):
             parameters = new.parameters
 
-            def write_input(c: Computation, directory: Path) -> list[Step]:
-                path = mole.computation_input(c, parameters)
-                (directory / mole.PARAMETERS).write_text(parameters.model_dump_json(indent=2))
-                return [run_mole(settings, path)]
+            def write_input(s: StoredSession, directory: Path) -> list[Step]:
+                return [run_mole(settings, mole.computation_input(s, parameters, directory))]
 
-            def finish(c: Computation, directory: Path) -> str | None:
-                mole.zip_report(directory, c.structure_path())
+            def finish(s: StoredSession, directory: Path) -> str | None:
+                mole.zip_report(directory, s.structure_path())
                 return None
         else:
             pores = new.parameters
 
-            def write_input(c: Computation, directory: Path) -> list[Step]:
+            def write_input(s: StoredSession, directory: Path) -> list[Step]:
                 tool_input = directory / PORES_PARAMETERS
                 tool_input.write_text(PoresParameters(
-                    Structure=str(c.structure_path()), PdbId=c.PdbId if c.DbModePores else None, WorkingDirectory=str(directory),
+                    Structure=str(s.structure_path()), PdbId=s.pdb_id if s.opm else None, WorkingDirectory=str(directory),
                     Membrane=str(directory / "membrane.json"), Memembed=str(settings.memembed), OpmCache=str(settings.opm_cache),
                     **pores.model_dump(),
                 ).model_dump_json(indent=2))
                 return [Step([*PORES_TOOL, str(tool_input)]), run_mole(settings, directory / mole.INPUT)]
 
-            def finish(c: Computation, directory: Path) -> str | None:
+            def finish(s: StoredSession, directory: Path) -> str | None:
                 if problem := pore_found(directory):
                     return problem
-                mole.zip_report(directory, c.structure_path())
+                mole.zip_report(directory, s.structure_path())
                 return None
 
-        started = start_job(request, session_id, new.parameters, write_input, finish)
+        started = start_job(request, session_id, new, write_input, finish)
         if isinstance(started, JSONResponse):
             return started
         response.headers["Location"] = request.url_for("get_job", session_id=session_id, number=started.number).path
@@ -459,7 +408,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         found = find(request, session_id)
         if isinstance(found, JSONResponse):
             return found
-        if (wanted := next((j for j in jobs(found) if j.number == number), None)) is None:
+        if (wanted := found.job(number)) is None:
             return error(session_id, 404, f"Job {number} does not exist.", number)
         return wanted
 
@@ -471,7 +420,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         found = find(request, session_id)
         if isinstance(found, JSONResponse):
             return found
-        if (wanted := next((j for j in jobs(found) if j.number == number), None)) is None:
+        if (wanted := found.job(number)) is None:
             return error(session_id, 404, f"Job {number} does not exist.", number)
         # MOLE's files appear while it runs, a failed run leaves some; the membrane is complete once written
         if format != data.ResultFormat.membrane and wanted.state != JobState.finished:
@@ -484,14 +433,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         found = find(request, session_id)
         if isinstance(found, JSONResponse):
             return found
-        if (wanted := next((j for j in jobs(found) if j.number == number), None)) is None:
+        if (wanted := found.job(number)) is None:
             return error(session_id, 404, f"Job {number} does not exist.", number)
-        # the session's run is its last job's, if that one runs
-        if (number != found.last.SubmitId or wanted.state not in (JobState.queued, JobState.running)
-                or not request.app.state.runner.kill(session_id)):
+        # one job runs on a session at a time, the last one; the session's run is its
+        if wanted.state not in IN_PROGRESS or not request.app.state.runner.kill(session_id):
             return error(session_id, 409, f"The job is {wanted.state}, only a queued or running job can be cancelled.", number)
-        found.change_status(Status.Aborted)
-        return job(found, found.last)
+        found.update(number, JobState.cancelled)
+        return found.job(number)
 
     app.include_router(sessions)
     app.include_router(new_jobs)

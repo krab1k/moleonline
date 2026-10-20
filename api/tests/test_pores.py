@@ -35,10 +35,10 @@ def test_pore_is_computed(api, settings):
     assert wait(client, id, 1)["state"] == "finished"
 
     folder = settings.working_directory / id
-    assert json.loads((folder / "1" / "pores.json").read_text()) == {
-        "Structure": str(folder / "1tqn.cif"), "PdbId": None, "WorkingDirectory": str(folder / "1"), "Membrane": str(folder / "1" / "membrane.json"),
+    assert json.loads((folder / "jobs" / "1" / "pores.json").read_text()) == {
+        "Structure": str(folder / "1tqn.cif"), "PdbId": None, "WorkingDirectory": str(folder / "jobs" / "1"), "Membrane": str(folder / "jobs" / "1" / "membrane.json"),
         "Memembed": str(settings.memembed), "OpmCache": str(settings.opm_cache), "InMembrane": True, "IsBetaBarrel": False, "Chains": ["A", "A_2"], "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
-    with zipfile.ZipFile(folder / "1" / "report.zip") as report:
+    with zipfile.ZipFile(folder / "jobs" / "1" / "report.zip") as report:
         assert sorted(report.namelist()) == ["1tqn.cif", "json/data.json"]
     [job] = client.get(f"/sessions/{id}").json()["jobs"]
     assert job["type"] == "pores"
@@ -63,7 +63,7 @@ def test_warning_of_the_pores_tool_is_no_error(api, caplog):
     assert wait(client, id, 1)["state"] == "finished"
     [record] = [r for r in caplog.records if "stderr" in r.getMessage()]
     assert record.levelname == "WARNING"
-    assert record.getMessage().endswith(f"/{id}/1/pores.json succeeded with output on stderr: RuntimeWarning: Mean of empty slice return x.mean()")
+    assert record.getMessage().endswith(f"/{id}/jobs/1/pores.json succeeded with output on stderr: RuntimeWarning: Mean of empty slice return x.mean()")
 
 
 def test_opm_membrane_for_the_preferred_assembly(client, settings):
@@ -71,7 +71,7 @@ def test_opm_membrane_for_the_preferred_assembly(client, settings):
     id = client.post("/sessions", json={"pdb_id": "1tqn"}).json()["id"]
     wait_session(client, id)
     submit(client, id, {"ProbeRadius": 10, "InteriorThreshold": 1})
-    saved = json.loads((settings.working_directory / id / "1" / "pores.json").read_text())
+    saved = json.loads((settings.working_directory / id / "jobs" / "1" / "pores.json").read_text())
     assert (saved["PdbId"], saved["ProbeRadius"], saved["InteriorThreshold"]) == ("1tqn", 10.0, 1.0)
 
 
@@ -87,7 +87,7 @@ def test_failed_pore_computation(api, settings, pores, run, message):
     submit(client, id)
     job = wait(client, id, 1)
     assert job["state"] == "failed" and job["error"] == message
-    assert not (settings.working_directory / id / "1" / "report.zip").exists()
+    assert not (settings.working_directory / id / "jobs" / "1" / "report.zip").exists()
 
 
 @pytest.mark.parametrize("parameters, message", [

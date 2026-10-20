@@ -1052,11 +1052,13 @@
             "title": "Type"
           },
           "state": {
-            "$ref": "#/components/schemas/JobState"
+            "$ref": "#/components/schemas/JobState",
+            "default": "queued"
           },
           "error": {
             "type": "string",
-            "title": "Error"
+            "title": "Error",
+            "default": ""
           },
           "parameters": {
             "additionalProperties": true,
@@ -1064,15 +1066,8 @@
             "title": "Parameters"
           },
           "submitted": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "format": "date-time",
             "title": "Submitted"
           },
           "started": {
@@ -1098,6 +1093,10 @@
               }
             ],
             "title": "Finished"
+          },
+          "mole_version": {
+            "type": "string",
+            "title": "Mole Version"
           }
         },
         "type": "object",
@@ -1109,7 +1108,8 @@
           "parameters",
           "submitted",
           "started",
-          "finished"
+          "finished",
+          "mole_version"
         ],
         "title": "Job",
         "description": "A tunnel or pore computation on a session's structure"
@@ -1123,8 +1123,7 @@
           "failed",
           "cancelled"
         ],
-        "title": "JobState",
-        "description": "Of a job, see Unit.job_state"
+        "title": "JobState"
       },
       "MoleCavity": {
         "properties": {
@@ -1463,7 +1462,9 @@
             "title": "Submitid"
           },
           "Status": {
-            "$ref": "#/components/schemas/Status"
+            "type": "string",
+            "const": "Error",
+            "title": "Status"
           },
           "ErrorMsg": {
             "type": "string",
@@ -1478,7 +1479,7 @@
           "ErrorMsg"
         ],
         "title": "Report",
-        "description": "The state of a submission, the response of most requests; with an HTTP error status, ErrorMsg says why the\nrequest failed. A report of a computation that failed is not a failed request."
+        "description": "Why a request failed, with its HTTP error status"
       },
       "ResultFormat": {
         "type": "string",
@@ -1501,11 +1502,13 @@
             "title": "Id"
           },
           "state": {
-            "$ref": "#/components/schemas/SessionState"
+            "$ref": "#/components/schemas/SessionState",
+            "default": "queued"
           },
           "error": {
             "type": "string",
-            "title": "Error"
+            "title": "Error",
+            "default": ""
           },
           "pdb_id": {
             "anyOf": [
@@ -1530,15 +1533,8 @@
             "title": "Assembly Id"
           },
           "created": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "format": "date-time",
             "title": "Created"
           },
           "loaded": {
@@ -1553,12 +1549,17 @@
             ],
             "title": "Loaded"
           },
+          "mole_version": {
+            "type": "string",
+            "title": "Mole Version"
+          },
           "jobs": {
             "items": {
               "$ref": "#/components/schemas/Job"
             },
             "type": "array",
-            "title": "Jobs"
+            "title": "Jobs",
+            "default": []
           }
         },
         "type": "object",
@@ -1570,6 +1571,7 @@
           "assembly_id",
           "created",
           "loaded",
+          "mole_version",
           "jobs"
         ],
         "title": "Session",
@@ -1583,22 +1585,7 @@
           "ready",
           "failed"
         ],
-        "title": "SessionState",
-        "description": "Of the loaded structure, see Computation.session_state"
-      },
-      "Status": {
-        "type": "string",
-        "enum": [
-          "Aborted",
-          "Initialized",
-          "Initializing",
-          "Running",
-          "Finished",
-          "Error",
-          "Deleted",
-          "FailedInitialization"
-        ],
-        "title": "Status"
+        "title": "SessionState"
       },
       "ValidationError": {
         "properties": {

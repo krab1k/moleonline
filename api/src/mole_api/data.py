@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi.responses import FileResponse, Response
 
-from .computation import Computation
+from .storage import StoredSession
 
 JSON, ZIP, TEXT = "application/json", "application/zip", "text/plain"
 
@@ -28,19 +28,19 @@ def file(path: Path, media_type: str, name: str) -> Response | None:
     return FileResponse(path, media_type=media_type, headers=attachment(name)) if path.is_file() else None
 
 
-def structure(c: Computation) -> Response | None:
+def structure(s: StoredSession) -> Response | None:
     """The session's structure, as stored (a gzipped upload unpacked)"""
-    return None if c.StructureFile is None else file(c.structure_path(), TEXT, c.StructureFile)
+    return None if s.structure_file is None else file(s.structure_path(), TEXT, s.structure_file)
 
 
-def session_data(c: Computation) -> Response | None:
+def session_data(s: StoredSession) -> Response | None:
     """MOLE's data.json of the load: the cavities and the origins it found"""
-    return file(c.submit_directory(0) / "json" / "data.json", JSON, f"mole_{c.ComputationId}.json")
+    return file(s.load_directory() / "json" / "data.json", JSON, f"mole_{s.id}.json")
 
 
-def job_result(c: Computation, number: int, format: ResultFormat) -> Response | None:
+def job_result(s: StoredSession, number: int, format: ResultFormat) -> Response | None:
     """A result of the job; None when it is not available (no profiles, no membrane outside pore jobs)"""
-    folder, name = c.submit_directory(number), f"mole_channels_{c.ComputationId}_{number}"
+    folder, name = s.job_directory(number), f"mole_channels_{s.id}_{number}"
     match format:
         case ResultFormat.data:
             return file(folder / "json" / "data.json", JSON, f"{name}.json")

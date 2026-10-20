@@ -1,4 +1,4 @@
-"""Runs MOLE and the pores tool for computations, in the background of the request that started them."""
+"""Runs MOLE and the pores tool for sessions (their loads) and jobs, in the background of the request that started them."""
 
 import asyncio
 import contextlib
@@ -7,10 +7,9 @@ import os
 import signal
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
 
-from .computation import Computation, Status
 from .config import Settings
+from .storage import JobState, SessionState, StoredSession
 
 log = logging.getLogger("uvicorn.error")  # the API's log, in uvicorn's format, one line per event
 
@@ -24,44 +23,44 @@ class Step:
 
 
 class Runner:
-    """At most max_concurrent_computations runs at once, loads included; the others wait for a slot. A run's
-    processes run one after another and set the status: Error (FailedInitialization for a load: nothing can run on
-    it) when a process fails (see Step), exceeds the time limit or cannot be started, otherwise Finished
-    (Initialized).
+    """At most max_concurrent_computations runs at once, loads included; the others wait for a slot. A run is a
+    session's load or one of its jobs; one runs on a session at a time. Its processes run one after another and set
+    its state: loading (running) once it has a slot, then failed when a process fails (see Step), exceeds the time
+    limit or cannot be started, otherwise ready (finished).
 
     A run is a task: stopping it (the user, the API stopping) cancels it wherever it is, before its slot, waiting for
-    it or in a process, which is then killed with its children. A stopped run never changes the status."""
+    it or in a process, which is then killed with its children. A stopped run never changes the state."""
 
     def __init__(self, settings: Settings):
         self.slots = asyncio.Semaphore(settings.max_concurrent_computations)
         self.minutes = settings.max_computation_minutes
         self.time_limit = self.minutes * 60.0  # seconds of one run, the queue not included
-        self.jobs: dict[str, asyncio.Task] = {}  # computation id -> its run, until its last process exits
+        self.runs: dict[str, asyncio.Task] = {}  # session id -> its run, until its last process exits
         self.tasks: set[asyncio.Task] = set()  # all runs, until done
 
-    def start(self, c: Computation, steps: Callable[[], list[Step]], init: bool,
+    def start(self, s: StoredSession, number: int | None, steps: Callable[[], list[Step]],
               prepare: Callable[[], Awaitable[bool]] | None = None, finish: Callable[[], str | None] | None = None) -> None:
-        """steps: the processes, made when the run gets its slot. prepare: before the slot is
-        awaited (a download), False when it failed and set the status. finish: after the last process, in a thread
-        (zipping the results), returns why the run failed. The run is registered before the request is answered:
+        """number: the job's, None for the load. steps: the processes, made when the run gets its slot. prepare: before
+        the slot is awaited (a download), False when it failed and set the state. finish: after the last process, in a
+        thread (zipping the results), returns why the run failed. The run is registered before the request is answered:
         a stop right after it finds the run."""
-        task = asyncio.create_task(self._run(c, steps, init, prepare, finish))
-        self.jobs[c.ComputationId] = task
+        task = asyncio.create_task(self._run(s, number, steps, prepare, finish))
+        self.runs[s.id] = task
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
-        task.add_done_callback(lambda _: self._forget(c.ComputationId, task))
+        task.add_done_callback(lambda _: self._forget(s.id, task))
 
-    def kill(self, computation_id: str) -> bool:
-        """Stops the computation's run; False when it has none. Its status is the caller's."""
-        task = self.jobs.pop(computation_id, None)
+    def kill(self, session_id: str) -> bool:
+        """Stops the session's run; False when it has none. Its state is the caller's."""
+        task = self.runs.pop(session_id, None)
         if task is None:
             return False
         task.cancel()
         return True
 
-    def _forget(self, computation_id: str, task: asyncio.Task | None) -> None:
-        if self.jobs.get(computation_id) is task:  # not a later submission's run
-            del self.jobs[computation_id]
+    def _forget(self, session_id: str, task: asyncio.Task | None) -> None:
+        if self.runs.get(session_id) is task:  # not a later job's run
+            del self.runs[session_id]
 
     async def stop(self) -> None:
         """The API is stopping: the statuses stay (the next API marks them interrupted)"""
@@ -69,32 +68,32 @@ class Runner:
             task.cancel()
         await asyncio.gather(*self.tasks, return_exceptions=True)
 
-    async def _run(self, c: Computation, steps: Callable[[], list[Step]], init: bool,
+    async def _run(self, s: StoredSession, number: int | None, steps: Callable[[], list[Step]],
                    prepare: Callable[[], Awaitable[bool]] | None, finish: Callable[[], str | None] | None) -> None:
-        failed = Status.FailedInitialization if init else Status.Error
+        running, failed, done = ((SessionState.loading, SessionState.failed, SessionState.ready) if number is None
+                                 else (JobState.running, JobState.failed, JobState.finished))
         try:
             if prepare and not await prepare():
                 return
             async with self.slots:
-                c.last.Started = datetime.now(UTC)
-                c.save()
+                s.update(number, running)
                 try:
                     async with asyncio.timeout(self.time_limit):
                         for step in steps():
                             if error := await run_process(step):
-                                c.change_status(failed, error)
+                                s.update(number, failed, error)
                                 return
                 except TimeoutError:
-                    c.change_status(failed, f"The computation exceeded the time limit of {self.minutes} minute{'s' if self.minutes != 1 else ''}.")
+                    s.update(number, failed, f"The computation exceeded the time limit of {self.minutes} minute{'s' if self.minutes != 1 else ''}.")
                     return
-                self._forget(c.ComputationId, asyncio.current_task())  # as soon as the last process exits: no stop now
+                self._forget(s.id, asyncio.current_task())  # as soon as the last process exits: no stop now
                 if finish and (error := await asyncio.to_thread(finish)):
-                    c.change_status(failed, error)
+                    s.update(number, failed, error)
                     return
-                c.change_status(Status.Initialized if init else Status.Finished)
-        except Exception as e:  # e.g. a process cannot be started; never leave the computation running
+                s.update(number, done)
+        except Exception as e:  # e.g. a process cannot be started; never leave the run in progress
             with contextlib.suppress(Exception):
-                c.change_status(failed, str(e))
+                s.update(number, failed, str(e))
 
 
 async def run_process(step: Step) -> str | None:

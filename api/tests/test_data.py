@@ -90,7 +90,7 @@ def test_no_results_while_running(api):
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait_session(client, id)
     submit(client, id)
-    folder = client.app.state.settings.working_directory / id / "1"
+    folder = client.app.state.settings.working_directory / id / "jobs" / "1"
     wait_for_file(folder / "started")
     assert (folder / "json" / "data.json").exists()  # MOLE writes as it goes
     assert client.get(f"/sessions/{id}/jobs/1/results/data").status_code == 404

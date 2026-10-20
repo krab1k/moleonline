@@ -1,115 +1,90 @@
+"""The status file of a session (storage): runs interrupted by a restart, deleted sessions, concurrent writes"""
+
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from mole_api import computation
-from mole_api.computation import STATUS_FILE, Computation, Status, Unit
+from mole_api import storage
 from mole_api.main import create_app
+from mole_api.storage import INTERRUPTED, STATUS_FILE, JobState, SessionState, StoredSession
+
+ANOTHER_API = "4e6736210ac44d7f86e415d1aa6f5362"  # an API process before a restart
 
 
-def written_by_csharp(working_directory: Path, last: str = "Finished", instance: str = "4e6736210ac44d7f86e415d1aa6f5362") -> str:
-    """A status file as the C# API wrote it (7 decimal places of seconds); returns its computation id"""
-    folder = working_directory / "AarLX5Ovv0iuJag9oce6xA"
+def written(working_directory: Path, state: SessionState = SessionState.ready, job: JobState | None = None,
+            instance: str = ANOTHER_API) -> str:
+    """A session of a PDB entry as an API process wrote it, with one job of tunnels in this state; returns its id"""
+    session = StoredSession(id="AarLX5Ovv0iuJag9oce6xA", state=state, pdb_id="1tqn", assembly_id="1", opm=True,
+                            created=datetime(2026, 10, 17, 9, 33, tzinfo=UTC), mole_version="2.5.26.10.17",
+                            structure_file="1tqn.cif", api_instance=instance)
+    if job is not None:
+        session.jobs.append(storage.Job(number=1, type="tunnels", state=job, parameters={}, mole_version="2.5.26.10.17",
+                                        submitted=datetime(2026, 10, 17, 9, 34, tzinfo=UTC)))
+    folder = working_directory / session.id
     folder.mkdir(parents=True)
-    (folder / STATUS_FILE).write_text(f"""{{
-  "ComputationId": "AarLX5Ovv0iuJag9oce6xA",
-  "BaseDir": "{working_directory}",
-  "UserStructure": false,
-  "PdbId": "1tqn",
-  "AssemblyId": "1",
-  "DbModePores": true,
-  "StructureFile": "1tqn.cif",
-  "ComputationUnits": [
-    {{ "SubmitId": 1, "Status": "Finished", "ErrorMsg": "", "Submitted": "2026-10-17T09:33:00.7172355Z",
-       "Started": "2026-10-17T09:33:00.7302809Z", "Finished": "2026-10-17T09:33:02.1494975Z", "MoleVersion": "2.5.26.10.15" }},
-    {{ "SubmitId": 2, "Status": "{last}", "ErrorMsg": "Chain Z is not in the structure.\\n", "Submitted": null,
-       "Started": null, "Finished": null, "MoleVersion": null }}
-  ],
-  "Created": "2026-10-17T09:32:58.1Z",
-  "Loaded": null,
-  "ApiInstance": "{instance}"
-}}""")
-    return folder.name
+    (folder / STATUS_FILE).write_text(session.model_dump_json())
+    return session.id
 
 
-def tunnel_job(working_directory: Path, id: str, number: int) -> None:
-    """The unit becomes a job of tunnels: its folder has MOLE's parameters"""
-    (working_directory / id / str(number)).mkdir(parents=True)
-    (working_directory / id / str(number) / "mole.json").write_text("{}")
+def saved(working_directory: Path, id: str) -> dict:
+    return json.loads((working_directory / id / STATUS_FILE).read_text())
 
 
-def test_jobs_of_the_csharp_api(client, settings):
-    id = written_by_csharp(settings.working_directory)
-    tunnel_job(settings.working_directory, id, 1)
-    tunnel_job(settings.working_directory, id, 2)
-    jobs = client.get(f"/sessions/{id}").json()["jobs"]
-    assert [(j["number"], j["state"], j["error"]) for j in jobs] == [(1, "finished", ""), (2, "finished", "Chain Z is not in the structure.\n")]
-    assert jobs[0]["submitted"] == "2026-10-17T09:33:00.717235Z"
-    missing = client.get(f"/sessions/{id}/jobs/99")
-    assert missing.status_code == 404
-    assert missing.json()["ErrorMsg"] == "Job 99 does not exist."
+@pytest.mark.parametrize("state", [SessionState.queued, SessionState.loading])
+def test_load_interrupted_by_a_restart(client, settings, state):
+    id = written(settings.working_directory, state)
+    session = client.get(f"/sessions/{id}").json()  # reading it marks it
+    assert (session["state"], session["error"]) == ("failed", INTERRUPTED)
+    stored = saved(settings.working_directory, id)
+    assert stored["state"] == "failed" and stored["loaded"].endswith("Z")
+    assert stored["api_instance"] == storage.API_INSTANCE
+    assert (stored["pdb_id"], stored["assembly_id"], stored["opm"]) == ("1tqn", "1", True)  # the rest is kept
 
 
-@pytest.mark.parametrize("id", ["NoSuchComputation", "..x", "a.b"])
-def test_unknown_session(client, id):
-    response = client.get(f"/sessions/{id}")
-    assert response.status_code == 404
-    assert response.json() == {"ComputationId": id, "SubmitId": 0, "Status": "Error", "ErrorMsg": f"ComputationId [{id}] does not exists.\n"}
-
-
-def test_deleted_session(client, settings):
-    id = written_by_csharp(settings.working_directory, last="Deleted")
-    for response in (client.get(f"/sessions/{id}"), client.get(f"/sessions/{id}/jobs/1")):
-        assert response.status_code == 410
-        assert response.json()["ErrorMsg"] == "The computation has been deleted."
-
-
-@pytest.mark.parametrize("running, failed, ended", [("Running", "Error", "Finished"), ("Initializing", "FailedInitialization", "Loaded")])
-def test_run_interrupted_by_a_restart(client, settings, running, failed, ended):
-    id = written_by_csharp(settings.working_directory, last=running)  # by another API process
-    tunnel_job(settings.working_directory, id, 2)
-    job = client.get(f"/sessions/{id}/jobs/2").json()  # reading it marks it
-    assert job["state"] == "failed"
-    assert job["error"] == "The computation was interrupted by a restart of the server. Please, run it again."
-    saved = json.loads((settings.working_directory / id / STATUS_FILE).read_text())
-    assert saved["ComputationUnits"][-1]["Status"] == failed
-    assert (saved[ended] if ended == "Loaded" else saved["ComputationUnits"][-1][ended]).endswith("Z")
-    assert saved["ApiInstance"] == computation.API_INSTANCE
-    assert saved["PdbId"] == "1tqn" and saved["AssemblyId"] == "1" and saved["DbModePores"]  # the rest is kept
-    assert saved["ComputationUnits"][0]["Submitted"] == "2026-10-17T09:33:00.717235Z"
-
-
-def test_marking_an_interrupted_run_keeps_a_new_submission(settings, monkeypatch):
-    """A request reads the interrupted run; before it marks it, another request marks it and starts a new submission
-    (status requests run in threads)"""
-    id = written_by_csharp(settings.working_directory, last="Running")
-    path = settings.working_directory / id / STATUS_FILE
-    read = computation._read
-
-    def meanwhile(path: Path) -> Computation:
-        stale = read(path)
-        monkeypatch.setattr(computation, "_read", read)  # once
-        other = computation.load(settings.working_directory, id)  # marks it
-        other.add_submission("2.5.1")
-        other.change_status(Status.Running)
-        return stale
-    monkeypatch.setattr(computation, "_read", meanwhile)
-    loaded = computation.load(settings.working_directory, id)
-    assert [u.Status for u in loaded.ComputationUnits] == [Status.Finished, Status.Error, Status.Running]
-    assert [u["Status"] for u in json.loads(path.read_text())["ComputationUnits"]] == ["Finished", "Error", "Running"]
+@pytest.mark.parametrize("state", [JobState.queued, JobState.running])
+def test_job_interrupted_by_a_restart(client, settings, state):
+    id = written(settings.working_directory, job=state)
+    job = client.get(f"/sessions/{id}/jobs/1").json()
+    assert (job["state"], job["error"]) == ("failed", INTERRUPTED)
+    assert job["finished"].endswith("Z") and job["submitted"] == "2026-10-17T09:34:00Z"
+    assert client.get(f"/sessions/{id}").json()["state"] == "ready"  # the structure is still loaded
 
 
 def test_run_of_this_api_process_continues(client, settings):
-    id = written_by_csharp(settings.working_directory, last="Running", instance=computation.API_INSTANCE)
-    tunnel_job(settings.working_directory, id, 2)
-    job = client.get(f"/sessions/{id}/jobs/2").json()
-    assert job["state"] == "queued" and "interrupted" not in job["error"]  # not marked; queued: it has no Started time
+    id = written(settings.working_directory, job=JobState.running, instance=storage.API_INSTANCE)
+    assert client.get(f"/sessions/{id}/jobs/1").json()["state"] == "running"
+
+
+def test_marking_an_interrupted_run_keeps_a_new_job(settings, monkeypatch):
+    """A request reads the interrupted run; before it marks it, another request marks it and starts a new job (status
+    requests run in threads)"""
+    id = written(settings.working_directory, job=JobState.running)
+    read = storage._read
+
+    def meanwhile(path: Path, working_directory: Path) -> StoredSession:
+        stale = read(path, working_directory)
+        monkeypatch.setattr(storage, "_read", read)  # once
+        other = storage.load(settings.working_directory, id)  # marks it
+        other.add_job("tunnels", {}, "2.5.1")
+        return stale
+    monkeypatch.setattr(storage, "_read", meanwhile)
+    loaded = storage.load(settings.working_directory, id)
+    assert [j.state for j in loaded.jobs] == [JobState.failed, JobState.queued]
+    assert [j["state"] for j in saved(settings.working_directory, id)["jobs"]] == ["failed", "queued"]
+
+
+@pytest.mark.parametrize("id", ["NoSuchSession", "..x", "a.b"])
+def test_unknown_session(client, id):
+    response = client.get(f"/sessions/{id}")
+    assert response.status_code == 404
+    assert response.json() == {"ComputationId": id, "SubmitId": 0, "Status": "Error", "ErrorMsg": f"Session [{id}] does not exist."}
 
 
 def test_corrupt_status_file_is_500_with_a_report(settings):
-    id = written_by_csharp(settings.working_directory)
+    id = written(settings.working_directory)
     (settings.working_directory / id / STATUS_FILE).write_text("{x")
     with TestClient(create_app(settings), raise_server_exceptions=False) as client:
         response = client.get(f"/sessions/{id}")
@@ -117,40 +92,17 @@ def test_corrupt_status_file_is_500_with_a_report(settings):
     assert response.json()["Status"] == "Error"
 
 
-def test_a_deleted_computation_is_never_written_over(settings):
-    id = written_by_csharp(settings.working_directory)
-    stale = computation.load(settings.working_directory, id)  # e.g. a run's copy
-    deleted = computation.load(settings.working_directory, id)
-    deleted.ComputationUnits.append(Unit(SubmitId=3, Status=Status.Deleted))
-    deleted.save()
-    stale.change_status(Status.Error, "late")
-    assert computation.load(settings.working_directory, id).is_deleted()
+def test_a_deleted_session_is_never_written_over(settings):
+    id = written(settings.working_directory, job=JobState.running, instance=storage.API_INSTANCE)
+    stale = storage.load(settings.working_directory, id)  # e.g. a run's copy
+    storage.load(settings.working_directory, id).delete()
+    stale.update(1, JobState.failed, "late")
+    assert saved(settings.working_directory, id)["deleted"]
+    assert saved(settings.working_directory, id)["jobs"][0]["state"] == "running"
     assert not list((settings.working_directory / id).glob("*.tmp"))  # no temporary files left
 
 
 def test_status_file_is_readable_by_others(client, settings):
-    id = written_by_csharp(settings.working_directory, last="Running")
+    id = written(settings.working_directory, job=JobState.running)
     client.get(f"/sessions/{id}")  # rewritten: interrupted by a restart
     assert (settings.working_directory / id / STATUS_FILE).stat().st_mode & 0o777 == 0o644
-
-
-def test_session_of_a_csharp_computation_is_ready(client, settings):
-    """Status files of the C# API have no Loaded time: the load's state comes from its status"""
-    id = written_by_csharp(settings.working_directory)
-    session = client.get(f"/sessions/{id}").json()
-    assert (session["state"], session["error"], session["loaded"]) == ("ready", "", None)
-    results = settings.working_directory / id / "0" / "json" / "data.json"  # what the load found
-    results.parent.mkdir(parents=True)
-    results.write_text('{"Channels": {}}')
-    response = client.get(f"/sessions/{id}/data")
-    assert response.status_code == 200 and response.json() == {"Channels": {}}
-
-
-def test_session_of_a_csharp_computation_that_failed_to_load(client, settings):
-    id = written_by_csharp(settings.working_directory)
-    path = settings.working_directory / id / STATUS_FILE
-    saved = json.loads(path.read_text())
-    saved["ComputationUnits"] = [{**saved["ComputationUnits"][0], "Status": "FailedInitialization", "ErrorMsg": "No atoms.\n"}]
-    path.write_text(json.dumps(saved))
-    session = client.get(f"/sessions/{id}").json()
-    assert (session["state"], session["error"]) == ("failed", "No atoms.\n")

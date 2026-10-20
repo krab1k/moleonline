@@ -1,16 +1,14 @@
-"""Usage of MOLEonline per month or year, from the computations folder (WORKING_DIRECTORY).
+"""Usage of MOLEonline per month or year, from the sessions folder (WORKING_DIRECTORY).
 
-usage: python3 stats.py <computations folder> [month|year]
+usage: python3 stats.py <sessions folder> [month|year]
 
 In the container (with the API's Python):
     docker compose exec -T api /app/.venv/bin/python -I - /data/computations year < api/tools/stats.py
 
 All times are UTC, in the status files and in the log, so both are grouped by the same calendar.
-- computations: by Created in _object.json, split into PDB entries and uploads; status files written before the
-  times were recorded (no Created) are skipped
-- submissions: units with parameters (mole.json: tunnels, pores.json: pores) by Submitted, with their current
-  status: finished, failed, aborted, running, or deleted (deleting a computation replaces the status of its last
-  submission, whose outcome is then unknown)
+- sessions: by created in session.json, split into PDB entries and uploads, and those deleted since
+- jobs: by submitted, split into tunnels and pores, with their state: finished, failed, cancelled, or in progress
+  (queued or running)
 - users: distinct client addresses that loaded or submitted (Mole_api_IP_log.csv, refused requests included);
   submitters: those that submitted. One address is not one person (shared or changing addresses).
 Only the standard library is used.
@@ -25,25 +23,20 @@ root = Path(sys.argv[1])
 length = 4 if len(sys.argv) > 2 and sys.argv[2] == "year" else 7  # "2026" or "2026-10"
 
 counts = collections.defaultdict(collections.Counter)
-for status_file in root.glob("*/_object.json"):
+for status_file in root.glob("*/session.json"):
     try:
-        computation = json.loads(status_file.read_text())
+        session = json.loads(status_file.read_text())
     except (OSError, ValueError):
         continue
-    if not computation.get("Created"):
-        continue  # written before the times were recorded
-    row = counts[computation["Created"][:length]]
-    row["computations"] += 1
-    row["uploads" if computation.get("UserStructure") else "PDB entries"] += 1
-    for unit in computation["ComputationUnits"]:
-        folder = status_file.parent / str(unit["SubmitId"])
-        kind = "tunnels" if (folder / "mole.json").exists() else "pores" if (folder / "pores.json").exists() else None
-        if kind is None:
-            continue  # the load's unit, never used for a submission
-        row = counts[(unit.get("Submitted") or computation["Created"])[:length]]
-        row["submissions"] += 1
-        row[kind] += 1
-        row["failed" if unit["Status"] in ("Error", "FailedInitialization") else unit["Status"].lower()] += 1
+    row = counts[session["created"][:length]]
+    row["sessions"] += 1
+    row["uploads" if session["pdb_id"] is None else "PDB entries"] += 1
+    row["deleted"] += session["deleted"]
+    for job in session["jobs"]:
+        row = counts[job["submitted"][:length]]
+        row["jobs"] += 1
+        row[job["type"]] += 1
+        row["in progress" if job["state"] in ("queued", "running") else job["state"]] += 1
 
 users = collections.defaultdict(set)
 submitters = collections.defaultdict(set)
@@ -57,8 +50,8 @@ if log.exists():
             if fields[2] == "Submit":
                 submitters[period].add(fields[4])
 
-columns = ["computations", "PDB entries", "uploads", "submissions", "tunnels", "pores",
-           "finished", "failed", "aborted", "running", "deleted", "users", "submitters"]
+columns = ["sessions", "PDB entries", "uploads", "deleted", "jobs", "tunnels", "pores",
+           "finished", "failed", "cancelled", "in progress", "users", "submitters"]
 print("\t".join(["period"] + columns))
 for period in sorted(set(counts) | set(users)):
     row = counts[period]

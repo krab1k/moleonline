@@ -48,7 +48,7 @@ describe('parsePoint', () => {
 
 describe('membraneCandidates', () => {
     const job = (number: number, type: 'tunnels' | 'pores', state: Job['state']): Job => ({
-        number, state, error: '', submitted: null, started: null, finished: null,
+        number, state, error: '', submitted: '2026-10-20T08:00:00Z', started: null, finished: null, mole_version: '2.5.26.10.17',
         ...(type === 'tunnels' ? { type, parameters: {} } : { type, parameters: { InteriorThreshold: null, ProbeRadius: null } }),
     });
 

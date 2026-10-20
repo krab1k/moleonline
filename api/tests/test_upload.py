@@ -25,17 +25,15 @@ def test_upload_is_loaded(client, settings):
 
     folder = settings.working_directory / id
     assert (folder / "1tqn.cif").read_bytes() == STRUCTURE
-    xml = ET.parse(folder / "0" / "input.xml").getroot()
+    xml = ET.parse(folder / "load" / "input.xml").getroot()
     assert xml.findtext("Input") == str(folder / "1tqn.cif")
-    assert xml.findtext("WorkingDirectory") == str(folder / "0")
+    assert xml.findtext("WorkingDirectory") == str(folder / "load")
     assert xml.find("Params/Cavity").attrib == {"ProbeRadius": "5", "InteriorThreshold": "1.1", "IgnoreHETAtoms": "0", "IgnoreHydrogens": "0"}
 
-    saved = json.loads((folder / "_object.json").read_text())
-    assert saved["UserStructure"] and saved["PdbId"] == "" and saved["StructureFile"] == "1tqn.cif"
-    unit = saved["ComputationUnits"][0]
-    assert saved["Created"] == unit["Submitted"] <= unit["Started"] <= saved["Loaded"]
-    assert saved["Created"].endswith("Z")
-    assert unit["MoleVersion"] == MOLE_VERSION  # read from MOLE when the API started
+    saved = json.loads((folder / "session.json").read_text())
+    assert saved["pdb_id"] is None and saved["structure_file"] == "1tqn.cif" and saved["state"] == "ready"
+    assert saved["created"] <= saved["loaded"] and saved["created"].endswith("Z")
+    assert saved["mole_version"] == MOLE_VERSION  # read from MOLE when the API started
 
 
 @pytest.mark.parametrize("content", [gzip.compress(STRUCTURE), gzip.compress(STRUCTURE[:1000]) + gzip.compress(STRUCTURE[1000:])],
@@ -69,7 +67,7 @@ def test_name_is_stored_with_safe_characters(client, settings, name, stored):
     """Other characters broke the structure's download (Content-Disposition) and would go into MOLE's viewer scripts."""
     id = upload(client, name, gzip.compress(STRUCTURE) if name.endswith("GZ") else STRUCTURE).json()["id"]
     assert wait_session(client, id)["state"] == "ready"
-    assert json.loads((settings.working_directory / id / "_object.json").read_text())["StructureFile"] == stored
+    assert json.loads((settings.working_directory / id / "session.json").read_text())["structure_file"] == stored
     response = client.get(f"/sessions/{id}/structure")
     assert response.status_code == 200
     assert response.headers["content-disposition"] == f'attachment; filename="{stored}"'
