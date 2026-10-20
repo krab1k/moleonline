@@ -20,22 +20,39 @@ def client() -> httpx2.AsyncClient:
     return httpx2.AsyncClient(base_url="https://www.ebi.ac.uk/pdbe", timeout=httpx2.Timeout(120, connect=15))
 
 
-async def preferred_assembly(http: httpx2.AsyncClient, pdb_id: str) -> str | None:
-    """None when it cannot be looked up"""
+class Assemblies:
+    """The assemblies of an entry, by their ids, and the preferred one"""
+
+    def __init__(self, ids: list[str], preferred: str | None):
+        self.ids, self.preferred = ids, preferred
+
+
+async def assemblies(http: httpx2.AsyncClient, pdb_id: str) -> Assemblies | None:
+    """None when they cannot be looked up"""
     try:
         response = await http.get(f"/static/entry/download/{pdb_id}-assembly.xml")
         if response.status_code != 200:
             return None
-        return next((a.get("id") for a in ET.fromstring(response.content).iter("assembly") if a.get("prefered") == "True"), None)
+        found = [a for a in ET.fromstring(response.content).iter("assembly") if a.get("id")]
+        return Assemblies([a.get("id") for a in found], next((a.get("id") for a in found if a.get("prefered") == "True"), None))
     except (httpx2.HTTPError, ET.ParseError):
         return None
+
+
+def no_assembly(pdb_id: str, assembly: str, known: Assemblies | None) -> str:
+    listed = f" Its assemblies are {', '.join(known.ids)}." if known and known.ids else ""
+    return f"Structure [{pdb_id}] has no assembly [{assembly}].{listed}"
 
 
 async def download(http: httpx2.AsyncClient, s: StoredSession, assembly: str) -> bool:
     """Downloads the structure into the session; False when it failed, the session then says why.
     assembly: PREFERRED (the asymmetric unit when it cannot be looked up), ASYMMETRIC or an assembly id."""
     pdb_id = s.pdb_id
-    s.assembly_id = None if assembly == ASYMMETRIC else await preferred_assembly(http, pdb_id) if assembly == PREFERRED else assembly
+    known = None if assembly == ASYMMETRIC else await assemblies(http, pdb_id)
+    s.assembly_id = None if assembly == ASYMMETRIC else (known and known.preferred) if assembly == PREFERRED else assembly
+    if known is not None and s.assembly_id is not None and s.assembly_id not in known.ids:
+        s.update(None, SessionState.failed, no_assembly(pdb_id, s.assembly_id, known))
+        return False
     url = f"/model-server/v1/{pdb_id}/assembly?name={s.assembly_id}" if s.assembly_id else f"/model-server/v1/{pdb_id}/full"
     file = s.folder() / f"{pdb_id}.cif"
     temp = file.with_name(file.name + ".download")  # the structure file appears only when complete
@@ -51,9 +68,13 @@ async def download(http: httpx2.AsyncClient, s: StoredSession, assembly: str) ->
         else:
             temp.rename(file)
             s.structure_file = file.name
-            failed = await asyncio.to_thread(server_error, file)
+            error = await asyncio.to_thread(server_error, file)
+            if error is not None:
+                # the assemblies could not be looked up before
+                undefined = UNDEFINED_ASSEMBLY.search(error)
+                failed = no_assembly(pdb_id, undefined[1], known) if undefined else f"PDBe could not provide structure [{pdb_id}]: {error}"
             # the preferred assembly, the one OPM has; unknown when the lookup failed, then the full structure was downloaded
-            s.opm = s.assembly_id is not None and (assembly == PREFERRED or s.assembly_id == await preferred_assembly(http, pdb_id))
+            s.opm = s.assembly_id is not None and known is not None and s.assembly_id == known.preferred
     except httpx2.HTTPError:
         failed = "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later."
     except Exception as e:
@@ -83,10 +104,16 @@ async def fetch(http: httpx2.AsyncClient, url: str, target) -> int:
     return 200
 
 
+# e.g. _model_server_error.message    "Error: Assembly '3' is not defined."
+SERVER_ERROR = "_model_server_error.message"
+UNDEFINED_ASSEMBLY = re.compile(r"^Assembly '(.*)' is not defined\.$")
+
+
 def server_error(path) -> str | None:
-    """The model server reports an error in the file it returns: _coordinate_server_error.message 'Entry not found.'"""
+    """The model server answers some errors (an assembly the entry does not have) with 200 and a file stating
+    the error instead of the structure"""
     with open(path, errors="replace") as structure:
         for line in structure:
-            if line.startswith("_coordinate_server_error.message"):
-                return line.removeprefix("_coordinate_server_error.message").strip()[1:-1]
+            if line.startswith(SERVER_ERROR):
+                return line.removeprefix(SERVER_ERROR).strip()[1:-1].removeprefix("Error: ")
     return None

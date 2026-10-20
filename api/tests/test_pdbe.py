@@ -73,7 +73,9 @@ def test_structure_is_downloaded_and_loaded(client, requested, routes, file, ass
     assert (folder / "load" / "input.xml").exists()
 
 
-ERROR_CIF = b"data_error\n_coordinate_server_error.message 'Entry not found.'\n"
+def server_error(message: str) -> bytes:
+    """What the model server answers with 200 instead of a structure"""
+    return f'data_1TQN\n#\n_model_server_error.message    "Error: {message}" \n#\n'.encode()
 
 
 @pytest.mark.parametrize("answer, message", [
@@ -82,7 +84,7 @@ ERROR_CIF = b"data_error\n_coordinate_server_error.message 'Entry not found.'\n"
     (bytes(30 * 1024 * 1024 + 1), "Structure [1tqn] is larger than 30 MB, at most 30 MB can be computed."),
     (httpx2.ConnectError("refused"), "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later."),
     (httpx2.ReadTimeout("slow"), "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later."),
-    (ERROR_CIF, "Entry not found."),
+    (server_error("Something went wrong."), "PDBe could not provide structure [1tqn]: Something went wrong."),
 ], ids=["404", "503", "too large", "unavailable", "timeout", "server error"])
 def test_failed_download(client, answer, message):
     FakePDBe(client, {FULL: answer})
@@ -92,6 +94,23 @@ def test_failed_download(client, answer, message):
     assert session["error"] == message
     assert not (client.app.state.settings.working_directory / id / "load").exists()  # MOLE did not run
     assert not list((client.app.state.settings.working_directory / id).glob("*.download"))
+
+
+def test_assembly_the_entry_does_not_have(client):
+    pdbe = FakePDBe(client, {XML: ASSEMBLIES})
+    session = wait_session(client, create(client, assembly="3").json()["id"])
+    assert session["state"] == "failed"
+    assert session["error"] == "Structure [1tqn] has no assembly [3]. Its assemblies are 1, 2."
+    assert pdbe.requests == [XML]  # the structure is not asked for
+
+
+def test_assembly_the_entry_does_not_have_when_its_assemblies_are_unknown(client):
+    # the model server says so in the file it answers with
+    FakePDBe(client, {XML: 500, assembly("3"): server_error("Assembly '3' is not defined.")})
+    session = wait_session(client, create(client, assembly="3").json()["id"])
+    assert session["state"] == "failed"
+    assert session["error"] == "Structure [1tqn] has no assembly [3]."
+    assert not (client.app.state.settings.working_directory / session["id"] / "load").exists()  # MOLE did not run
 
 
 def test_stopped_download(client):
