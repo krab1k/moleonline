@@ -44,7 +44,9 @@ source, target = sys.argv[1], sys.argv[2]
 groups = collections.defaultdict(lambda: collections.defaultdict(set))  # (pdb, M-CSA entry, reference) -> chain -> numbers
 names = collections.defaultdict(set)  # (pdb, chain, number) -> residue names
 reference = collections.defaultdict(lambda: collections.defaultdict(set))  # M-CSA entry -> chain -> numbers of its reference site
-for record in json.load(open(source)):
+with open(source) as file:
+    records = json.load(file)
+for record in records:
     for r in record["residue_chains"]:
         if r["auth_resid"] is None or not r["code"] or not r["chain_name"]:
             continue

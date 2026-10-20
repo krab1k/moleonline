@@ -22,7 +22,8 @@ def parameters(tmp_path: Path, chains: list[str], **changed) -> Path:
     path = computation / "1" / "pores.json"
     path.write_text(json.dumps({"Structure": str(computation / "1k4c.cif"), "PdbId": "1k4c",
                                 "WorkingDirectory": str(computation / "1"), "Membrane": str(computation / "membrane.json"),
-                                "OpmCache": str(tmp_path / "opm"), "InMembrane": True, "IsBetaBarrel": False, "Chains": chains, "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
+                                "OpmCache": str(tmp_path / "opm"), "InMembrane": True, "IsBetaBarrel": False, "Chains": chains,
+                                "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
                                | changed))
     return path
 

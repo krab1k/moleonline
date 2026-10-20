@@ -36,13 +36,15 @@ def test_pore_is_computed(api, settings):
 
     folder = settings.working_directory / id
     assert json.loads((folder / "jobs" / "1" / "pores.json").read_text()) == {
-        "Structure": str(folder / "1tqn.cif"), "PdbId": None, "WorkingDirectory": str(folder / "jobs" / "1"), "Membrane": str(folder / "jobs" / "1" / "membrane.json"),
-        "Memembed": str(settings.memembed), "OpmCache": str(settings.opm_cache), "InMembrane": True, "IsBetaBarrel": False, "Chains": ["A", "A_2"], "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
+        "Structure": str(folder / "1tqn.cif"), "PdbId": None, "WorkingDirectory": str(folder / "jobs" / "1"),
+        "Membrane": str(folder / "jobs" / "1" / "membrane.json"), "Memembed": str(settings.memembed), "OpmCache": str(settings.opm_cache),
+        "InMembrane": True, "IsBetaBarrel": False, "Chains": ["A", "A_2"], "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
     with zipfile.ZipFile(folder / "jobs" / "1" / "report.zip") as report:
         assert sorted(report.namelist()) == ["1tqn.cif", "json/data.json"]
     [job] = client.get(f"/sessions/{id}").json()["jobs"]
     assert job["type"] == "pores"
-    assert job["parameters"] == {"InMembrane": True, "IsBetaBarrel": False, "Chains": ["A", "A_2"], "ProbeRadius": 13.0, "InteriorThreshold": 0.8}
+    assert job["parameters"] == {"InMembrane": True, "IsBetaBarrel": False, "Chains": ["A", "A_2"], "ProbeRadius": 13.0,
+                                 "InteriorThreshold": 0.8}
     assert logged(settings)[-1] == ("Submit", "testclient", "Pores", id)
 
 
@@ -63,7 +65,8 @@ def test_warning_of_the_pores_tool_is_no_error(api, caplog):
     assert wait(client, id, 1)["state"] == "finished"
     [record] = [r for r in caplog.records if "stderr" in r.getMessage()]
     assert record.levelname == "WARNING"
-    assert record.getMessage().endswith(f"/{id}/jobs/1/pores.json succeeded with output on stderr: RuntimeWarning: Mean of empty slice return x.mean()")
+    assert record.getMessage().endswith(f"/{id}/jobs/1/pores.json succeeded with output on stderr: "
+                                        "RuntimeWarning: Mean of empty slice return x.mean()")
 
 
 def test_opm_membrane_for_the_preferred_assembly(client, settings):
@@ -92,7 +95,8 @@ def test_failed_pore_computation(api, settings, pores, run, message):
 
 @pytest.mark.parametrize("parameters, message", [
     ({"IsBetaStructure": True}, "Invalid request. parameters.IsBetaStructure: Extra inputs are not permitted"),  # misspelled
-    ({"ProbeRadius": 100, "InteriorThreshold": 0.1}, "Invalid parameters. Probe radius must be between 1.4 and 45. Interior threshold must be between 0.3 and 3."),
+    ({"ProbeRadius": 100, "InteriorThreshold": 0.1},
+     "Invalid parameters. Probe radius must be between 1.4 and 45. Interior threshold must be between 0.3 and 3."),
     ({"Chains": ["A", "B C"]}, "Invalid parameters. Chain names must not be empty or contain spaces."),
     ({"Chains": [""]}, "Invalid parameters. Chain names must not be empty or contain spaces."),
     ('{"ProbeRadius": NaN}', "Invalid request. parameters.ProbeRadius: Input should be a finite number"),
@@ -108,7 +112,8 @@ def test_invalid_parameters_are_422(client, settings, parameters, message):
 
 def test_the_web_request(client):
     id = loaded(client)
-    body = {"InMembrane": False, "IsBetaBarrel": True, "Chains": None, "InteriorThreshold": None, "ProbeRadius": None}  # as the web sends it
+    # as the web sends it
+    body = {"InMembrane": False, "IsBetaBarrel": True, "Chains": None, "InteriorThreshold": None, "ProbeRadius": None}
     assert submit(client, id, body).status_code == 202
     assert wait(client, id, 1)["parameters"] == {  # null: the default
         "InMembrane": False, "IsBetaBarrel": True, "Chains": [], "ProbeRadius": 13.0, "InteriorThreshold": 0.8}

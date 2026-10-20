@@ -44,7 +44,8 @@ def test_stats_read_the_log(client, settings):
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait_session(client, id)
     stats = Path(__file__).parent.parent / "tools" / "stats.py"
-    output = subprocess.run([sys.executable, "-I", stats, settings.working_directory, "year"], capture_output=True, text=True, check=True).stdout
+    output = subprocess.run([sys.executable, "-I", stats, settings.working_directory, "year"],
+                            capture_output=True, text=True, check=True).stdout
     header, row = [line.split("\t") for line in output.splitlines()]
-    values = dict(zip(header, row))
+    values = dict(zip(header, row, strict=True))
     assert values["sessions"] == "1" and values["uploads"] == "1" and values["users"] == "1"

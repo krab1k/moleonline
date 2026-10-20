@@ -37,7 +37,8 @@ def run(parameters_path: Path) -> None:
     available = list(dict.fromkeys(chain.name for chain in structure[0]))
     unknown = [name for name in chains if name not in available]
     if unknown:
-        raise PoresError(f"Chain{'s' if len(unknown) > 1 else ''} {', '.join(unknown)} {'are' if len(unknown) > 1 else 'is'} not in the structure. "
+        several = len(unknown) > 1
+        raise PoresError(f"Chain{'s' if several else ''} {', '.join(unknown)} {'are' if several else 'is'} not in the structure. "
                          f"Available chains: {', '.join(available)}.")
 
     cache = Path(parameters.OpmCache) if parameters.OpmCache else None
@@ -71,6 +72,6 @@ def main() -> None:
     except OSError as e:  # network (OPM), file errors, MEMEMBED not found
         print(f"The pore computation failed: {e}", file=sys.stderr)
         sys.exit(1)
-    except Exception as e:  # a bug or a structure gemmi or numpy cannot handle: one line for the user, not a traceback
+    except Exception as e:  # noqa: BLE001 (a bug or a structure gemmi or numpy cannot handle: one line for the user, not a traceback
         print(f"The pore computation failed unexpectedly ({': '.join(filter(None, [type(e).__name__, str(e)]))}).", file=sys.stderr)
         sys.exit(1)

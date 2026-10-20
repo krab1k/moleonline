@@ -52,7 +52,7 @@ if log.exists():
 
 columns = ["sessions", "PDB entries", "uploads", "deleted", "jobs", "tunnels", "pores",
            "finished", "failed", "cancelled", "in progress", "users", "submitters"]
-print("\t".join(["period"] + columns))
+print("\t".join(["period", *columns]))
 for period in sorted(set(counts) | set(users)):
     row = counts[period]
     row["users"], row["submitters"] = len(users[period]), len(submitters[period])

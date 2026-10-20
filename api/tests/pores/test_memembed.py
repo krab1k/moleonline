@@ -33,7 +33,9 @@ def test_close_to_opm(pdb_id):
 
     normal, opm_normal = predicted.rotation[:, 2], opm.rotation[:, 2]
     assert normal @ opm_normal > np.cos(np.radians(10))  # also the same N and O sides
-    thickness = lambda m: m.heights["O"].mean() - m.heights["N"].mean()
+    def thickness(m):
+        return m.heights["O"].mean() - m.heights["N"].mean()
+
     assert abs(thickness(predicted) - thickness(opm)) < 5  # optimised by MEMEMBED (-q 1): 25.0-33.3 Å here
     # the pore axis passes through the same place
     on_axis = predicted.to_structure([0.0, 0.0, 0.0])
@@ -58,7 +60,8 @@ def test_upload_same_path_as_production(tmp_path):
     working_directory = tmp_path / "1"
     working_directory.mkdir()
     start, end = end_points(structure, membrane, True, [])
-    subprocess.run([MOLE, str(write_mole_input(structure_path, working_directory, start, end, 10.0, 0.8, []))], check=True, capture_output=True)
+    mole_input = write_mole_input(structure_path, working_directory, start, end, 10.0, 0.8, [])
+    subprocess.run([MOLE, str(mole_input)], check=True, capture_output=True)
 
     ours = json.loads((working_directory / "json" / "data.json").read_text())["Channels"]["Paths"][0]["Profile"]
     theirs = json.loads((REFERENCE / "3ldc_upload" / "data_json").read_text())["Channels"]["Paths"][0]["Profile"]

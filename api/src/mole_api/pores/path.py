@@ -46,8 +46,8 @@ def _membrane_surfaces(membrane: Membrane) -> tuple[float, float]:
         raise PathError("The membrane has no surface near the pore axis, the pore cannot be limited to the membrane region. "
                         "Compute it without the membrane region.")
     if any(np.ptp(z) > FLAT_AT_AXIS for z in near.values()):
-        raise PathError("The membrane is not flat around the pore axis: the structure spans two membranes, or the membrane is strongly curved. "
-                        "Compute the pore without the membrane region.")
+        raise PathError("The membrane is not flat around the pore axis: the structure spans two membranes, "
+                        "or the membrane is strongly curved. Compute the pore without the membrane region.")
     return float(np.mean(near["N"])), float(np.mean(near["O"]))
 
 
@@ -67,7 +67,7 @@ def end_points(structure: gemmi.Structure, membrane: Membrane, in_membrane: bool
 
 
 def _point(xyz: np.ndarray) -> ET.Element:
-    return mole.element("Point", **{axis: mole.number(round(float(v), 3)) for axis, v in zip("XYZ", xyz)})
+    return mole.element("Point", **{axis: mole.number(round(float(v), 3)) for axis, v in zip("XYZ", xyz, strict=True)})
 
 
 def write_mole_input(structure_path: Path, working_directory: Path, start: np.ndarray, end: np.ndarray,

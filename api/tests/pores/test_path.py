@@ -35,7 +35,8 @@ def compute(pdb_id: str, in_membrane: bool, probe_radius: float, tmp_path: Path)
     working_directory = tmp_path / "1"
     working_directory.mkdir()
     start, end = end_points(structure, membrane, in_membrane, [])
-    return run_mole(write_mole_input(structure_path, working_directory, start, end, probe_radius, 0.8, []), working_directory)["Channels"]["Paths"][0]
+    mole_input = write_mole_input(structure_path, working_directory, start, end, probe_radius, 0.8, [])
+    return run_mole(mole_input, working_directory)["Channels"]["Paths"][0]
 
 
 def summary(path: dict) -> tuple:
@@ -76,7 +77,8 @@ def test_curved_membrane_in_membrane_region(tmp_path):
     working_directory = tmp_path / "1"
     working_directory.mkdir()
     start, end = end_points(structure, membrane, True, [])
-    assert run_mole(write_mole_input(structure_path, working_directory, start, end, 13.0, 0.8, []), working_directory)["Channels"]["Paths"] == []
+    mole_input = write_mole_input(structure_path, working_directory, start, end, 13.0, 0.8, [])
+    assert run_mole(mole_input, working_directory)["Channels"]["Paths"] == []
 
 
 def test_selected_chains(tmp_path):
@@ -89,7 +91,8 @@ def test_selected_chains(tmp_path):
     working_directory = tmp_path / "1"
     working_directory.mkdir()
     start, end = end_points(structure, membrane, False, chains)
-    path = run_mole(write_mole_input(structure_path, working_directory, start, end, 13.0, 0.8, chains), working_directory)["Channels"]["Paths"][0]
+    mole_input = write_mole_input(structure_path, working_directory, start, end, 13.0, 0.8, chains)
+    path = run_mole(mole_input, working_directory)["Channels"]["Paths"][0]
 
     assert {residue.split()[2] for residue in path["Layers"]["ResidueFlow"]} <= set(chains)
     top = membrane.to_membrane_frame([path["Profile"][-1][k] for k in "XYZ"])[2]

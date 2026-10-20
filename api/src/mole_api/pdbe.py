@@ -77,7 +77,7 @@ async def download(http: httpx2.AsyncClient, s: StoredSession, assembly: str) ->
             s.opm = s.assembly_id is not None and known is not None and s.assembly_id == known.preferred
     except httpx2.HTTPError:
         failed = "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later."
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 (the session must not stay loading)
         failed = f"Structure [{pdb_id}] could not be downloaded: {e}"
     finally:
         temp.unlink(missing_ok=True)

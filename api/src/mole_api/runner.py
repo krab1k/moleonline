@@ -84,14 +84,15 @@ class Runner:
                                 s.update(number, failed, error)
                                 return
                 except TimeoutError:
-                    s.update(number, failed, f"The computation exceeded the time limit of {self.minutes} minute{'s' if self.minutes != 1 else ''}.")
+                    minutes = f"{self.minutes} minute{'s' if self.minutes != 1 else ''}"
+                    s.update(number, failed, f"The computation exceeded the time limit of {minutes}.")
                     return
                 self._forget(s.id, asyncio.current_task())  # as soon as the last process exits: no stop now
                 if finish and (error := await asyncio.to_thread(finish)):
                     s.update(number, failed, error)
                     return
                 s.update(number, done)
-        except Exception as e:  # e.g. a process cannot be started; never leave the run in progress
+        except Exception as e:  # noqa: BLE001 (e.g. a process cannot be started; never leave the run in progress)
             with contextlib.suppress(Exception):
                 s.update(number, failed, str(e))
 

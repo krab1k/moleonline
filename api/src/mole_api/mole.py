@@ -82,7 +82,8 @@ def computation_input(s: StoredSession, p: MoleParameters, directory: Path) -> P
     params = element("Params")
     params.append(element("Cavity", ProbeRadius=number(p.Cavity.ProbeRadius), InteriorThreshold=number(p.Cavity.InteriorThreshold),
                           IgnoreHETAtoms=flag(p.Cavity.IgnoreHETAtoms), IgnoreHydrogens=flag(p.Cavity.IgnoreHydrogens)))
-    params.append(element("Tunnel", BottleneckRadius=number(p.Tunnel.BottleneckRadius), BottleneckTolerance=number(p.Tunnel.BottleneckTolerance),
+    params.append(element("Tunnel", BottleneckRadius=number(p.Tunnel.BottleneckRadius),
+                          BottleneckTolerance=number(p.Tunnel.BottleneckTolerance),
                           MaxTunnelSimilarity=number(p.Tunnel.MaxTunnelSimilarity), OriginRadius=number(p.Tunnel.OriginRadius),
                           SurfaceCoverRadius=number(p.Tunnel.SurfaceCoverRadius), WeightFunction=p.Tunnel.WeightFunction,
                           UseCustomExitsOnly=flag(has_origin and has_exits)))
@@ -95,7 +96,8 @@ def computation_input(s: StoredSession, p: MoleParameters, directory: Path) -> P
     return write(root, directory / INPUT)
 
 
-def export(structure: Path, tunnels: bool = False, pores_auto: bool = False, pores_merged: bool = False, pores_user: bool = False) -> ET.Element:
+def export(structure: Path, tunnels: bool = False, pores_auto: bool = False, pores_merged: bool = False,
+           pores_user: bool = False) -> ET.Element:
     """The results in all formats (the web's data.json, the report, the viewers' scripts), of the types computed;
     without types, the paths of the input (a pore computation)"""
     result = element("Export")

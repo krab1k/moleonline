@@ -78,12 +78,15 @@ def server_error(message: str) -> bytes:
     return f'data_1TQN\n#\n_model_server_error.message    "Error: {message}" \n#\n'.encode()
 
 
+UNAVAILABLE = "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later."
+
+
 @pytest.mark.parametrize("answer, message", [
     (404, "Structure [1tqn] is unlikely to exist or has been made obsolete."),
     (503, "PDBe returned an error (503) when downloading structure [1tqn]. Please, try again later."),
     (bytes(30 * 1024 * 1024 + 1), "Structure [1tqn] is larger than 30 MB, at most 30 MB can be computed."),
-    (httpx2.ConnectError("refused"), "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later."),
-    (httpx2.ReadTimeout("slow"), "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later."),
+    (httpx2.ConnectError("refused"), UNAVAILABLE),
+    (httpx2.ReadTimeout("slow"), UNAVAILABLE),
     (server_error("Something went wrong."), "PDBe could not provide structure [1tqn]: Something went wrong."),
 ], ids=["404", "503", "too large", "unavailable", "timeout", "server error"])
 def test_failed_download(client, answer, message):

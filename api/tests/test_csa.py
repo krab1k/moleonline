@@ -40,7 +40,8 @@ def test_residues_have_the_names_of_the_structure(csa):
 def test_entries(csa):
     assert sites(csa, "1tqn") == ["A:Thr309 A:Phe435 A:Cys442"]  # the example of the documentation
     assert sites(csa, "1a30") == ["A:Asp25 A:Thr26 A:Gly27 B:Asp25 B:Thr26 B:Gly27"]  # HIV protease: one site of both chains
-    assert sites(csa, "1cqj") == ["A:Glu208 A:His246 B:Tyr109 B:Glu197", "D:Glu208 D:His246 E:Tyr109 E:Glu197"]  # a site of two different chains, per copy
+    # a site of two different chains, per copy
+    assert sites(csa, "1cqj") == ["A:Glu208 A:His246 B:Tyr109 B:Glu197", "D:Glu208 D:His246 E:Tyr109 E:Glu197"]
     assert len(sites(csa, "1a50")) == 2  # tryptophan synthase: the sites of its two subunits, 40 A apart, stay apart
     assert sites(csa, "1crn") == []  # not an enzyme
 
@@ -48,8 +49,9 @@ def test_entries(csa):
 def test_sites_of_a_session(client):
     FakePDBe(client, {FULL: STRUCTURE})
     id = client.post("/sessions", json={"pdb_id": "1TQN", "assembly": "asymmetric"}).json()["id"]
-    assert client.get(f"/sessions/{id}/active-sites").json() == [[{"Name": "Thr", "Chain": "A", "SequenceNumber": 309}, {"Name": "Phe", "Chain": "A", "SequenceNumber": 435},
-                                                 {"Name": "Cys", "Chain": "A", "SequenceNumber": 442}]]
+    assert client.get(f"/sessions/{id}/active-sites").json() == [[{"Name": "Thr", "Chain": "A", "SequenceNumber": 309},
+                                                                  {"Name": "Phe", "Chain": "A", "SequenceNumber": 435},
+                                                                  {"Name": "Cys", "Chain": "A", "SequenceNumber": 442}]]
     wait_session(client, id)
     client.delete(f"/sessions/{id}")
     assert client.get(f"/sessions/{id}/active-sites").status_code == 410

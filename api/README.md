@@ -145,6 +145,12 @@ uv run pytest    # with a fake MOLE and pores tool in the API's tests, and a fak
 MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # also the tests needing them, skipped without
 ```
 
+The code is checked with [ruff](https://docs.astral.sh/ruff/), configured in `pyproject.toml`:
+
+```sh
+uv run ruff check
+```
+
 `openapi.json` is the API's OpenAPI description, from which the web generates its types. After changing the API,
 update it with `uv run python tools/openapi.py` (a test fails while it is out of date), then `npm run api-types` in
 `web/`.

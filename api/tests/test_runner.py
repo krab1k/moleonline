@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from .conftest import STRUCTURE, gone, upload, wait_session, wait_for_file
+from .conftest import STRUCTURE, gone, upload, wait_for_file, wait_session
 
 # the fake MOLE marks that it started (next to its input), then waits until the test lets it go
 STARTED = 'touch "$(dirname "$1")/started"'

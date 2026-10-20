@@ -4,29 +4,29 @@ import functools
 import json
 import sys
 import uuid
-from http import HTTPStatus
 from collections.abc import Callable
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, FastAPI, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.routing import APIRoute
-from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse, RedirectResponse
-from pydantic import BaseModel, ConfigDict
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, ConfigDict
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from . import data, iplog, mole, pdbe, storage, upload
-from .csa import CSA, CSAResidue
 from .config import Settings
+from .csa import CSA, CSAResidue
 from .parameters import MoleParameters, PoresParameters, PoresRequest
 from .runner import Runner, Step
 from .storage import IN_PROGRESS, Job, JobState, Session, SessionState, StoredSession
@@ -125,7 +125,8 @@ def errors(*codes: int) -> dict:
 
 UPLOAD_FORM = {"requestBody": {"required": True, "content": {"multipart/form-data": {"schema": {
     "type": "object", "required": ["file"],
-    "properties": {"file": {"type": "string", "format": "binary", "description": "*.pdb, *.cif, *.pdb.gz or *.cif.gz, at most 30 MB unpacked"}}}}}}}
+    "properties": {"file": {"type": "string", "format": "binary",
+                            "description": "*.pdb, *.cif, *.pdb.gz or *.cif.gz, at most 30 MB unpacked"}}}}}}}
 
 
 PORES_PARAMETERS = "pores.json"  # the input of the pores tool
@@ -217,7 +218,8 @@ async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
 
 
 def start_job(request: Request, session_id: str, new: NewTunnelsJob | NewPoresJob,
-              write_input: Callable[[StoredSession, Path], list[Step]], finish: Callable[[StoredSession, Path], str | None]) -> Job | JSONResponse:
+              write_input: Callable[[StoredSession, Path], list[Step]],
+              finish: Callable[[StoredSession, Path], str | None]) -> Job | JSONResponse:
     """A new job of the session, run in the background, or why it is refused. write_input: writes its input into its
     folder, returns its processes; finish: after them, in a thread, returns why the run failed (see Runner)."""
     found = find(request, session_id)
@@ -234,7 +236,7 @@ def start_job(request: Request, session_id: str, new: NewTunnelsJob | NewPoresJo
     directory = found.job_directory(job.number)
     try:
         steps = write_input(found, directory)
-    except Exception as e:  # e.g. the structure is missing
+    except Exception as e:  # noqa: BLE001 (e.g. the structure is missing; the job must not stay queued)
         found.update(job.number, JobState.failed, str(e))
         return problem(500, str(e))
     started = job.model_copy()  # before the run can change it
@@ -322,7 +324,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if not pdbe.PDB_ID.match(new.pdb_id):
                 return problem(422, f"Invalid PDB id [{new.pdb_id}].")
             if not pdbe.ASSEMBLY.match(new.assembly):
-                return problem(422, f"Invalid assembly [{new.assembly}]. Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
+                return problem(422, f"Invalid assembly [{new.assembly}]. "
+                                    f"Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
             if full := queue_full(request):
                 return full
             s = storage.create(settings.working_directory, request.app.state.mole_version, new.pdb_id.lower())

@@ -40,9 +40,10 @@ def membrane_from_memembed(structure: gemmi.Structure, memembed: str, beta_barre
         input_path, output_path = Path(directory) / "protein.pdb", Path(directory) / "membrane.pdb"
         protein.write_pdb(str(input_path))
         command = [memembed, "-s", "2", "-q", "1", *(["-b"] if beta_barrel else []), "-o", str(output_path), str(input_path)]
-        result = subprocess.run(command, capture_output=True, text=True)  # MEMEMBED writes only the -o file
+        result = subprocess.run(command, capture_output=True, text=True, check=False)  # MEMEMBED writes only the -o file
         if result.returncode != 0 or not output_path.exists():
-            raise MembraneError(f"MEMEMBED could not place the structure into a membrane: {(result.stderr or result.stdout).strip()[-500:]}")
+            output = (result.stderr or result.stdout).strip()[-500:]
+            raise MembraneError(f"MEMEMBED could not place the structure into a membrane: {output}")
         source = _atoms(gemmi.read_structure(str(input_path)))
         placed = gemmi.read_structure(str(output_path))
 

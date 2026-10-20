@@ -49,11 +49,13 @@ def download_opm(pdb_id: str, cache: Path | None = None) -> str | None:
             return None
         if cached and cached.exists():
             return cached.read_text()
-        raise MembraneError(f"OPM returned an error ({e.code}) when downloading the membrane position of {pdb_id}. Please, try again later.")
+        raise MembraneError(f"OPM returned an error ({e.code}) when downloading the membrane position of {pdb_id}. "
+                            "Please, try again later.") from e
     except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException) as e:
         if cached and cached.exists():
             return cached.read_text()
-        raise MembraneError("The membrane position could not be downloaded, OPM (opm-assets.storage.googleapis.com) is not available at the moment. Please, try again later.") from e
+        raise MembraneError("The membrane position could not be downloaded, OPM (opm-assets.storage.googleapis.com) is not available "
+                            "at the moment. Please, try again later.") from e
     if cache:
         cache.mkdir(parents=True, exist_ok=True)
         temp = cached.with_suffix(f".{time.time_ns()}.tmp")  # the cached file appears only when complete
@@ -84,7 +86,7 @@ def _common(target: dict[tuple, np.ndarray], mobile: dict[tuple, np.ndarray]) ->
 def _pairing(structure_chains, opm_chains, rotation, translation):
     """Each structure chain with the closest unused OPM chain under the transformation."""
     pairs, used = [], set()
-    for s_name, s_atoms in structure_chains.items():
+    for s_atoms in structure_chains.values():
         best = None
         for o_name, o_atoms in opm_chains.items():
             if o_name in used:

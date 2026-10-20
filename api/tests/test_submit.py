@@ -10,7 +10,7 @@ import pytest
 from mole_api import storage
 from mole_api.main import STATIC_FILES
 
-from .conftest import MOLE_VERSION, STRUCTURE, upload, wait, wait_session, wait_for_file
+from .conftest import MOLE_VERSION, STRUCTURE, upload, wait, wait_for_file, wait_session
 from .test_iplog import logged
 from .test_runner import UNTIL_GO
 
@@ -49,7 +49,8 @@ def test_job_runs_and_finishes(api):
     with zipfile.ZipFile(folder / "report.zip") as report:
         assert sorted(report.namelist()) == ["1tqn.cif", "json/data.json"]
     [saved] = json.loads((folder.parent.parent / "session.json").read_text())["jobs"]  # the job's parameters with it
-    assert saved["parameters"]["Cavity"] == {"IgnoreHETAtoms": False, "IgnoreHydrogens": False, "InteriorThreshold": 1.1, "ProbeRadius": 5.0}
+    assert saved["parameters"]["Cavity"] == {"IgnoreHETAtoms": False, "IgnoreHydrogens": False, "InteriorThreshold": 1.1,
+                                             "ProbeRadius": 5.0}
     assert saved["parameters"]["Origin"] == {"Points": None, "QueryExpression": None, "Residues": None}
     assert saved["submitted"] <= saved["started"] <= saved["finished"]
     assert saved["mole_version"] == MOLE_VERSION
@@ -68,12 +69,15 @@ def test_input_of_the_examples(client):
     root = xml(client, id, 1)
     assert root.findtext("Input") == str(folder / "1tqn.cif") and root.find("Input").get("SpecificChains") == ""
     assert root.findtext("WorkingDirectory") == str(folder / "jobs" / "1")
-    assert root.find("Params/Cavity").attrib == {"ProbeRadius": "9", "InteriorThreshold": "1.25", "IgnoreHETAtoms": "0", "IgnoreHydrogens": "0"}
+    assert root.find("Params/Cavity").attrib == {"ProbeRadius": "9", "InteriorThreshold": "1.25", "IgnoreHETAtoms": "0",
+                                                 "IgnoreHydrogens": "0"}
     assert root.find("Params/Tunnel").attrib == {"BottleneckRadius": "1.25", "BottleneckTolerance": "3", "MaxTunnelSimilarity": "0.7",
-                                                 "OriginRadius": "5", "SurfaceCoverRadius": "10", "WeightFunction": "VoronoiScale", "UseCustomExitsOnly": "0"}
+                                                 "OriginRadius": "5", "SurfaceCoverRadius": "10", "WeightFunction": "VoronoiScale",
+                                                 "UseCustomExitsOnly": "0"}
     assert root.find("Export/Types").attrib == {"Cavities": "0", "Tunnels": "1", "PoresAuto": "0", "PoresMerged": "0", "PoresUser": "0"}
     assert root.find("Export/PyMol").attrib == {"PDBId": "1tqn", "SurfaceType": "Spheres"}
-    assert [r.attrib for r in root.findall("Origins/Origin/Residue")] == [{"SequenceNumber": "308", "Chain": "A"}, {"SequenceNumber": "309", "Chain": "A"}]
+    assert [r.attrib for r in root.findall("Origins/Origin/Residue")] == [{"SequenceNumber": "308", "Chain": "A"},
+                                                                          {"SequenceNumber": "309", "Chain": "A"}]
     assert root.find("CustomExits") is None
     wait(client, id, 1)
 
@@ -98,11 +102,15 @@ def test_input_of_the_examples(client):
     ("not json", "Invalid request"),
     ("", "Invalid request"),
     ({"Cavity": {"ProbeRadius": 100}}, "Invalid parameters. Probe radius must be between 1.4 and 45."),
-    ({"Tunnel": {"WeightFunction": "x", "MaxTunnelSimilarity": 2}}, "Invalid parameters. Max tunnel similarity must be between 0 and 1. Weight function must be one of"),
-    ({"Input": {"ReadAllModels": True}}, "Invalid request. parameters.Input.ReadAllModels: Extra inputs are not permitted"),  # only the first model is used
+    ({"Tunnel": {"WeightFunction": "x", "MaxTunnelSimilarity": 2}},
+     "Invalid parameters. Max tunnel similarity must be between 0 and 1. Weight function must be one of"),
+    # only the first model is used
+    ({"Input": {"ReadAllModels": True}}, "Invalid request. parameters.Input.ReadAllModels: Extra inputs are not permitted"),
     ({"Cavity": {"ProbeRadius": "big"}}, "Invalid request. parameters.Cavity.ProbeRadius:"),
-    ({"Origin": {"Points": [{"X": "NaN", "Y": 0, "Z": 0}]}}, "Invalid request. parameters.Origin.Points.0.X: Input should be a finite number"),
-    ('{"CustomExits": {"Points": [{"X": 0, "Y": Infinity, "Z": 0}]}}', "Invalid request. parameters.CustomExits.Points.0.Y: Input should be a finite number"),
+    ({"Origin": {"Points": [{"X": "NaN", "Y": 0, "Z": 0}]}},
+     "Invalid request. parameters.Origin.Points.0.X: Input should be a finite number"),
+    ('{"CustomExits": {"Points": [{"X": 0, "Y": Infinity, "Z": 0}]}}',
+     "Invalid request. parameters.CustomExits.Points.0.Y: Input should be a finite number"),
     ('{"Cavity": {"ProbeRadius": NaN}}', "Invalid request. parameters.Cavity.ProbeRadius: Input should be a finite number"),
 ])
 def test_invalid_parameters_are_422(client, settings, parameters, message):
@@ -136,7 +144,8 @@ def test_invalid_job_is_422(client, settings, body):
 
 def test_extra_fields_of_the_web_are_ignored(client):
     id = loaded(client)
-    parameters = {"Tunnel": {"UseCustomExitsOnly": False}, "Origin": {"Residues": [[{"Chain": "A", "SequenceNumber": 1, "OperatorName": "1_555", "Name": "ALA"}]]}}
+    parameters = {"Tunnel": {"UseCustomExitsOnly": False},
+                  "Origin": {"Residues": [[{"Chain": "A", "SequenceNumber": 1, "OperatorName": "1_555", "Name": "ALA"}]]}}
     assert submit(client, id, parameters).status_code == 202
 
 
@@ -168,7 +177,8 @@ def test_finished_job_cannot_be_cancelled_and_unknown_jobs_are_404(api):
     submit(client, id)
     assert wait(client, id, 1)["state"] == "finished"
     assert client.post(f"/sessions/{id}/jobs/1/cancel").status_code == 409
-    for response in (client.get(f"/sessions/{id}/jobs/2"), client.post(f"/sessions/{id}/jobs/2/cancel"), client.get(f"/sessions/{id}/jobs/0")):
+    for response in (client.get(f"/sessions/{id}/jobs/2"), client.post(f"/sessions/{id}/jobs/2/cancel"),
+                     client.get(f"/sessions/{id}/jobs/0")):
         assert response.status_code == 404
 
 

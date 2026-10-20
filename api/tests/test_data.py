@@ -5,7 +5,7 @@ import zipfile
 
 import pytest
 
-from .conftest import STRUCTURE, upload, wait, wait_session, wait_for_file
+from .conftest import STRUCTURE, upload, wait, wait_for_file, wait_session
 from .test_runner import UNTIL_GO
 from .test_submit import submit
 
@@ -60,7 +60,8 @@ def test_structure_and_what_the_load_found(finished):
 
 
 @pytest.mark.parametrize("path, status, message", [
-    ("jobs/1/results/xyz", 422, "Invalid request. path.format: Input should be 'data', 'report', 'pymol', 'chimera', 'vmd', 'pdb' or 'membrane'"),
+    ("jobs/1/results/xyz", 422,
+     "Invalid request. path.format: Input should be 'data', 'report', 'pymol', 'chimera', 'vmd', 'pdb' or 'membrane'"),
     ("jobs/99/results/data", 404, "Job 99 does not exist."),
     ("jobs/1/results/membrane", 404, "The job has no membrane results."),  # not a pore job
 ])

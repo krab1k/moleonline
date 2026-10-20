@@ -28,7 +28,8 @@ def test_upload_is_loaded(client, settings):
     xml = ET.parse(folder / "load" / "input.xml").getroot()
     assert xml.findtext("Input") == str(folder / "1tqn.cif")
     assert xml.findtext("WorkingDirectory") == str(folder / "load")
-    assert xml.find("Params/Cavity").attrib == {"ProbeRadius": "5", "InteriorThreshold": "1.1", "IgnoreHETAtoms": "0", "IgnoreHydrogens": "0"}
+    assert xml.find("Params/Cavity").attrib == {"ProbeRadius": "5", "InteriorThreshold": "1.1", "IgnoreHETAtoms": "0",
+                                                "IgnoreHydrogens": "0"}
 
     saved = json.loads((folder / "session.json").read_text())
     assert saved["pdb_id"] is None and saved["structure_file"] == "1tqn.cif" and saved["state"] == "ready"
