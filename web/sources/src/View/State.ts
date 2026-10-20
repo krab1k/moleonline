@@ -24,6 +24,7 @@ import { LayerColors } from "./CommonUtils/LayerColors";
 import { TwoDProtsBridge } from "./CommonUtils/TwoDProtsBridge";
 import { TunnelsId } from "./CommonUtils/TunnelsId";
 import { StateSelection } from "molstar/lib/mol-state";
+import { emit } from "./CommonUtils/Events";
 
 export async function showDefaultVisualsNewSubmission(channels: ChannelsDBChannels, submitId: string) {
     const first = firstNonEmptyCategory(channels);
@@ -483,7 +484,53 @@ function serializeChannelOperation<T>(channel: Tunnel, operation: () => Promise<
     return result;
 }
 
-async function showChannelDefaultVisuals(channels: Tunnel[] & TunnelMetaInfo[], channelsDB: boolean, submitId: string): Promise<any> {
+/**
+ * Resolves after the browser painted the next frame. Hidden pages get no frames, and so do some
+ * visible ones (occluded windows), so a hidden page does not wait and a timer ends the wait anyway.
+ */
+function nextPaint(): Promise<void> {
+    if (document.hidden) return Promise.resolve();
+    return new Promise(res => {
+        const fallback = setTimeout(res, 100);
+        requestAnimationFrame(() => setTimeout(() => {
+            clearTimeout(fallback);
+            res();
+        }));
+    });
+}
+
+// The number of running operations that render channels
+let renderingOperations = 0;
+
+/**
+ * Rendering a channel blocks the page until its mesh is computed, so the operations rendering
+ * channels are announced while any of them runs, and the browser paints before each channel
+ * (see renderChannel), letting the page show what is going on.
+ */
+async function whileRendering<T>(operation: () => Promise<T>): Promise<T> {
+    if (renderingOperations++ === 0) emit('channelsRendering', true);
+    try {
+        return await operation();
+    } finally {
+        if (--renderingOperations === 0) emit('channelsRendering', false);
+    }
+}
+
+/** Whether channels are being rendered, for the components mounted meanwhile */
+export function isRenderingChannels() {
+    return renderingOperations > 0;
+}
+
+async function renderChannel<T>(render: () => Promise<T>): Promise<T> {
+    await nextPaint();
+    return render();
+}
+
+function showChannelDefaultVisuals(channels: Tunnel[] & TunnelMetaInfo[], channelsDB: boolean, submitId: string): Promise<any> {
+    return whileRendering(() => updateChannelDefaultVisuals(channels, channelsDB, submitId));
+}
+
+async function updateChannelDefaultVisuals(channels: Tunnel[] & TunnelMetaInfo[], channelsDB: boolean, submitId: string): Promise<any> {
     const context = Context.getInstance();
 
     try {
@@ -502,7 +549,7 @@ async function showChannelDefaultVisuals(channels: Tunnel[] & TunnelMetaInfo[], 
                 channel.__submissionId = submitId.toString();
                 channel.__layerColored = false;
 
-                const [loci, ref] = await context.renderTunnel(channel);
+                const [loci, ref] = await renderChannel(() => context.renderTunnel(channel));
 
                 // only a rendered channel counts as visible, so a failure keeps the channels rendered before it
                 channel.__ref = ref;
@@ -519,7 +566,12 @@ async function showChannelDefaultVisuals(channels: Tunnel[] & TunnelMetaInfo[], 
     }
 }
 
-export async function showChannelVisuals(channels: Tunnel[] & TunnelMetaInfo[], visible: boolean, forceRepaint?: boolean, channelsDB?: boolean, submitId?: string): Promise<any> {
+export function showChannelVisuals(channels: Tunnel[] & TunnelMetaInfo[], visible: boolean, forceRepaint?: boolean, channelsDB?: boolean, submitId?: string): Promise<any> {
+    const update = () => updateChannelVisuals(channels, visible, forceRepaint, channelsDB, submitId);
+    return visible ? whileRendering(update) : update();
+}
+
+async function updateChannelVisuals(channels: Tunnel[] & TunnelMetaInfo[], visible: boolean, forceRepaint?: boolean, channelsDB?: boolean, submitId?: string) {
     try {
         for (let channel of channels) {
             await serializeChannelOperation(channel, () => updateChannelVisual(channel, visible, forceRepaint, channelsDB, submitId));
@@ -559,7 +611,7 @@ async function updateChannelVisual(channel: Tunnel & TunnelMetaInfo, visible: bo
     } else {
         // a repainted channel keeps its old visual until the new one is rendered
         const previousRef = channel.__ref;
-        const [loci, ref] = await context.renderTunnel(channel);
+        const [loci, ref] = await renderChannel(() => context.renderTunnel(channel));
         channel.__ref = ref;
         channel.__loci = loci as Shape.Loci;
         channel.__isVisible = true;
@@ -590,7 +642,11 @@ async function updateChannelVisual(channel: Tunnel & TunnelMetaInfo, visible: bo
     }
 }
 
-export async function showChannelPropertyColorVisuals(channel: Tunnel & TunnelMetaInfo, colorOptions: { property: Property, colorBounds: ColorBound }, forceRepaint?: boolean, channelsDB?: boolean): Promise<any> {
+export function showChannelPropertyColorVisuals(channel: Tunnel & TunnelMetaInfo, colorOptions: { property: Property, colorBounds: ColorBound }, forceRepaint?: boolean, channelsDB?: boolean): Promise<any> {
+    return whileRendering(() => updateChannelPropertyColorVisual(channel, colorOptions, forceRepaint, channelsDB));
+}
+
+async function updateChannelPropertyColorVisual(channel: Tunnel & TunnelMetaInfo, colorOptions: { property: Property, colorBounds: ColorBound }, forceRepaint?: boolean, channelsDB?: boolean) {
     const context = Context.getInstance();
 
     try {
@@ -609,7 +665,7 @@ export async function showChannelPropertyColorVisuals(channel: Tunnel & TunnelMe
 
             // the channel keeps its old visual and state until the new visual is rendered
             const previousRef = channel.__ref;
-            const [loci, ref] = await context.renderPropertyColorTunnel(channel, colorOptions);
+            const [loci, ref] = await renderChannel(() => context.renderPropertyColorTunnel(channel, colorOptions));
             channel.__ref = ref;
             channel.__loci = loci as Shape.Loci;
             channel.__isVisible = true;

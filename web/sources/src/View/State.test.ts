@@ -25,8 +25,12 @@ vi.mock("molstar/lib/mol-plugin/commands", () => ({
 
 // no 2D view to highlight
 vi.stubGlobal("document", { getElementById: () => null });
+// the page events go to a bare event target, and a frame is a timer
+vi.stubGlobal("window", new EventTarget());
+vi.stubGlobal("requestAnimationFrame", (callback: () => void) => setTimeout(callback));
 
-const { showChannelVisuals, showChannelPropertyColorVisuals } = await import("./State");
+const { showChannelVisuals, showChannelPropertyColorVisuals, isRenderingChannels } = await import("./State");
+const { listen } = await import("./CommonUtils/Events");
 
 type Channel = Tunnel & TunnelMetaInfo;
 const channel = () => ({ Id: "c1", __color: 0 } as unknown as Channel);
@@ -71,7 +75,7 @@ describe("channel visual operations", () => {
     it("leaves a channel whose render failed hidden and showable", async () => {
         const c = channel();
         const failed = showChannelVisuals([c], true);
-        await new Promise(r => setTimeout(r, 0));
+        while (plugin.pending.length === 0) await new Promise(r => setTimeout(r, 0));
         plugin.pending.shift()!.reject(new Error("render failed"));
         await expect(failed).rejects.toThrow("render failed");
         expect(c.__isVisible).toBeFalsy();
@@ -80,5 +84,61 @@ describe("channel visual operations", () => {
         await settle(showChannelVisuals([c], true));
         expect([...plugin.rendered]).toEqual([c.__ref]);
         expect(c.__isVisible).toBe(true);
+    });
+
+    it("announces the rendering once for overlapping operations, until all of them finish", async () => {
+        const announced: boolean[] = [];
+        const unsubscribe = listen("channelsRendering", isRendering => announced.push(isRendering));
+        const a = channel(), b = { ...channel(), Id: "c2" } as Channel;
+        const operations = [showChannelVisuals([a], true), showChannelVisuals([b], true)];
+        expect(isRenderingChannels()).toBe(true);
+        await settle(...operations);
+        expect(announced).toEqual([true, false]);
+        expect(isRenderingChannels()).toBe(false);
+
+        // hiding renders nothing
+        await showChannelVisuals([a, b], false);
+        expect(announced).toEqual([true, false]);
+        unsubscribe();
+    });
+
+    it("ends the announcement when a render fails", async () => {
+        const announced: boolean[] = [];
+        const unsubscribe = listen("channelsRendering", isRendering => announced.push(isRendering));
+        const failed = showChannelVisuals([channel()], true);
+        while (plugin.pending.length === 0) await new Promise(r => setTimeout(r, 0));
+        plugin.pending.shift()!.reject(new Error("render failed"));
+        await expect(failed).rejects.toThrow("render failed");
+        expect(announced).toEqual([true, false]);
+        unsubscribe();
+    });
+
+    it("renders without animation frames", async () => {
+        // a page without frames: the timer ends the wait for the paint
+        vi.stubGlobal("requestAnimationFrame", () => 0);
+        try {
+            const c = channel();
+            await settle(showChannelVisuals([c], true));
+            expect([...plugin.rendered]).toEqual([c.__ref]);
+        } finally {
+            vi.stubGlobal("requestAnimationFrame", (callback: () => void) => setTimeout(callback));
+        }
+    });
+
+    it("does not wait for a paint on a hidden page", async () => {
+        const frames = vi.fn();
+        vi.stubGlobal("requestAnimationFrame", frames);
+        vi.stubGlobal("document", { getElementById: () => null, hidden: true });
+        try {
+            const c = channel();
+            const shown = showChannelVisuals([c], true);
+            await new Promise(r => setTimeout(r, 0));
+            expect(plugin.pending).toHaveLength(1);
+            await settle(shown);
+            expect(frames).not.toHaveBeenCalled();
+        } finally {
+            vi.stubGlobal("requestAnimationFrame", (callback: () => void) => setTimeout(callback));
+            vi.stubGlobal("document", { getElementById: () => null });
+        }
     });
 });

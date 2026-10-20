@@ -11,6 +11,8 @@ interface PageEvents {
     layerTriggered: number;
     // The selected layers of the channel changed, with their indices
     layerSelected: number[];
+    // Rendering of the channels started (true) or all of it finished (false)
+    channelsRendering: boolean;
 }
 
 type Detail<K extends keyof PageEvents> = PageEvents[K] extends undefined ? [] : [PageEvents[K]];

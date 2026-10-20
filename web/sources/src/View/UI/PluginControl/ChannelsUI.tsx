@@ -9,7 +9,8 @@ import { Tunnels } from "../../CommonUtils/Tunnels";
 import { ChannelsDBData, TunnelName } from "../../../Cache";
 import { ChannelAnnotation } from "../../../ChannelsDBAPIService";
 import { getParameters, isInChannelsDBMode } from "../../../Common/Util/Router";
-import { showChannelVisuals, showDefaultVisuals, showDefaultVisualsNewSubmission } from "../../State";
+import { isRenderingChannels, showChannelVisuals, showDefaultVisuals, showDefaultVisualsNewSubmission } from "../../State";
+import { listen } from "../../CommonUtils/Events";
 import { Context } from "../../Context";
 import { Representation } from "molstar/lib/mol-repr/representation";
 import { EmptyLoci } from "molstar/lib/mol-model/loci";
@@ -28,12 +29,13 @@ type ChannelsControlProps = { computationId: string, submissions: Map<number, Ch
 type ChannelsControlState = {
     submissions: Map<number, ChannelsDBChannels>,
     submissionsElems: Map<number, any[]>,
-    currentSubmitId: number
+    currentSubmitId: number,
+    isRendering: boolean
 }
 
 export class ChannelsControl extends React.Component<ChannelsControlProps, ChannelsControlState> {
     //TODO store selected/visualized tunnels for 2DProts
-    state = { submissions: new Map<number, ChannelsDBChannels>(), submissionsElems: new Map<number, any[]>(), currentSubmitId: 0 };
+    state = { submissions: new Map<number, ChannelsDBChannels>(), submissionsElems: new Map<number, any[]>(), currentSubmitId: 0, isRendering: isRenderingChannels() };
 
     private toggle(e: React.MouseEvent<HTMLElement>) {
         e.preventDefault();
@@ -184,6 +186,9 @@ export class ChannelsControl extends React.Component<ChannelsControlProps, Chann
 
         this.setState({ submissions: this.props.submissions })
 
+        this.unsubscribe.push(listen("channelsRendering", isRendering => this.setState({ isRendering })));
+        this.setState({ isRendering: isRenderingChannels() });
+
         const onResize = () => this.forceUpdate();
         window.addEventListener("resize", onResize);
         this.unsubscribe.push(() => window.removeEventListener("resize", onResize));
@@ -282,7 +287,12 @@ export class ChannelsControl extends React.Component<ChannelsControlProps, Chann
 
         return <div className="ui-channels d-flex flex-column" style={{ maxHeight: '100vh', padding: '0 0', marginRight: '0px' }}>
                 <div className="ui-header channels-header flex-grow-0 flex-shrink-0" style={{ margin: 0 }}>
-                    <span>Channels</span>
+                    <span>
+                        Channels
+                        {this.state.isRendering
+                            ? <span className="channels-rendering"><span className="spinner-border spinner-border-sm" role="status" /> Rendering…</span>
+                            : null}
+                    </span>
                     <button className="btn btn-primary btn-sm bt-none" style={{ marginTop: '0.5em', marginBottom: '0.5em' }} onClick={e => this.toggle(e)}>Hide all</button>
                 </div>
                 <div className="accordion flex-fill overflow-auto" id="channelsAccordion">
