@@ -23,20 +23,28 @@ export class LiningResidues extends React.Component<{}, State> {
     };
 
 
-    componentDidMount() {
-        SelectionHelper.attachOnChannelSelectHandler2((channel) => {
-            this.setState({ labelChains: Tunnels.chainsByLabel(channel) });
-        });
-        SelectionHelper.attachOnChannelSelectHandler((data) => {
-            this.setState({ data: Residues.sort(data.ResidueFlow) });
-            setTimeout(function () {
-                emit('contentResize');
-            }, 1);
-        });
+    private unsubscribe: (() => void)[] = [];
 
-        SelectionHelper.attachOnChannelDeselectHandler(() => {
-            this.setState({ data: null });
-        });
+    componentDidMount() {
+        this.unsubscribe.push(
+            SelectionHelper.attachOnChannelSelectHandler2((channel) => {
+                this.setState({ labelChains: Tunnels.chainsByLabel(channel) });
+            }),
+            SelectionHelper.attachOnChannelSelectHandler((data) => {
+                this.setState({ data: Residues.sort(data.ResidueFlow) });
+                setTimeout(function () {
+                    emit('contentResize');
+                }, 1);
+            }),
+            SelectionHelper.attachOnChannelDeselectHandler(() => {
+                this.setState({ data: null });
+            }),
+        );
+    }
+
+    componentWillUnmount() {
+        this.unsubscribe.forEach(u => u());
+        this.unsubscribe = [];
     }
 
     render() {
@@ -119,7 +127,7 @@ class DGBody extends React.Component<State, {}> {
             return <DGNoDataInfoRow columnsCount={DGTABLE_COLS_COUNT} infoText={NO_DATA_MESSAGE} />;
         }
 
-        let rows: JSX.Element[] = [];
+        let rows: React.JSX.Element[] = [];
         for (let residue of this.props.data) {
             let residueInfo = Residues.parseResidues([residue]);
 

@@ -321,7 +321,7 @@ export class Section extends React.Component<{ header: string, count: number, co
     }
 }
 
-export class Renderable extends React.Component<{ label: string | JSX.Element, channelsDB: boolean, submissionId: string, element: (Tunnel & TunnelMetaInfo), annotations?: ChannelAnnotation[], toggle: (elements: any[], visible: boolean, forceRepaint?: boolean, channelsDB?: boolean, submissionId?: string) => Promise<any> }, { isAnnotationsVisible: boolean }> {
+export class Renderable extends React.Component<{ label: string | React.JSX.Element, channelsDB: boolean, submissionId: string, element: (Tunnel & TunnelMetaInfo), annotations?: ChannelAnnotation[], toggle: (elements: any[], visible: boolean, forceRepaint?: boolean, channelsDB?: boolean, submissionId?: string) => Promise<any> }, { isAnnotationsVisible: boolean }> {
 
     state = { isAnnotationsVisible: false };
 
@@ -392,7 +392,7 @@ export class Renderable extends React.Component<{ label: string | JSX.Element, c
         if (!this.state.isAnnotationsVisible) {
             return [];
         }
-        let elements: JSX.Element[] = [];
+        let elements: React.JSX.Element[] = [];
         for (let [index, annotation] of this.props.annotations.entries()) {
             let reference = <i>(No reference provided)</i>;
             if (annotation.reference !== "") {

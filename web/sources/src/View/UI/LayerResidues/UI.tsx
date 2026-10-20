@@ -44,7 +44,7 @@ export class DGBody extends React.Component<LayerSelectionState, {}> {
         }
 
         let layerData = Residues.sort(this.getResidues(this.props.layerIds));
-        let rows: JSX.Element[] = [];
+        let rows: React.JSX.Element[] = [];
 
         for (let residue of layerData) {
             let residueInfo = Residues.parseResidues([residue]);

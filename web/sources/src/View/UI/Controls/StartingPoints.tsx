@@ -461,7 +461,7 @@ interface StartingPointResidueListBoxProps {
 }
 interface StartingPointResidueListBoxState {
     value: string,
-    textbox?: JSX.Element
+    textbox?: React.JSX.Element
 }
 
 export class StartingPointResidueListBox extends React.Component<StartingPointResidueListBoxProps, StartingPointResidueListBoxState> {

@@ -43,16 +43,18 @@ export class QuickHelp extends React.Component<{}, State> {
         }
     }
 
+    private unsubscribe: (() => void)[] = [];
+
     componentDidMount() {
         let params = getParameters();
         if (params !== null) {
             this.currentSubmitId = params.isChannelsDB ? null : params.submitId;
-            Events.subscribeChangeSubmitId((submitId) => {
+            this.unsubscribe.push(Events.subscribeChangeSubmitId((submitId) => {
                 this.currentSubmitId = submitId;
                 this.setState({ failure: null });
                 this.checkCurrentSubmission();
-            });
-            SessionInfo.DataProvider.subscribe(params.computationId, (_id, session) => {
+            }));
+            this.unsubscribe.push(SessionInfo.DataProvider.subscribe(params.computationId, (_id, session) => {
                 this.session = session;
                 // Each handler updates only its own keys, so that updates in the same tick do not overwrite each other
                 this.setState({
@@ -60,8 +62,8 @@ export class QuickHelp extends React.Component<{}, State> {
                     hasChannels: TunnelName.getCachedItemsCount() > 0,
                 });
                 this.checkCurrentSubmission();
-            });
-            Events.subscribeChannelDataLoaded((data) => {
+            }));
+            this.unsubscribe.push(Events.subscribeChannelDataLoaded((data) => {
                 let channelsData = (data.Channels as MoleChannels);
                 let tunnels: Tunnel[] = [];
                 
@@ -71,12 +73,17 @@ export class QuickHelp extends React.Component<{}, State> {
                 tunnels = Tunnels.concatTunnelsSafe(tunnels, channelsData.Tunnels);
 
                 this.setState({ hasChannels: tunnels.length > 0 });
-            })
+            }));
         }
     }
 
+    componentWillUnmount() {
+        this.unsubscribe.forEach(u => u());
+        this.unsubscribe = [];
+    }
+
     render() {
-        let hints: JSX.Element[] = [];
+        let hints: React.JSX.Element[] = [];
 
         if (!this.state.hasSubmissions) { //has no submissions
             hints.push(<div key={'start'}>

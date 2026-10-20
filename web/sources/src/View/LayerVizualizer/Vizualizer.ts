@@ -1104,7 +1104,7 @@ export class Vizualizer {
         document.body.appendChild(tmpCanvas);
 
         this.getContext();
-        let tmpCtx = tmpCanvas.getContext("2d") as CanvasRenderingContext2D;
+        let tmpCtx = tmpCanvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
         if (tmpCtx === null) {
             throw new Error("Unable initiate new 2D canvas context");
         }
@@ -1124,7 +1124,7 @@ export class Vizualizer {
     }
 
     private unwrapSVG() {
-        let ctx = this.getCanvas().getContext("2d");
+        let ctx = this.getCanvas().getContext("2d", { willReadFrequently: true });
         if (ctx === null) {
             throw new Error("Unable to initialize new drawing context!");
         }

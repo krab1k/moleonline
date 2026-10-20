@@ -38,4 +38,6 @@ button.download.dropdown-toggle {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
     margin-top: 1px;
+    /* Not the 30px of the bar */
+    line-height: var(--bs-body-line-height);
 }

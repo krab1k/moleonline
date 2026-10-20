@@ -190,7 +190,7 @@ export class Data extends React.Component<State, {}> {
     }
 }
 
-export class Selection extends React.Component<State, { label?: string | JSX.Element, tunnel: boolean }> {
+export class Selection extends React.Component<State, { label?: string | React.JSX.Element, tunnel: boolean }> {
     state = { label: void 0, tunnel: false }
 
     private unsubscribe: (() => void)[] = [];
@@ -338,7 +338,7 @@ export class Cavity extends React.Component<{ cavity: any }> {
     }
 }
 
-export class Origins extends React.Component<{ label: string | JSX.Element, origins: any } & State, {}> {
+export class Origins extends React.Component<{ label: string | React.JSX.Element, origins: any } & State, {}> {
     private toggle() {
         this.props.origins.__isBusy = true;
         this.forceUpdate(() =>
@@ -359,7 +359,7 @@ export class Origins extends React.Component<{ label: string | JSX.Element, orig
     }
 }
 
-export class Membrane extends React.Component<{ label: string | JSX.Element, membraneData: any } & State, {}> {
+export class Membrane extends React.Component<{ label: string | React.JSX.Element, membraneData: any } & State, {}> {
     private unsubscribe: (() => void)[] = [];
 
     componentDidMount() {

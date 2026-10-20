@@ -26,9 +26,9 @@ function getTitle(title: string[] | undefined, columnCount: number) {
     return tit;
 }
 
-export class DGElementRow extends React.Component<{ columns: JSX.Element[], columnsCount?: number, trClass?: string, tdClass?: string, title?: string[] }, {}> {
+export class DGElementRow extends React.Component<{ columns: React.JSX.Element[], columnsCount?: number, trClass?: string, tdClass?: string, title?: string[] }, {}> {
 
-    private generateRow(columns: JSX.Element[]) {
+    private generateRow(columns: React.JSX.Element[]) {
         let tdClass = "";
         if (this.props.tdClass !== void 0) {
             tdClass = this.props.tdClass;

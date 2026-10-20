@@ -5,7 +5,7 @@ import { RequestError } from './Http';
 const api = vi.hoisted(() => ({ getSession: vi.fn() }));
 vi.mock('./MoleAPIService', () => ({ ApiService: api }));
 
-import { SessionStatus } from './DataProxy';
+import { SessionInfo, SessionStatus } from './DataProxy';
 
 const session = (state: string, error = '') => ({
     id: 'abc', state, error, pdb_id: '1tqn', assembly_id: null, created: '2026-10-20T08:00:00Z', loaded: null, mole_version: '2.5.26.10.17', jobs: [],
@@ -60,5 +60,19 @@ describe('SessionStatus.waitUntilLoaded', () => {
         await vi.runAllTimersAsync();
         await failed;
         expect(api.getSession).toHaveBeenCalledTimes(6); // the first request and 5 retries
+    });
+});
+
+describe('SessionInfo.DataProvider.subscribe', () => {
+    it('stops calling an unsubscribed handler', async () => {
+        let answer!: (s: unknown) => void;
+        api.getSession.mockReset().mockReturnValueOnce(new Promise(res => { answer = res; }));
+        const kept = vi.fn(), removed = vi.fn();
+        SessionInfo.DataProvider.subscribe('unsubscribed', kept);
+        const unsubscribe = SessionInfo.DataProvider.subscribe('unsubscribed', removed);
+        unsubscribe();
+        answer(session('ready'));
+        await vi.waitFor(() => expect(kept).toHaveBeenCalledTimes(1));
+        expect(removed).not.toHaveBeenCalled();
     });
 });

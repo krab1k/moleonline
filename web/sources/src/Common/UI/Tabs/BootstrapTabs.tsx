@@ -1,7 +1,7 @@
 import React from "react";
 
 export interface TabbedContainerProps {
-    tabContents: JSX.Element[],
+    tabContents: React.JSX.Element[],
     header: string[],
     namespace: string,
     htmlId?: string,
@@ -12,7 +12,7 @@ export interface TabbedContainerProps {
 export class TabbedContainer extends React.Component<TabbedContainerProps, {}> {
 
     header() {
-        let rv: JSX.Element[] = [];
+        let rv: React.JSX.Element[] = [];
         for (let idx = 0; idx < this.props.header.length; idx++) {
             let header = this.props.header[idx];
             rv.push(<li key={idx} className={(idx === this.props.activeTab) ? "nav-item active" : "nav-item"}><a id={`${this.props.namespace}${idx + 1}-tab`} className={(idx === this.props.activeTab) ? "nav-link active" : "nav-link"} aria-current="page" data-bs-toggle="tab" href={`#${this.props.namespace}${idx + 1}`} onClick={(() => {
@@ -27,7 +27,7 @@ export class TabbedContainer extends React.Component<TabbedContainerProps, {}> {
     }
 
     contents() {
-        let rv: JSX.Element[] = [];
+        let rv: React.JSX.Element[] = [];
         for (let idx = 0; idx < this.props.tabContents.length; idx++) {
             let contents = this.props.tabContents[idx];
             rv.push(

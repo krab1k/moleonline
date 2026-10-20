@@ -421,7 +421,7 @@ export class Submissions extends React.Component<SubmissionsProps, SubmissionsSt
 
     render() {
         if (this.state.computationInfo !== null && !this.state.loading) {
-            let submissions: JSX.Element[] = [];
+            let submissions: React.JSX.Element[] = [];
             let submissionsData = this.state.computationInfo.jobs;
             let submitId = 1;
             let params = getParameters();
@@ -688,7 +688,7 @@ export class ControlTabs extends React.Component<{ activeTab?: number }, Control
     }
 
     render() {
-        let tabs: JSX.Element[] = [];
+        let tabs: React.JSX.Element[] = [];
 
         if (this.state.data !== void 0) {
             tabs.push(

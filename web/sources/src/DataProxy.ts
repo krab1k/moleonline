@@ -30,20 +30,24 @@ class KeyedDataProvider<T> {
         this.attachHandler(key, handler, false, onError);
     }
 
-    public subscribe(key: string, handler: DataHandler<T>, onlyFresh?: boolean) {
+    // Returns a function that unsubscribes the handler again (e.g. when a component unmounts)
+    public subscribe(key: string, handler: DataHandler<T>, onlyFresh?: boolean): () => void {
         const data = this.data.get(key);
         if (data !== void 0 && !onlyFresh) {
             handler(key, data);
         }
-        this.attachHandler(key, handler, true);
+        const entry = this.attachHandler(key, handler, true);
+        return () => { this.handlers = this.handlers.filter(h => h !== entry); };
     }
 
     private attachHandler(key: string, handler: DataHandler<T>, stayForUpdate: boolean, onError?: DataErrorHandler) {
-        this.handlers.push({ key, handler, onError, stayForUpdate });
+        const entry = { key, handler, onError, stayForUpdate };
+        this.handlers.push(entry);
         if (!this.pending.has(key)) {
             this.pending.add(key);
             this.fetchData(key, 0);
         }
+        return entry;
     }
 
     private fetchData(key: string, attempt: number) {

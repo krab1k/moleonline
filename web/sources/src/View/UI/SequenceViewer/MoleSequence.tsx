@@ -56,16 +56,19 @@ export class MoleSequence<P extends SequenceProps> extends PluginUIComponent<P> 
         return 1;
     }
 
+    // the selection handlers, detached on unmount (the plugin's subscriptions are by this.subscribe)
+    private detach: (() => void)[] = [];
+
     componentDidMount() {
         this.plugin.managers.interactivity.lociHighlights.addProvider(this.lociHighlightProvider);
         this.plugin.managers.interactivity.lociSelects.addProvider(this.lociSelectionProvider);
 
-        SelectionHelper.attachOnClearSelectionSequence(() => {
+        this.detach.push(SelectionHelper.attachOnClearSelectionSequence(() => {
             this.selectedLocis.fill(0);
             this.updateMarker();
-        });
+        }));
 
-        SelectionHelper.attachOnResidueSelectHandler(residues => {
+        this.detach.push(SelectionHelper.attachOnResidueSelectHandler(residues => {
             const selectedLocis = new Array(this.props.sequenceWrapper.length).fill(0);
             for (let residue of residues) {
                 if (residue.operatorName === this.props.operatorName && residue.chain.authAsymId === this.props.chainName) {
@@ -88,7 +91,7 @@ export class MoleSequence<P extends SequenceProps> extends PluginUIComponent<P> 
             //     }
             // })
             this.updateMarker();
-        });
+        }));
 
         this.subscribe(this.highlightQueue.pipe(throttleTime(3 * 16.666, void 0, { leading: true, trailing: true })), (e) => {
             const loci = this.getLoci(e.seqIdx < 0 ? void 0 : e.seqIdx);
@@ -98,6 +101,8 @@ export class MoleSequence<P extends SequenceProps> extends PluginUIComponent<P> 
 
     componentWillUnmount() {
         super.componentWillUnmount();
+        this.detach.forEach(d => d());
+        this.detach = [];
 
         this.plugin.managers.interactivity.lociHighlights.removeProvider(this.lociHighlightProvider);
         this.plugin.managers.interactivity.lociSelects.removeProvider(this.lociSelectionProvider);
@@ -343,7 +348,7 @@ export class MoleSequence<P extends SequenceProps> extends PluginUIComponent<P> 
     render() {
         const sw = this.props.sequenceWrapper;
 
-        const elems: JSX.Element[] = [];
+        const elems: React.JSX.Element[] = [];
 
         const hasNumbers = !this.props.hideSequenceNumbers, period = this.sequenceNumberPeriod;
         for (let i = 0, il = sw.length; i < il; ++i) {

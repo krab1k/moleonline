@@ -23,7 +23,7 @@ class BootstrapDropDownMenuItem extends React.Component<{ link?: string, linkTex
     }
 }
 
-class BootstrapDropDownMenuButton extends React.Component<{ label: string, items: JSX.Element[] }, {}> {
+class BootstrapDropDownMenuButton extends React.Component<{ label: string, items: React.JSX.Element[] }, {}> {
     render() {
         return <div className="btn-group dropdown">
             <button type="button" className="download dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -117,7 +117,7 @@ ${auditLine}
         let computationId = this.state.computationId;
         const result = (format: ResultFormat) => ApiService.jobResultUrl(computationId, this.state.submitId, format);
 
-        let items: JSX.Element[] = [];
+        let items: React.JSX.Element[] = [];
 
         if (computationId !== void 0) {
             items.push(
