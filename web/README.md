@@ -22,7 +22,8 @@ service `api` (port 8080). Both run from the repository's [`compose.yaml`](../co
 ### Devel
 
 The development server (`npm run dev`, and `npm run preview` for a build) serves the API under `/api` as well and
-forwards it to a local API, `API_PROXY` in `.env.development` (`http://localhost:5077`).
+forwards it to a local API, `API_PROXY` in `.env.development` (`http://localhost:8000`, where `uv run uvicorn` serves
+it, see `../api/README.md`).
 
 `npm test` runs the unit tests (Vitest, `sources/src/**/*.test.ts`) of the code that needs no browser.
 
