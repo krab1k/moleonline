@@ -18,8 +18,15 @@ import WaveLoader from "../../CommonUtils/WaveLoader";
 import { LoadingStatusDisplay } from "../../CommonUtils/LoadingInfo/LoadingStatusDisplay";
 import { Section } from "./ChannelsUI";
 import { listen } from "../../CommonUtils/Events";
+import { getTabLinkById } from "../../CommonUtils/Tabs";
 
-declare function $(p: any): any;
+// The title of the channel profile tab, rendered by the left panel
+function setProfileTabTitle(title: string) {
+    const link = getTabLinkById("left-tabs", "1");
+    if (link) {
+        link.textContent = title;
+    }
+}
 
 export class PluginControl extends React.Component<{ data: any }, { isLoading?: boolean, error?: string, data?: any }> {
 
@@ -231,8 +238,7 @@ export class Selection extends React.Component<State, { label?: string | JSX.Ele
 
         this.unsubscribe.push(SelectionHelper.attachOnClearSelectionHandler((() => {
             this.setState({ label: void 0, tunnel: false });
-            $("#left-tabs li a[href='#left-tabs-1']")
-                .text("Channel profile");
+            setProfileTabTitle("Channel profile");
         }).bind(this)));
 
         this.unsubscribe.push(SelectionHelper.attachOnChannelSelectHandler2((channel) => {
@@ -243,21 +249,18 @@ export class Selection extends React.Component<State, { label?: string | JSX.Ele
                 if (annotations !== null && annotations.length > 0) {
                     tunnelName = annotations[0].name;
                 }
-                $("#left-tabs li a[href='#left-tabs-1']")
-                    .text(`Channel profile (${channel.Type})`);
+                setProfileTabTitle(`Channel profile (${channel.Type})`);
                 this.setState({ label: <span><b>{tunnelName}</b>, {`Length: ${len} Å`}</span>, tunnel: true });
             }
             else {
-                $("#left-tabs li a[href='#left-tabs-1']")
-                    .text(`Channel profile (${tunnelName})`);
+                setProfileTabTitle(`Channel profile (${tunnelName})`);
                 let namePart = (tunnelName === void 0) ? '' : ` (${tunnelName})`;
                 this.setState({ label: <span><b>{channel.Type}{namePart}</b>, {`Length: ${len} Å`}</span>, tunnel: true });
             }
         }))
 
         this.unsubscribe.push(SelectionHelper.attachOnChannelDeselectHandler(() => {
-            $("#left-tabs li a[href='#left-tabs-1']")
-                .text(`Channel profile`);
+            setProfileTabTitle(`Channel profile`);
             this.setState({ label: void 0, tunnel: false })
         }))
 

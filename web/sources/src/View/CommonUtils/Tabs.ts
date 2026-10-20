@@ -1,22 +1,18 @@
-declare function $(p: any): any;
+import Tab from 'bootstrap/js/dist/tab';
 
 export function getTabLinkById(tabbedElementId: string, tabId: string) {
-    let tabs = $(`#${tabbedElementId} li a`);
-    for (let t of tabs) {
-        if ($(t).attr('href') === `#${tabbedElementId}-${tabId}`) {
-            return $(t);
-        }
-    }
+    const href = `#${tabbedElementId}-${tabId}`;
+    return [...document.querySelectorAll<HTMLElement>(`#${tabbedElementId} li a`)].find(a => a.getAttribute('href') === href);
 }
 
 export function isActive(tabbedElementId: string, tabId: string) {
-    return getTabLinkById(tabbedElementId, tabId).attr("class").indexOf("active") >= 0;
+    return getTabLinkById(tabbedElementId, tabId)?.classList.contains("active") ?? false;
 }
 
 export function activateTab(tabbedElementId: string, tabId: string) {
     let tabLink = getTabLinkById(tabbedElementId, tabId);
     if (tabLink) {
-        tabLink.tab('show'); // Trigger the click to activate the tab
+        Tab.getOrCreateInstance(tabLink).show();
     } else {
         console.error(`Tab with id "${tabId}" not found in element "${tabbedElementId}".`);
     }
@@ -27,8 +23,8 @@ export function doAfterTabActivated(tabbedElementId: string, tabId: string, call
     let timer: number;
     let checker = function () {
         let link = getTabLinkById(tabbedElementId, tabId);
-        let href = link.attr("href");
-        if (link.attr("class").indexOf("active") >= 0 && $(href).css("display") !== "none") {
+        let pane = link && document.querySelector(link.getAttribute("href")!);
+        if (link?.classList.contains("active") && pane && getComputedStyle(pane).display !== "none") {
             callback();
         }
         else {

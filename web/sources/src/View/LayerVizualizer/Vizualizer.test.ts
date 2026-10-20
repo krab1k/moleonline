@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Vizualizer } from './Vizualizer';
+
+// Bootstrap's tabs need a document at import
+vi.mock('../CommonUtils/Tabs', () => ({ isActive: () => true }));
 
 const getColor = Vizualizer.prototype.getColor;
 const rgb = (s: string) => s.match(/\d+/g)!.map(Number);

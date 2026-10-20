@@ -1,12 +1,10 @@
 import { isDone, Job, MoleConfigPoint, MoleConfigResidue } from "../../MoleAPIService";
 import { StringPoint } from "./Selection";
 
-declare function $(p: any): any;
-
 export function triggerDownload(dataUrl: string, fileName: string) {
     let a = document.createElement("a");
     document.body.appendChild(a);
-    $(a).css("display", "none");
+    a.style.display = "none";
     a.href = dataUrl;
     a.download = fileName;
     a.click();

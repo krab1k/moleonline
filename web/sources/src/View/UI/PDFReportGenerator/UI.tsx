@@ -17,7 +17,6 @@ import { CommonOptions } from "../../../../config/common";
 import { showChannelVisuals } from "../../State";
 import { Context } from "../../Context";
 
-declare function $(p: any): any;
 
 interface ConfigPromiseType { job: Job, session: Session };
 
@@ -37,6 +36,13 @@ function fill(template: string, values: Record<string, string | null | undefined
 }
 
 const yesNo = (value: boolean | undefined) => value ? "Yes" : "No";
+
+// Hides the page from printing, so that only the report is printed
+function setNoPrint(noPrint: boolean) {
+    for (const child of document.body.children) {
+        child.classList.toggle("no-print", noPrint);
+    }
+}
 
 export class PDFReportGenerator extends React.Component<{}, AppState> {
     public static templateCache: PDFTemplate | null = null;
@@ -213,8 +219,8 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
                 rej("No data!");
             }
             let selectedChannelId = SelectionHelper.getSelectedChannelId();
-            let canvas = $(".layer-vizualizer-canvas");
-            if (canvas.length === 0 || selectedChannelId !== channelData.Id) {
+            let canvas = document.querySelector(".layer-vizualizer-canvas");
+            if (canvas === null || selectedChannelId !== channelData.Id) {
                 if (selectedChannelId !== channelData.Id) {
                     this.selectChannel(channelData, allChannels).then(() => {
                         this.generateChannelReportWrapper(channelData, allChannels)
@@ -229,8 +235,8 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
                 }
                 else {
                     let waitForCanvas = (timeout?: number) => {
-                        let canvas = $(".layer-vizualizer-canvas");
-                        if (canvas.length === 0) {
+                        let canvas = document.querySelector(".layer-vizualizer-canvas");
+                        if (canvas === null) {
                             window.setTimeout(() => waitForCanvas((timeout === void 0) ? 20 : timeout + 10), (timeout === void 0) ? 20 : timeout);
                         }
                         else {
@@ -396,8 +402,10 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
                             let css = '<style>' + PDFReportGenerator.templateCache.css + "</style>";
                             let reportWrapperId = "report-wrapper";
                             let toPrint = `<div id='${reportWrapperId}'>` + css + this.state.reportContent + '</div>';
-                            let toPrintHtml = $(toPrint)[0];
-                            $(document.body.children).addClass("no-print");
+                            let template = document.createElement("template");
+                            template.innerHTML = toPrint;
+                            let toPrintHtml = template.content.firstElementChild!;
+                            setNoPrint(true);
                             document.body.appendChild(toPrintHtml);
                             let originalTitle = document.title;
 
@@ -407,11 +415,11 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
 
                             window.setTimeout(() => {
                                 let afterPrint = (() => {
-                                    let reportWrapper = $('#' + reportWrapperId)[0];
-                                    if (reportWrapper !== void 0 && reportWrapper !== null) {
+                                    let reportWrapper = document.getElementById(reportWrapperId);
+                                    if (reportWrapper !== null) {
                                         document.body.removeChild(reportWrapper);
                                     }
-                                    $(document.body.children).removeClass("no-print");
+                                    setNoPrint(false);
                                     let state = this.state;
                                     state.progress = 0;
                                     state.inProgress = false;
@@ -471,7 +479,7 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
     }
 
     private afterError(err: any) {
-        $(document.body.children).removeClass("no-print");
+        setNoPrint(false);
         let state = this.state;
         state.progress = 0;
         state.inProgress = false;

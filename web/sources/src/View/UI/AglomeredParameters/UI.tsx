@@ -9,7 +9,6 @@ import { TunnelsId } from "../../CommonUtils/TunnelsId";
 
 let DGTABLE_COLS_COUNT = 12;
 
-declare function $(p: any): any;
 
 interface State {
     data: Map<string, Tunnel[]> | null,
