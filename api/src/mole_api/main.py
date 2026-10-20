@@ -4,6 +4,7 @@ import functools
 import json
 import sys
 import uuid
+from http import HTTPStatus
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import version
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, FastAPI, Request, Response
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.concurrency import run_in_threadpool
@@ -19,6 +21,7 @@ from pydantic import BaseModel, ConfigDict
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import UploadFile
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from . import data, iplog, mole, pdbe, storage, upload
@@ -30,17 +33,27 @@ from .storage import IN_PROGRESS, Job, JobState, Session, SessionState, StoredSe
 from .versions import read_mole_version
 
 
-class Report(BaseModel):
-    """Why a request failed, with its HTTP error status"""
-    ComputationId: str | None  # the session's id; null when none was created (a refused upload)
-    SubmitId: int  # the job's number, 0 for none
-    Status: Literal["Error"]
-    ErrorMsg: str
+class FieldError(BaseModel):
+    field: str  # where in the request, e.g. parameters.Cavity.ProbeRadius, path.format
+    message: str
 
 
-def error(session_id: str | None, status_code: int, message: str, number: int = 0) -> JSONResponse:
-    report = Report(ComputationId=session_id, SubmitId=number, Status="Error", ErrorMsg=message)
-    return JSONResponse(report.model_dump(mode="json"), status_code)
+class Problem(BaseModel):
+    """Why a request failed: problem details (RFC 9457, application/problem+json). type is about:blank, so title is the
+    HTTP status' phrase; detail says what was wrong."""
+    type: str = "about:blank"
+    title: str
+    status: int
+    detail: str
+    errors: list[FieldError] | None = None  # the invalid fields of a request that failed validation (422)
+
+
+PROBLEM = "application/problem+json"
+
+
+def problem(status: int, detail: str, errors: list[FieldError] | None = None, headers: dict[str, str] | None = None) -> JSONResponse:
+    body = Problem(title=HTTPStatus(status).phrase, status=status, detail=detail, errors=errors)
+    return JSONResponse(body.model_dump(mode="json", exclude_none=True), status, headers=headers, media_type=PROBLEM)
 
 
 STOPPED_LOAD = "Loading of the structure was stopped."
@@ -50,9 +63,9 @@ def find(request: Request, session_id: str) -> StoredSession | JSONResponse:
     """The session, or the response when it does not exist (404) or is deleted (410)"""
     found = storage.load(request.app.state.settings.working_directory, session_id)
     if found is None:
-        return error(session_id, 404, f"Session [{session_id}] does not exist.")
+        return problem(404, f"Session [{session_id}] does not exist.")
     if found.deleted:
-        return error(session_id, 410, "The session has been deleted.")
+        return problem(410, "The session has been deleted.")
     return found
 
 
@@ -97,8 +110,8 @@ class LoggedJob(APIRoute):
 
 
 def errors(*codes: int) -> dict:
-    """Error responses in the documentation"""
-    return {code: {"model": Report} for code in (*codes, 500)}
+    """Error responses in the documentation: problem details; 422 for any invalid request"""
+    return {code: {"model": Problem, "content": {PROBLEM: {}}} for code in sorted({*codes, 422, 500})}
 
 
 UPLOAD_FORM = {"requestBody": {"required": True, "content": {"multipart/form-data": {"schema": {
@@ -165,19 +178,19 @@ class Version(BaseModel):
 async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
     """A session of the uploaded structure, or why it is refused"""
     if int(request.headers.get("content-length") or 0) > upload.MAX_REQUEST_BYTES:  # not read at all
-        return error(None, 413, upload.TOO_LARGE)
+        return problem(413, upload.TOO_LARGE)
     settings: Settings = request.app.state.settings
     async with request.form() as form:
         file = form.get("file")
         if not isinstance(file, UploadFile) or not file.size:
-            return error(None, 400, upload.NO_FILE)
+            return problem(422, upload.NO_FILE)
         if (name := upload.stored_name(file.filename or "")) is None:
-            return error(None, 400, upload.UNSUPPORTED)
+            return problem(422, upload.UNSUPPORTED)
         gzipped = (file.filename or "").lower().endswith(".gz")
         temp = settings.working_directory / f".upload-{uuid.uuid4().hex}"  # a session only for a structure that fits
         try:
             if refused := await run_in_threadpool(upload.store, file.file, gzipped, temp):
-                return error(None, *refused)
+                return problem(*refused)
             s = storage.create(settings.working_directory, request.app.state.mole_version)
             s.structure_file = name
             temp.rename(s.structure_path())
@@ -196,9 +209,9 @@ def start_job(request: Request, session_id: str, new: NewTunnelsJob | NewPoresJo
     if isinstance(found, JSONResponse):
         return found
     if problems := new.parameters.problems():
-        return error(session_id, 400, problems)
+        return problem(422, problems)
     if refused := can_run(request, found):
-        return error(session_id, *refused)
+        return problem(*refused)
 
     job = found.add_job(new.type, new.parameters.model_dump(), request.app.state.mole_version)
     directory = found.job_directory(job.number)
@@ -206,7 +219,7 @@ def start_job(request: Request, session_id: str, new: NewTunnelsJob | NewPoresJo
         steps = write_input(found, directory)
     except Exception as e:  # e.g. the structure is missing
         found.update(job.number, JobState.failed, str(e))
-        return error(session_id, 500, str(e), job.number)
+        return problem(500, str(e))
     started = job.model_copy()  # before the run can change it
     request.app.state.runner.start(found, job.number, lambda: steps, finish=lambda: finish(found, directory))
     return started
@@ -230,21 +243,41 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # get_job_sessions__session_id__jobs__number__get
     app = FastAPI(title="MOLEonline API", version=version("mole-api"), lifespan=lifespan,
                   generate_unique_id_function=lambda route: route.name)
+
+    def openapi() -> dict:
+        """FastAPI's description, the errors' schema under their media type (it puts a response's model under
+        application/json, the problem's media type stays without a schema)"""
+        if app.openapi_schema is None:
+            description = FastAPI.openapi(app)
+            for operation in (op for path in description["paths"].values() for op in path.values()):
+                for status, response in operation.get("responses", {}).items():
+                    content = response.get("content", {})
+                    if int(status) >= 400 and PROBLEM in content:
+                        content[PROBLEM] = content.pop("application/json")
+        return app.openapi_schema
+    app.openapi = openapi
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=iplog.PROXIES)  # the client address, also for the log
     app.add_middleware(GZipMiddleware)  # for clients that accept it; not zips, data.json often has megabytes
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, e: Exception) -> JSONResponse:  # logged by uvicorn
-        return error(None, 500, "An unexpected error occurred on the server. Please, try again later.")
+        return problem(500, "An unexpected error occurred on the server. Please, try again later.")
 
     @app.exception_handler(RequestValidationError)
     async def invalid(request: Request, e: RequestValidationError) -> JSONResponse:
-        """400 with a report, as the former C# API answered (not FastAPI's 422)"""
+        """422 with the invalid fields"""
         def where(loc: tuple) -> str:  # the field in the body; without the job type, the tag of NewJob's union
             parts = [str(part) for part in loc if part != "body"]
             return ".".join(parts[1:] if parts and parts[0] in LOGGED_TYPES else parts)
-        details = "; ".join(f"{where(error['loc'])}: {error['msg']}" for error in e.errors())
-        return error(request.path_params.get("session_id"), 400, f"Input format error. {details}")
+        fields = [FieldError(field=where(error["loc"]), message=error["msg"]) for error in e.errors()]
+        return problem(422, "Invalid request. " + "; ".join(f"{f.field}: {f.message}" for f in fields), fields)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(request: Request, e: StarletteHTTPException) -> JSONResponse:
+        """The framework's errors (no such path, a wrong method) as problems too, with their headers (Allow of a 405)"""
+        if e.status_code < 400:
+            return await http_exception_handler(request, e)
+        return problem(e.status_code, str(e.detail), headers=e.headers)
 
     @app.get("/", include_in_schema=False)
     def home() -> RedirectResponse:
@@ -262,7 +295,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     sessions = APIRouter(prefix="/sessions", tags=["sessions"])
 
-    @sessions.post("", status_code=202, responses=errors(400))
+    @sessions.post("", status_code=202, responses=errors())
     async def create_session(request: Request, response: Response, new: NewSession) -> Session:
         """A session of a PDB entry: downloaded from PDBe and loaded by MOLE in the background. Poll the session
         (Location) until it is ready or failed."""
@@ -270,9 +303,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings: Settings = request.app.state.settings
         try:
             if not pdbe.PDB_ID.match(new.pdb_id):
-                return error(None, 400, f"Invalid PDB id [{new.pdb_id}].")
+                return problem(422, f"Invalid PDB id [{new.pdb_id}].")
             if not pdbe.ASSEMBLY.match(new.assembly):
-                return error(None, 400, f"Invalid assembly [{new.assembly}]. Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
+                return problem(422, f"Invalid assembly [{new.assembly}]. Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
             s = storage.create(settings.working_directory, request.app.state.mole_version, new.pdb_id.lower())
             created_id = s.id
             request.app.state.runner.start(s, None, lambda: [run_mole(settings, mole.load_input(s))],
@@ -281,7 +314,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             iplog.write(settings.working_directory, "Init", request.client and request.client.host, "PDB", created_id)
 
-    @sessions.post("/upload", status_code=202, responses=errors(400, 413), openapi_extra=UPLOAD_FORM)
+    @sessions.post("/upload", status_code=202, responses=errors(413), openapi_extra=UPLOAD_FORM)
     async def upload_session(request: Request, response: Response) -> Session:
         """A session of an uploaded structure, loaded by MOLE in the background; a gzipped file is stored unpacked.
         Poll the session (Location) until it is ready or failed."""
@@ -309,7 +342,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         found = find(request, session_id)
         if isinstance(found, JSONResponse):
             return found
-        return data.structure(found) or error(session_id, 404, "The structure is not available, it has not been stored.")
+        return data.structure(found) or problem(404, "The structure is not available, it has not been stored.")
 
     @sessions.get("/{session_id}/data", response_class=Response, responses={**errors(404, 410), **FILE})
     def get_session_data(request: Request, session_id: str):
@@ -318,8 +351,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if isinstance(found, JSONResponse):
             return found
         if found.state != SessionState.ready:
-            return error(session_id, 404, "The session has no data, its structure has not been loaded.")
-        return data.session_data(found) or error(session_id, 404, "The data of the session are not available.")
+            return problem(404, "The session has no data, its structure has not been loaded.")
+        return data.session_data(found) or problem(404, "The data of the session are not available.")
 
     @functools.cache
     def csa() -> CSA:
@@ -344,7 +377,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if isinstance(found, JSONResponse):
             return found
         if found.state not in IN_PROGRESS or not request.app.state.runner.kill(session_id):
-            return error(session_id, 409, f"The session is {found.state}, only a queued or loading session can be cancelled.")
+            return problem(409, f"The session is {found.state}, only a queued or loading session can be cancelled.")
         found.update(None, SessionState.failed, STOPPED_LOAD)
         return found.public()
 
@@ -362,7 +395,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     new_jobs = APIRouter(prefix="/sessions", tags=["jobs"], route_class=LoggedJob)
     job_routes = APIRouter(prefix="/sessions", tags=["jobs"])
 
-    @new_jobs.post("/{session_id}/jobs", status_code=202, responses=errors(400, 404, 409, 410, 503))
+    @new_jobs.post("/{session_id}/jobs", status_code=202, responses=errors(404, 409, 410, 503))
     async def create_job(request: Request, response: Response, session_id: str, new: NewJob) -> Job:
         """A job on the session's structure, run in the background: queued, running, then finished, failed or
         cancelled. Poll the job (Location). One job runs on a session at a time (409 while one does), 503 when the
@@ -409,7 +442,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if isinstance(found, JSONResponse):
             return found
         if (wanted := found.job(number)) is None:
-            return error(session_id, 404, f"Job {number} does not exist.", number)
+            return problem(404, f"Job {number} does not exist.")
         return wanted
 
     @job_routes.get("/{session_id}/jobs/{number}/results/{format}", response_class=Response, responses={**errors(404, 410), **FILE})
@@ -421,11 +454,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if isinstance(found, JSONResponse):
             return found
         if (wanted := found.job(number)) is None:
-            return error(session_id, 404, f"Job {number} does not exist.", number)
+            return problem(404, f"Job {number} does not exist.")
         # MOLE's files appear while it runs, a failed run leaves some; the membrane is complete once written
         if format != data.ResultFormat.membrane and wanted.state != JobState.finished:
-            return error(session_id, 404, f"Job {number} has no results, it is {wanted.state}.", number)
-        return data.job_result(found, number, format) or error(session_id, 404, f"The job has no {format} results.", number)
+            return problem(404, f"Job {number} has no results, it is {wanted.state}.")
+        return data.job_result(found, number, format) or problem(404, f"The job has no {format} results.")
 
     @job_routes.post("/{session_id}/jobs/{number}/cancel", responses=errors(404, 409, 410))
     async def cancel_job(request: Request, session_id: str, number: int) -> Job:
@@ -434,10 +467,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if isinstance(found, JSONResponse):
             return found
         if (wanted := found.job(number)) is None:
-            return error(session_id, 404, f"Job {number} does not exist.", number)
+            return problem(404, f"Job {number} does not exist.")
         # one job runs on a session at a time, the last one; the session's run is its
         if wanted.state not in IN_PROGRESS or not request.app.state.runner.kill(session_id):
-            return error(session_id, 409, f"The job is {wanted.state}, only a queued or running job can be cancelled.", number)
+            return problem(409, f"The job is {wanted.state}, only a queued or running job can be cancelled.")
         found.update(number, JobState.cancelled)
         return found.job(number)
 

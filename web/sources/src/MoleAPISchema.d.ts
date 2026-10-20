@@ -124,10 +124,12 @@ export interface components {
       /** Sequencenumber */
       SequenceNumber: number;
     };
-    /** HTTPValidationError */
-    HTTPValidationError: {
-      /** Detail */
-      detail?: components["schemas"]["ValidationError"][];
+    /** FieldError */
+    FieldError: {
+      /** Field */
+      field: string;
+      /** Message */
+      message: string;
     };
     /**
      * Job
@@ -400,21 +402,24 @@ export interface components {
       InteriorThreshold?: number;
     };
     /**
-     * Report
-     * @description Why a request failed, with its HTTP error status
+     * Problem
+     * @description Why a request failed: problem details (RFC 9457, application/problem+json). type is about:blank, so title is the
+     * HTTP status' phrase; detail says what was wrong.
      */
-    Report: {
-      /** Computationid */
-      ComputationId: string | null;
-      /** Submitid */
-      SubmitId: number;
+    Problem: {
       /**
-       * Status
-       * @constant
+       * Type
+       * @default about:blank
        */
-      Status: "Error";
-      /** Errormsg */
-      ErrorMsg: string;
+      type?: string;
+      /** Title */
+      title: string;
+      /** Status */
+      status: number;
+      /** Detail */
+      detail: string;
+      /** Errors */
+      errors?: components["schemas"]["FieldError"][] | null;
     };
     /**
      * ResultFormat
@@ -461,19 +466,6 @@ export interface components {
      * @enum {string}
      */
     SessionState: "queued" | "loading" | "ready" | "failed";
-    /** ValidationError */
-    ValidationError: {
-      /** Location */
-      loc: (string | number)[];
-      /** Message */
-      msg: string;
-      /** Error Type */
-      type: string;
-      /** Input */
-      input?: unknown;
-      /** Context */
-      ctx?: Record<string, never>;
-    };
     /** Version */
     Version: {
       /** Api */
@@ -543,22 +535,16 @@ export interface operations {
           "application/json": components["schemas"]["Session"];
         };
       };
-      /** @description Bad Request */
-      400: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -587,22 +573,22 @@ export interface operations {
           "application/json": components["schemas"]["Session"];
         };
       };
-      /** @description Bad Request */
-      400: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
       /** @description Content Too Large */
       413: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Unprocessable Content */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -627,25 +613,25 @@ export interface operations {
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -668,25 +654,25 @@ export interface operations {
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -709,25 +695,25 @@ export interface operations {
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -750,25 +736,25 @@ export interface operations {
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -794,25 +780,25 @@ export interface operations {
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -838,31 +824,31 @@ export interface operations {
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Conflict */
       409: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -891,46 +877,40 @@ export interface operations {
           "application/json": components["schemas"]["Job"];
         };
       };
-      /** @description Bad Request */
-      400: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Conflict */
       409: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Service Unavailable */
       503: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -956,25 +936,25 @@ export interface operations {
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -1001,25 +981,25 @@ export interface operations {
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };
@@ -1045,31 +1025,31 @@ export interface operations {
       /** @description Not Found */
       404: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Conflict */
       409: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Gone */
       410: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description Validation Error */
+      /** @description Unprocessable Content */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
       /** @description Internal Server Error */
       500: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/problem+json": components["schemas"]["Problem"];
         };
       };
     };

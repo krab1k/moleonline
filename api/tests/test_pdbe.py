@@ -123,9 +123,8 @@ def test_stopped_download(client):
 def test_refused_before_pdbe_is_asked(client, settings, requested, message):
     pdbe = FakePDBe(client, {})
     response = client.post("/sessions", json=requested)
-    assert response.status_code == 400
-    assert response.json()["ComputationId"] is None
-    assert response.json()["ErrorMsg"].startswith(message)
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith(message)
     assert pdbe.requests == []
     assert logged(settings) == [("Init", "testclient", "PDB", "-")]
 

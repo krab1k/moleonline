@@ -95,22 +95,22 @@ def test_input_of_the_examples(client):
 
 
 @pytest.mark.parametrize("parameters, message", [
-    ("not json", "Input format error"),
-    ("", "Input format error"),
+    ("not json", "Invalid request"),
+    ("", "Invalid request"),
     ({"Cavity": {"ProbeRadius": 100}}, "Invalid parameters. Probe radius must be between 1.4 and 45."),
     ({"Tunnel": {"WeightFunction": "x", "MaxTunnelSimilarity": 2}}, "Invalid parameters. Max tunnel similarity must be between 0 and 1. Weight function must be one of"),
-    ({"Input": {"ReadAllModels": True}}, "Input format error. parameters.Input.ReadAllModels: Extra inputs are not permitted"),  # only the first model is used
-    ({"Cavity": {"ProbeRadius": "big"}}, "Input format error. parameters.Cavity.ProbeRadius:"),
-    ({"Origin": {"Points": [{"X": "NaN", "Y": 0, "Z": 0}]}}, "Input format error. parameters.Origin.Points.0.X: Input should be a finite number"),
-    ('{"CustomExits": {"Points": [{"X": 0, "Y": Infinity, "Z": 0}]}}', "Input format error. parameters.CustomExits.Points.0.Y: Input should be a finite number"),
-    ('{"Cavity": {"ProbeRadius": NaN}}', "Input format error. parameters.Cavity.ProbeRadius: Input should be a finite number"),
+    ({"Input": {"ReadAllModels": True}}, "Invalid request. parameters.Input.ReadAllModels: Extra inputs are not permitted"),  # only the first model is used
+    ({"Cavity": {"ProbeRadius": "big"}}, "Invalid request. parameters.Cavity.ProbeRadius:"),
+    ({"Origin": {"Points": [{"X": "NaN", "Y": 0, "Z": 0}]}}, "Invalid request. parameters.Origin.Points.0.X: Input should be a finite number"),
+    ('{"CustomExits": {"Points": [{"X": 0, "Y": Infinity, "Z": 0}]}}', "Invalid request. parameters.CustomExits.Points.0.Y: Input should be a finite number"),
+    ('{"Cavity": {"ProbeRadius": NaN}}', "Invalid request. parameters.Cavity.ProbeRadius: Input should be a finite number"),
 ])
-def test_invalid_parameters_are_400(client, settings, parameters, message):
+def test_invalid_parameters_are_422(client, settings, parameters, message):
     id = loaded(client)
     response = submit(client, id, parameters)
-    assert response.status_code == 400
-    assert response.json()["ComputationId"] == id and response.json()["Status"] == "Error"
-    assert response.json()["ErrorMsg"].startswith(message)
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["detail"].startswith(message)
     assert client.get(f"/sessions/{id}").json()["jobs"] == []
     # refused ones too; the type from a body that is JSON
     kind = "-" if parameters in ("not json", "") else "Mole"
@@ -125,11 +125,11 @@ def test_invalid_parameters_are_400(client, settings, parameters, message):
     '{"type": "tunnels", "parameters": {}, "extra": 1}',
     '[]',
 ])
-def test_invalid_job_is_400(client, settings, body):
+def test_invalid_job_is_422(client, settings, body):
     id = loaded(client)
     response = client.post(f"/sessions/{id}/jobs", content=body, headers={"Content-Type": "application/json"})
-    assert response.status_code == 400
-    assert response.json()["ErrorMsg"].startswith("Input format error")
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith("Invalid request")
     kind = "Mole" if '"tunnels"' in body else "-"
     assert logged(settings)[-1] == ("Submit", "testclient", kind, id)
 
@@ -148,14 +148,14 @@ def test_busy_session_refuses_and_the_job_is_cancelled(api):
 
     assert client.get(f"/sessions/{id}/jobs/1").json()["state"] == "running"
     busy = submit(client, id)
-    assert busy.status_code == 409 and "still running" in busy.json()["ErrorMsg"]
+    assert busy.status_code == 409 and "still running" in busy.json()["detail"]
     cancelled = client.post(f"/sessions/{id}/jobs/1/cancel")
     assert cancelled.status_code == 200
     assert (cancelled.json()["state"], cancelled.json()["error"]) == ("cancelled", "")
     time.sleep(0.2)
     assert client.get(f"/sessions/{id}/jobs/1").json()["state"] == "cancelled"  # the run did not write over it
     again = client.post(f"/sessions/{id}/jobs/1/cancel")
-    assert again.status_code == 409 and again.json()["ErrorMsg"] == "The job is cancelled, only a queued or running job can be cancelled."
+    assert again.status_code == 409 and again.json()["detail"] == "The job is cancelled, only a queued or running job can be cancelled."
 
     second = submit(client, id)  # a cancelled job does not block the structure
     assert second.status_code == 202 and second.json()["number"] == 2
@@ -177,7 +177,7 @@ def test_all_slots_busy_is_503(api):
     first, second = loaded(client), loaded(client)
     submit(client, first)
     response = submit(client, second)
-    assert response.status_code == 503 and "heavy load" in response.json()["ErrorMsg"]
+    assert response.status_code == 503 and "heavy load" in response.json()["detail"]
     assert client.get(f"/sessions/{second}").json()["jobs"] == []
 
 
@@ -191,7 +191,7 @@ def test_structure_not_loaded_is_409(api, load, status, message):
     if load == "exit 3":
         wait_session(client, id)
     response = submit(client, id)
-    assert response.status_code == status and message in response.json()["ErrorMsg"]
+    assert response.status_code == status and message in response.json()["detail"]
 
 
 @pytest.mark.parametrize("run, message", [

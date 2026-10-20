@@ -6,8 +6,9 @@ const response = (status: number, body: unknown, statusText = 'Status') =>
     new Response(typeof body === 'string' ? body : JSON.stringify(body), { status, statusText });
 
 describe('requestError', () => {
-    it("uses the API's ErrorMsg when its report says why", async () => {
-        const e = await requestError('POST', '/api/Init', response(413, { ErrorMsg: ' The file is too large. ' }));
+    it("uses the API's detail when its problem details say why", async () => {
+        const problem = { type: 'about:blank', title: 'Content Too Large', status: 413, detail: ' The file is too large. ' };
+        const e = await requestError('POST', '/api/sessions/upload', response(413, problem));
         expect(e).toBeInstanceOf(RequestError);
         expect(e.message).toBe('The file is too large.');
         expect(e.status).toBe(413);
@@ -15,15 +16,21 @@ describe('requestError', () => {
     });
 
     it('falls back to the method, URL and status without a report', async () => {
-        const e = await requestError('GET', '/api/Data/x', response(502, '<html>Bad Gateway</html>', 'Bad Gateway'));
-        expect(e.message).toBe('GET: /api/Data/x 502: Bad Gateway');
+        const e = await requestError('GET', '/api/sessions/x', response(502, '<html>Bad Gateway</html>', 'Bad Gateway'));
+        expect(e.message).toBe('GET: /api/sessions/x 502: Bad Gateway');
+        expect(e.fromApi).toBe(false);
+    });
+
+    it("does not show a detail that is not a message (FastAPI's list of validation errors)", async () => {
+        const e = await requestError('POST', '/x', response(422, { detail: [{ loc: ['body'], msg: 'x' }] }, 'Unprocessable Content'));
+        expect(e.message).toBe('POST: /x 422: Unprocessable Content');
         expect(e.fromApi).toBe(false);
     });
 });
 
 describe('describeError', () => {
     it("shows the API's own message as is", () => {
-        expect(describeError(new RequestError('Computation was deleted.', 410, true), 'Could not load')).toBe('Computation was deleted.');
+        expect(describeError(new RequestError('The session has been deleted.', 410, true), 'Could not load')).toBe('The session has been deleted.');
     });
 
     it('adds the reason to the fallback otherwise', () => {
@@ -42,7 +49,7 @@ describe('isNotFound and isRefused', () => {
     });
 
     it('counts 4xx as refused, except a timeout or too many requests', () => {
-        expect([400, 404, 410, 413].map(s => isRefused(err(s)))).toEqual([true, true, true, true]);
+        expect([400, 404, 410, 413, 422].map(s => isRefused(err(s)))).toEqual([true, true, true, true, true]);
         expect([408, 429, 500, 503].map(s => isRefused(err(s)))).toEqual([false, false, false, false]);
         expect(isRefused(new TypeError('Failed to fetch'))).toBe(false);
     });
@@ -72,8 +79,8 @@ describe('requests', () => {
     });
 
     it("rejects with the API's message", async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => response(410, { ErrorMsg: 'Computation was deleted.' })));
-        await expect(getJson('/api/Status/x')).rejects.toMatchObject({ message: 'Computation was deleted.', status: 410, fromApi: true });
+        vi.stubGlobal('fetch', vi.fn(async () => response(410, { title: 'Gone', status: 410, detail: 'The session has been deleted.' })));
+        await expect(getJson('/api/sessions/x')).rejects.toMatchObject({ message: 'The session has been deleted.', status: 410, fromApi: true });
     });
 
     it('times a request in debug mode until its body is read', async () => {

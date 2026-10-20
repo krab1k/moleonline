@@ -91,18 +91,18 @@ def test_failed_pore_computation(api, settings, pores, run, message):
 
 
 @pytest.mark.parametrize("parameters, message", [
-    ({"IsBetaStructure": True}, "Input format error. parameters.IsBetaStructure: Extra inputs are not permitted"),  # misspelled
+    ({"IsBetaStructure": True}, "Invalid request. parameters.IsBetaStructure: Extra inputs are not permitted"),  # misspelled
     ({"ProbeRadius": 100, "InteriorThreshold": 0.1}, "Invalid parameters. Probe radius must be between 1.4 and 45. Interior threshold must be between 0.3 and 3."),
     ({"Chains": ["A", "B C"]}, "Invalid parameters. Chain names must not be empty or contain spaces."),
     ({"Chains": [""]}, "Invalid parameters. Chain names must not be empty or contain spaces."),
-    ('{"ProbeRadius": NaN}', "Input format error. parameters.ProbeRadius: Input should be a finite number"),
-    ("not json", "Input format error"),
+    ('{"ProbeRadius": NaN}', "Invalid request. parameters.ProbeRadius: Input should be a finite number"),
+    ("not json", "Invalid request"),
 ])
-def test_invalid_parameters_are_400(client, settings, parameters, message):
+def test_invalid_parameters_are_422(client, settings, parameters, message):
     id = loaded(client)
     response = submit(client, id, parameters)
-    assert response.status_code == 400
-    assert response.json()["ErrorMsg"].startswith(message)
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith(message)
     assert logged(settings)[-1] == ("Submit", "testclient", "-" if parameters == "not json" else "Pores", id)
 
 

@@ -42,5 +42,5 @@ def store(source: BinaryIO, gzipped: bool, target: Path) -> tuple[int, str] | No
                     return 413, UNPACKS_TOO_LARGE if gzipped else TOO_LARGE
                 out.write(chunk)
     except (gzip.BadGzipFile, EOFError, zlib.error):
-        return 400, NOT_GZIP
+        return 422, NOT_GZIP
     return None

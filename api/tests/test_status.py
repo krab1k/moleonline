@@ -80,7 +80,8 @@ def test_marking_an_interrupted_run_keeps_a_new_job(settings, monkeypatch):
 def test_unknown_session(client, id):
     response = client.get(f"/sessions/{id}")
     assert response.status_code == 404
-    assert response.json() == {"ComputationId": id, "SubmitId": 0, "Status": "Error", "ErrorMsg": f"Session [{id}] does not exist."}
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json() == {"type": "about:blank", "title": "Not Found", "status": 404, "detail": f"Session [{id}] does not exist."}
 
 
 def test_corrupt_status_file_is_500_with_a_report(settings):
@@ -89,7 +90,7 @@ def test_corrupt_status_file_is_500_with_a_report(settings):
     with TestClient(create_app(settings), raise_server_exceptions=False) as client:
         response = client.get(f"/sessions/{id}")
     assert response.status_code == 500
-    assert response.json()["Status"] == "Error"
+    assert response.json()["title"] == "Internal Server Error" and response.json()["status"] == 500
 
 
 def test_a_deleted_session_is_never_written_over(settings):

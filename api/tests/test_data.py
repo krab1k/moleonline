@@ -60,7 +60,7 @@ def test_structure_and_what_the_load_found(finished):
 
 
 @pytest.mark.parametrize("path, status, message", [
-    ("jobs/1/results/xyz", 400, "Input format error. path.format: Input should be 'data', 'report', 'pymol', 'chimera', 'vmd', 'pdb' or 'membrane'"),
+    ("jobs/1/results/xyz", 422, "Invalid request. path.format: Input should be 'data', 'report', 'pymol', 'chimera', 'vmd', 'pdb' or 'membrane'"),
     ("jobs/99/results/data", 404, "Job 99 does not exist."),
     ("jobs/1/results/membrane", 404, "The job has no membrane results."),  # not a pore job
 ])
@@ -68,7 +68,7 @@ def test_refused(finished, path, status, message):
     client, id = finished
     response = client.get(f"/sessions/{id}/{path}")
     assert response.status_code == status
-    assert response.json()["ErrorMsg"] == message
+    assert response.json()["detail"] == message
 
 
 @pytest.mark.parametrize("run", ["exit 1", RESULTS + "; echo 'MOLE failed' >&2"])  # also when MOLE wrote some
@@ -81,7 +81,7 @@ def test_no_results_of_a_failed_job(api, run):
     for format in ("data", "report", "pdb", "pymol"):
         response = client.get(f"/sessions/{id}/jobs/1/results/{format}")
         assert response.status_code == 404
-        assert response.json()["ErrorMsg"] == "Job 1 has no results, it is failed."
+        assert response.json()["detail"] == "Job 1 has no results, it is failed."
     assert client.get(f"/sessions/{id}/structure").status_code == 200
 
 
@@ -106,7 +106,7 @@ def test_no_data_of_a_failed_load(api):
     assert wait_session(client, id)["state"] == "failed"
     response = client.get(f"/sessions/{id}/data")
     assert response.status_code == 404
-    assert response.json()["ErrorMsg"] == "The session has no data, its structure has not been loaded."
+    assert response.json()["detail"] == "The session has no data, its structure has not been loaded."
 
 
 def test_unknown_and_deleted_session(finished):

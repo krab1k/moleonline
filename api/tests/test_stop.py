@@ -44,7 +44,7 @@ def test_cancelled_load(api):
 
     again = client.post(f"/sessions/{id}/cancel")  # nothing runs now
     assert again.status_code == 409
-    assert again.json()["ErrorMsg"] == "The session is failed, only a queued or loading session can be cancelled."
+    assert again.json()["detail"] == "The session is failed, only a queued or loading session can be cancelled."
 
 
 def test_load_cancelled_while_waiting_for_a_slot(api):
@@ -68,7 +68,7 @@ def test_ready_session_cannot_be_cancelled_and_its_job_runs_on(api):
     assert wait_session(client, id)["state"] == "ready"
     response = client.post(f"/sessions/{id}/cancel")
     assert response.status_code == 409
-    assert response.json()["ErrorMsg"] == "The session is ready, only a queued or loading session can be cancelled."
+    assert response.json()["detail"] == "The session is ready, only a queued or loading session can be cancelled."
 
     submit(client, id)
     folder = client.app.state.settings.working_directory / id / "jobs" / "1"
@@ -91,7 +91,7 @@ def test_delete_stops_the_run_and_is_410_after(api):
     for response in (client.get(f"/sessions/{id}"), client.post(f"/sessions/{id}/cancel"), client.delete(f"/sessions/{id}"),
                      client.get(f"/sessions/{id}/jobs/1"), client.post(f"/sessions/{id}/jobs", json={"type": "tunnels", "parameters": {}})):
         assert response.status_code == 410
-        assert response.json()["ErrorMsg"] == "The session has been deleted."
+        assert response.json()["detail"] == "The session has been deleted."
 
 
 def test_delete_of_a_ready_session(client):
@@ -105,4 +105,4 @@ def test_delete_of_a_ready_session(client):
 def test_unknown_session(client, method, path):
     response = client.request(method, path)
     assert response.status_code == 404
-    assert response.json()["ErrorMsg"] == "Session [nope] does not exist."
+    assert response.json()["detail"] == "Session [nope] does not exist."

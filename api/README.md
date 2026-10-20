@@ -100,10 +100,12 @@ having run out of memory; the API keeps running.
 ## Endpoints
 
 The OpenAPI documentation is at `/docs` (`/openapi.json`). Responses are JSON, except the files to download. A
-request that fails has an HTTP error status and a report with `Status: "Error"` and `ErrorMsg`:
-400 invalid request (parameters, file type, data format), 404 no such session, job or data, 409 a job runs on the session
-or its structure could not be loaded, 410 deleted, 413 upload too large, 503 all slots busy, 500 server error. A session
-or job that failed is a successful request, 200, with its `state` and `error`.
+request that fails has an HTTP error status and problem details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457),
+`application/problem+json`): `type` (`about:blank`), `title` (the status' phrase), `status` and `detail` (why), with
+`errors` (`field`, `message`) for a request that failed validation. 404 no such session, job or data, 409 a job runs on
+the session or its structure could not be loaded, 410 deleted, 413 upload too large, 422 invalid request (body, parameters,
+PDB id, file type, data format), 503 all slots busy, 500 server error. A session or job that failed is a successful
+request, 200, with its `state` and `error`.
 
 | Endpoint | |
 |---|---|

@@ -1,7 +1,7 @@
 import { CommonOptions } from "../config/common";
 
 // Shared request helpers for the API services.
-// A non-2xx response rejects with a RequestError: the API's ErrorMsg when its report says why,
+// A non-2xx response rejects with a RequestError: the API's detail when its problem details (RFC 9457) say why,
 // otherwise "<METHOD>: <url> <status>: <statusText>".
 
 export class RequestError extends Error {
@@ -37,8 +37,9 @@ export function isRefused(reason: unknown): boolean {
 
 // The error of a failed response, for code that calls fetch itself
 export async function requestError(method: string, url: string, response: Response): Promise<RequestError> {
-    const report = await response.json().catch(() => null);
-    const apiMessage = typeof report?.ErrorMsg === "string" ? report.ErrorMsg.trim() : "";
+    // problem details (MOLEonline API), or FastAPI's {"detail": "..."} (other APIs); a list of errors is not shown as is
+    const problem = await response.json().catch(() => null);
+    const apiMessage = typeof problem?.detail === "string" ? problem.detail.trim() : "";
     const error = new RequestError(apiMessage || `${method}: ${url} ${response.status}: ${response.statusText}`, response.status, apiMessage.length > 0);
     if (CommonOptions.DEBUG_MODE)
         console.log(`${method}: ${url} ${response.status}`, error.message);
