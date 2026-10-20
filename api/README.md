@@ -86,6 +86,7 @@ Settings are environment variables, the defaults are the container's (`src/mole_
 |---|---|---|
 | `WORKING_DIRECTORY` | `/data/computations` | computations, must be writable |
 | `MAX_CONCURRENT_COMPUTATIONS` | `4` | MOLE and pore runs at once (loads included), others wait in a queue |
+| `MAX_QUEUED_COMPUTATIONS` | `20` | runs waiting for a slot; a new session or job beyond them is refused (503 with `Retry-After`), `0`: none waits |
 | `MAX_COMPUTATION_MINUTES` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
 | `MOLE` | `/opt/mole2/mole2` | full path |
 | `MEMEMBED` | `/opt/memembed/memembed` | full path, the membrane of pore computations without OPM's |
@@ -104,7 +105,7 @@ request that fails has an HTTP error status and problem details ([RFC 9457](http
 `application/problem+json`): `type` (`about:blank`), `title` (the status' phrase), `status` and `detail` (why), with
 `errors` (`field`, `message`) for a request that failed validation. 404 no such session, job or data, 409 a job runs on
 the session or its structure could not be loaded, 410 deleted, 413 upload too large, 422 invalid request (body, parameters,
-PDB id, file type, data format), 503 all slots busy, 500 server error. A session or job that failed is a successful
+PDB id, file type, data format), 503 the queue is full (`Retry-After`), 500 server error. A session or job that failed is a successful
 request, 200, with its `state` and `error`.
 
 | Endpoint | |

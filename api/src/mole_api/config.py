@@ -12,6 +12,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     working_directory: Path = Path("/data/computations")  # computations and the submission log
     max_concurrent_computations: int = Field(4, ge=1)
+    # runs (loads, jobs) waiting for a slot beyond those running; more are refused (503). 0: none waits
+    max_queued_computations: int = Field(20, ge=0)
     max_computation_minutes: int = Field(30, ge=1)  # one run (all its processes), the queue not included
     mole: Path = Path("/opt/mole2/mole2")
     memembed: Path = Path("/opt/memembed/memembed")  # the membrane of pore computations without OPM's

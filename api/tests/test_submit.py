@@ -148,7 +148,7 @@ def test_busy_session_refuses_and_the_job_is_cancelled(api):
 
     assert client.get(f"/sessions/{id}/jobs/1").json()["state"] == "running"
     busy = submit(client, id)
-    assert busy.status_code == 409 and "still running" in busy.json()["detail"]
+    assert busy.status_code == 409 and "has not finished yet" in busy.json()["detail"]
     cancelled = client.post(f"/sessions/{id}/jobs/1/cancel")
     assert cancelled.status_code == 200
     assert (cancelled.json()["state"], cancelled.json()["error"]) == ("cancelled", "")
@@ -172,13 +172,44 @@ def test_finished_job_cannot_be_cancelled_and_unknown_jobs_are_404(api):
         assert response.status_code == 404
 
 
-def test_all_slots_busy_is_503(api):
+def test_jobs_wait_in_the_queue_until_it_is_full(api):
+    client = api(run=UNTIL_GO, slots=1, queued=1)
+    first, second, third = loaded(client), loaded(client), loaded(client)
+    folder = client.app.state.settings.working_directory
+    submit(client, first)
+    wait_for_file(folder / first / "jobs" / "1" / "started")
+    waiting = submit(client, second)
+    assert waiting.status_code == 202 and waiting.json()["state"] == "queued"  # all slots busy: it waits
+    full = submit(client, third)
+    assert full.status_code == 503 and full.headers["retry-after"] == "60"
+    assert full.json()["detail"] == "The server is busy, its queue is full. Please, try again later."
+    assert client.get(f"/sessions/{third}").json()["jobs"] == []
+    time.sleep(0.2)
+    assert client.get(f"/sessions/{second}/jobs/1").json()["started"] is None  # still waiting
+
+    (folder / first / "jobs" / "1" / "go").touch()  # the slot is free: the queued job runs
+    assert wait(client, first, 1)["state"] == "finished"
+    wait_for_file(folder / second / "jobs" / "1" / "started")
+    assert client.get(f"/sessions/{second}/jobs/1").json()["state"] == "running"
+    (folder / second / "jobs" / "1" / "go").touch()
+    assert wait(client, second, 1)["state"] == "finished"
+    assert submit(client, third).status_code == 202  # room again
+
+
+def test_queued_job_is_cancelled_before_it_runs(api):
     client = api(run=UNTIL_GO, slots=1)
     first, second = loaded(client), loaded(client)
+    folder = client.app.state.settings.working_directory
     submit(client, first)
-    response = submit(client, second)
-    assert response.status_code == 503 and "heavy load" in response.json()["detail"]
-    assert client.get(f"/sessions/{second}").json()["jobs"] == []
+    wait_for_file(folder / first / "jobs" / "1" / "started")
+    submit(client, second)
+    cancelled = client.post(f"/sessions/{second}/jobs/1/cancel")
+    assert cancelled.status_code == 200 and cancelled.json()["state"] == "cancelled" and cancelled.json()["started"] is None
+    (folder / first / "jobs" / "1" / "go").touch()
+    assert wait(client, first, 1)["state"] == "finished"
+    time.sleep(0.3)  # the slot is free, the cancelled job must not start
+    assert not (folder / second / "jobs" / "1" / "started").exists()
+    assert submit(client, second).json()["number"] == 2  # the session takes jobs again
 
 
 @pytest.mark.parametrize("load, status, message", [

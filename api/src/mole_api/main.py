@@ -73,16 +73,25 @@ STATIC_FILES = Path(__file__).parent / "static"  # served at /: the example inpu
 COFACTORS = STATIC_FILES / "inputs" / "cofactors.json"
 
 
-def can_run(request: Request, s: StoredSession) -> tuple[int, str] | None:
-    """Why a new job cannot start, with the HTTP status"""
+RETRY_AFTER = 60  # seconds, when the queue is full
+
+
+def queue_full(request: Request) -> JSONResponse | None:
+    """503 when the runs (running and queued) fill the slots and the queue: a new session or job is not accepted"""
+    settings: Settings = request.app.state.settings
+    if len(request.app.state.runner.runs) < settings.max_concurrent_computations + settings.max_queued_computations:
+        return None
+    return problem(503, "The server is busy, its queue is full. Please, try again later.", headers={"Retry-After": str(RETRY_AFTER)})
+
+
+def can_run(s: StoredSession) -> str | None:
+    """Why a new job cannot start on the session (409)"""
     if s.state in IN_PROGRESS:
-        return 409, "The structure is still being loaded. This job has not been started. Please, try again later."
+        return "The structure is still being loaded. This job has not been started. Please, try again later."
     if s.state == SessionState.failed:
-        return 409, "The structure could not be loaded, no job can run on it."
+        return "The structure could not be loaded, no job can run on it."
     if s.last_job is not None and s.last_job.state in IN_PROGRESS:
-        return 409, "The previous job is still running. This one has not been started. Please, try again later."
-    if len(request.app.state.runner.runs) >= request.app.state.settings.max_concurrent_computations:
-        return 503, "Server is under heavy load, the job has not started. Please try again later"
+        return "The previous job has not finished yet. This one has not been started. Please, try again later."
     return None
 
 
@@ -179,6 +188,8 @@ async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
     """A session of the uploaded structure, or why it is refused"""
     if int(request.headers.get("content-length") or 0) > upload.MAX_REQUEST_BYTES:  # not read at all
         return problem(413, upload.TOO_LARGE)
+    if full := queue_full(request):  # not read either
+        return full
     settings: Settings = request.app.state.settings
     async with request.form() as form:
         file = form.get("file")
@@ -191,13 +202,17 @@ async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
         try:
             if refused := await run_in_threadpool(upload.store, file.file, gzipped, temp):
                 return problem(*refused)
+            # checked again: other uploads may have filled the queue while this one was read; from here on nothing
+            # awaits until the run is registered, so no other request takes its place
+            if full := queue_full(request):
+                return full
             s = storage.create(settings.working_directory, request.app.state.mole_version)
             s.structure_file = name
             temp.rename(s.structure_path())
             s.save()
+            request.app.state.runner.start(s, None, lambda: [run_mole(settings, mole.load_input(s))])
         finally:
             temp.unlink(missing_ok=True)
-    request.app.state.runner.start(s, None, lambda: [run_mole(settings, mole.load_input(s))])
     return s
 
 
@@ -210,8 +225,10 @@ def start_job(request: Request, session_id: str, new: NewTunnelsJob | NewPoresJo
         return found
     if problems := new.parameters.problems():
         return problem(422, problems)
-    if refused := can_run(request, found):
-        return problem(*refused)
+    if refused := can_run(found):
+        return problem(409, refused)
+    if full := queue_full(request):
+        return full
 
     job = found.add_job(new.type, new.parameters.model_dump(), request.app.state.mole_version)
     directory = found.job_directory(job.number)
@@ -295,7 +312,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     sessions = APIRouter(prefix="/sessions", tags=["sessions"])
 
-    @sessions.post("", status_code=202, responses=errors())
+    @sessions.post("", status_code=202, responses=errors(503))
     async def create_session(request: Request, response: Response, new: NewSession) -> Session:
         """A session of a PDB entry: downloaded from PDBe and loaded by MOLE in the background. Poll the session
         (Location) until it is ready or failed."""
@@ -306,6 +323,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return problem(422, f"Invalid PDB id [{new.pdb_id}].")
             if not pdbe.ASSEMBLY.match(new.assembly):
                 return problem(422, f"Invalid assembly [{new.assembly}]. Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
+            if full := queue_full(request):
+                return full
             s = storage.create(settings.working_directory, request.app.state.mole_version, new.pdb_id.lower())
             created_id = s.id
             request.app.state.runner.start(s, None, lambda: [run_mole(settings, mole.load_input(s))],
@@ -314,7 +333,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             iplog.write(settings.working_directory, "Init", request.client and request.client.host, "PDB", created_id)
 
-    @sessions.post("/upload", status_code=202, responses=errors(413), openapi_extra=UPLOAD_FORM)
+    @sessions.post("/upload", status_code=202, responses=errors(413, 503), openapi_extra=UPLOAD_FORM)
     async def upload_session(request: Request, response: Response) -> Session:
         """A session of an uploaded structure, loaded by MOLE in the background; a gzipped file is stored unpacked.
         Poll the session (Location) until it is ready or failed."""
@@ -398,8 +417,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @new_jobs.post("/{session_id}/jobs", status_code=202, responses=errors(404, 409, 410, 503))
     async def create_job(request: Request, response: Response, session_id: str, new: NewJob) -> Job:
         """A job on the session's structure, run in the background: queued, running, then finished, failed or
-        cancelled. Poll the job (Location). One job runs on a session at a time (409 while one does), 503 when the
-        server is busy."""
+        cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
+        running); it waits for a slot, queued, and 503 (Retry-After) when the queue is full."""
         settings: Settings = request.app.state.settings
 
         if isinstance(new, NewTunnelsJob):

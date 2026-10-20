@@ -20,13 +20,14 @@ def script(directory: Path, name: str, body: str) -> Path:
     return path
 
 
-def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", slots: int = 4, mole: Path | None = None) -> Settings:
+def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", slots: int = 4, queued: int = 20, mole: Path | None = None) -> Settings:
     """The API's own working directory. The fake MOLE runs load for a load (input in folder load/), run for a
     computation, and reports its version without arguments. mole: a real MOLE instead."""
     fake = f"case \"$1\" in\n  '') echo 'WebChemistry Tunnels {MOLE_VERSION}, (c) test' ;;\n  */load/input.xml) {load} ;;\n  *) {run} ;;\nesac"
     return Settings(
         working_directory=directory / "computations",
         max_concurrent_computations=slots,
+        max_queued_computations=queued,
         mole=mole or script(directory, "mole", fake),
         memembed=script(directory, "memembed", "exit 1"),  # the fake pores tool does not run it
         opm_cache=directory / "opm-cache",

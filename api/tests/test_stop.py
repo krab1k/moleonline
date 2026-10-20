@@ -1,8 +1,11 @@
 """Cancelling and deleting sessions, with a fake MOLE that runs until the test lets it go"""
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+
+from mole_api import upload as uploads
 
 from .conftest import STRUCTURE, running, upload, wait, wait_for_file, wait_session
 from .test_runner import UNTIL_GO
@@ -106,3 +109,31 @@ def test_unknown_session(client, method, path):
     response = client.request(method, path)
     assert response.status_code == 404
     assert response.json()["detail"] == "Session [nope] does not exist."
+
+
+def test_loads_are_refused_when_the_queue_is_full(api, settings):
+    client = api(load=UNTIL_GO, slots=1, queued=0)
+    started_load(client)  # the only slot, no queue
+    refused = upload(client, "1tqn.cif", STRUCTURE)
+    assert refused.status_code == 503 and refused.headers["retry-after"] == "60"
+    pdb = client.post("/sessions", json={"pdb_id": "1tqn"})
+    assert pdb.status_code == 503
+    assert len([p for p in client.app.state.settings.working_directory.iterdir() if p.is_dir()]) == 1  # no session for them
+
+
+def test_overlapping_uploads_do_not_overfill_the_queue(api, monkeypatch):
+    """Both pass the check before their files are read; the one stored second is refused when it would start"""
+    client = api(load=UNTIL_GO, slots=1, queued=0)
+    store = uploads.store
+
+    def slow(*args):  # in a worker thread: the other upload arrives meanwhile
+        time.sleep(0.5)
+        return store(*args)
+    monkeypatch.setattr(uploads, "store", slow)
+    with ThreadPoolExecutor(2) as pool:
+        responses = list(pool.map(lambda _: upload(client, "1tqn.cif", STRUCTURE), range(2)))
+    assert sorted(r.status_code for r in responses) == [202, 503]
+    assert len(client.app.state.runner.runs) == 1
+    sessions = [p for p in client.app.state.settings.working_directory.iterdir() if p.is_dir()]
+    assert len(sessions) == 1  # the refused one stored nothing
+    assert not list(client.app.state.settings.working_directory.glob(".upload-*"))

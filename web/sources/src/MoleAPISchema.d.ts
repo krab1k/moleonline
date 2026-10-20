@@ -81,8 +81,8 @@ export interface paths {
     /**
      * Create Job
      * @description A job on the session's structure, run in the background: queued, running, then finished, failed or
-     * cancelled. Poll the job (Location). One job runs on a session at a time (409 while one does), 503 when the
-     * server is busy.
+     * cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
+     * running); it waits for a slot, queued, and 503 (Retry-After) when the queue is full.
      */
     post: operations["create_job"];
   };
@@ -547,6 +547,12 @@ export interface operations {
           "application/problem+json": components["schemas"]["Problem"];
         };
       };
+      /** @description Service Unavailable */
+      503: {
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
     };
   };
   /**
@@ -587,6 +593,12 @@ export interface operations {
       };
       /** @description Internal Server Error */
       500: {
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
         content: {
           "application/problem+json": components["schemas"]["Problem"];
         };
@@ -856,8 +868,8 @@ export interface operations {
   /**
    * Create Job
    * @description A job on the session's structure, run in the background: queued, running, then finished, failed or
-   * cancelled. Poll the job (Location). One job runs on a session at a time (409 while one does), 503 when the
-   * server is busy.
+   * cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
+   * running); it waits for a slot, queued, and 503 (Retry-After) when the queue is full.
    */
   create_job: {
     parameters: {

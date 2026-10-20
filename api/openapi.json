@@ -95,6 +95,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
@@ -160,6 +170,16 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -609,7 +629,7 @@
           "jobs"
         ],
         "summary": "Create Job",
-        "description": "A job on the session's structure, run in the background: queued, running, then finished, failed or\ncancelled. Poll the job (Location). One job runs on a session at a time (409 while one does), 503 when the\nserver is busy.",
+        "description": "A job on the session's structure, run in the background: queued, running, then finished, failed or\ncancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or\nrunning); it waits for a slot, queued, and 503 (Retry-After) when the queue is full.",
         "operationId": "create_job",
         "parameters": [
           {
