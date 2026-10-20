@@ -13,7 +13,7 @@ RUN git clone https://github.com/psipred/MemEmbed.git . && git checkout d18b9f55
 
 # the API with Python, installed by uv
 FROM mcr.microsoft.com/dotnet/runtime:10.0 AS api
-COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /usr/local/bin/uv
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 COPY pyproject.toml uv.lock .python-version ./

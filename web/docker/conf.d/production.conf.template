@@ -9,6 +9,10 @@ server {
     ssl_certificate /etc/nginx/certs/fullchain.pem;
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
 
+    # Browsers use only HTTPS for these names from now on (not for their subdomains,
+    # which are not all ours); with add_header_inherit merge (nginx.conf) every response has it
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
     include /etc/nginx/site.conf;
 }
 

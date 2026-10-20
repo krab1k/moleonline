@@ -14,7 +14,7 @@ ARG VITE_API_URL
 
 RUN npm run build
 
-FROM nginx:1.29-alpine-slim
+FROM nginx:1.30-alpine-slim
 
 COPY --from=build /build/dist/ /var/www
 
