@@ -17,6 +17,7 @@ import { StateSelection } from "molstar/lib/mol-state";
 import WaveLoader from "../../CommonUtils/WaveLoader";
 import { LoadingStatusDisplay } from "../../CommonUtils/LoadingInfo/LoadingStatusDisplay";
 import { Section } from "./ChannelsUI";
+import { listen } from "../../CommonUtils/Events";
 
 declare function $(p: any): any;
 
@@ -28,15 +29,13 @@ export class PluginControl extends React.Component<{ data: any }, { isLoading?: 
 
     componentDidMount() {
         this.setState({ data: this.props.data })
-        const onContentResize = this.onContentResize.bind(this);
-        $(window).on("contentResize", onContentResize);
-        this.unsubscribe.push(() => $(window).off("contentResize", onContentResize));
+        this.unsubscribe.push(listen("contentResize", this.onContentResize.bind(this)));
 
         this.unsubscribe.push(Events.subscribeChangeSubmitId(submitId => this.load(submitId === -1)));
 
         const onResize = () => this.forceUpdate();
-        $(window).on("resize", onResize);
-        this.unsubscribe.push(() => $(window).off("resize", onResize));
+        window.addEventListener("resize", onResize);
+        this.unsubscribe.push(() => window.removeEventListener("resize", onResize));
     }
 
     componentWillUnmount() {
@@ -44,7 +43,7 @@ export class PluginControl extends React.Component<{ data: any }, { isLoading?: 
         this.unsubscribe = [];
     }
 
-    private onContentResize(_: any) {
+    private onContentResize() {
         this.forceUpdate();
     }
 

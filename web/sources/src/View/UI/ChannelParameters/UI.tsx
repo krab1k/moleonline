@@ -5,11 +5,11 @@ import { Tunnels } from "../../CommonUtils/Tunnels";
 import { SelectionHelper } from "../../CommonUtils/Selection";
 import { Datagrid, DGNoDataInfoRow, DGRowEmpty, headCell, propertyRow } from "../Common/Datagrid/Components";
 import { roundToDecimal } from "../../../Common/Util/Numbers";
+import { emit } from "../../CommonUtils/Events";
 
 let DGTABLE_COLS_COUNT = 2;
 let NO_DATA_MESSAGE = "Select channel in 3D view for details...";
 
-declare function $(p: any): any;
 
 interface State {
     data: Map<string, Tunnel[]> | null,
@@ -52,7 +52,7 @@ export class ChannelParameters extends React.Component<{}, State> {
             }
             this.setState({ currentTunnel: channelId, currentSubmission: submissionId });
             setTimeout(function () {
-                $(window).trigger('contentResize');
+                emit('contentResize');
             }, 1);
         }));
 

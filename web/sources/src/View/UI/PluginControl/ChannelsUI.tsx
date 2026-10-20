@@ -23,7 +23,6 @@ import { TwoDProtsBridge } from "../../CommonUtils/TwoDProtsBridge";
 import { TunnelsId } from "../../CommonUtils/TunnelsId";
 import { CommonOptions } from "../../../../config/common";
 
-declare function $(p: any): any;
 
 type ChannelsControlProps = { computationId: string, submissions: Map<number, ChannelsDBChannels>, reload: () => void }
 type ChannelsControlState = {
@@ -186,8 +185,8 @@ export class ChannelsControl extends React.Component<ChannelsControlProps, Chann
         this.setState({ submissions: this.props.submissions })
 
         const onResize = () => this.forceUpdate();
-        $(window).on("resize", onResize);
-        this.unsubscribe.push(() => $(window).off("resize", onResize));
+        window.addEventListener("resize", onResize);
+        this.unsubscribe.push(() => window.removeEventListener("resize", onResize));
     }
 
     componentWillUnmount() {

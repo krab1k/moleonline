@@ -5,8 +5,8 @@ import { Bundle } from "../../StaticData";
 import { isActive } from "../CommonUtils/Tabs";
 import { ArrowHeadLine, Axis, ColorMixer, ColorPaletteFunctionSettings, ContextAwareObject, CurlyBrackets, FontSize, TextAlign, TextBox, Tunnel } from "./Backend";
 import { Paintable, Axis as AxisCompnent, Positionable } from "./Components";
+import { listen } from "../CommonUtils/Events";
 
-declare function $(p: any): any;
 
 // The colour at value, linearly between minColor at min and maxColor at max
 function interpolate(min: number, minColor: RGBColor, max: number, maxColor: RGBColor, value: number): RGBColor {
@@ -191,7 +191,7 @@ export class Vizualizer {
         return this.isElementVisible(element.parentElement);
     }
 
-    private onContentResize(e: Event) {
+    private onContentResize() {
         if (document.getElementById(this.canvasId) === null) {
             return;
         }
@@ -382,7 +382,7 @@ export class Vizualizer {
         //Dynamic canvas resizing
         this.resizePercentPrecision = 1; //5% difference between real and given => cause resizing of canvas
         window.addEventListener("resize", this.onWindowResize.bind(this));
-        $(window).on("lvContentResize", this.onContentResize.bind(this));
+        listen("lvContentResize", this.onContentResize.bind(this));
     }
 
     public deselectLayers() {

@@ -18,8 +18,8 @@ import { OrderedSet } from 'molstar/lib/mol-data/int'
 import { EmptyLoci, Loci } from "molstar/lib/mol-model/loci";
 import { MarkerAction } from "molstar/lib/mol-util/marker-action";
 import { Representation } from "molstar/lib/mol-repr/representation";
+import { emit, emitResize, listen } from "../../CommonUtils/Events";
 
-declare function $(p: any): any;
 
 function getLayerResidues(layerIdx: number, data: LayerData[], labelChains: boolean): QueryParam[] {
     return Residues.parseResidues(data[layerIdx].Residues).map(r => ({
@@ -154,7 +154,7 @@ export class LayerVizualizer extends React.Component<{ vizualizer: Vizualizer },
             this.cancelPendingChannel();
             this.setState({ data: [], hasData: false, isDOMReady: false, isLayerSelected: false, channel: undefined });
             setTimeout(function () {
-                $(window).trigger('contentResize');
+                emit('contentResize');
             }, 1);
         }));
 
@@ -163,7 +163,7 @@ export class LayerVizualizer extends React.Component<{ vizualizer: Vizualizer },
             this.props.vizualizer.highlightHitbox(layerIndex);
             if (!this.state.isLayerSelected) {
                 this.setState({ layerIds: [layerIndex] })
-                $(window).trigger('layerTriggered', layerIndex);
+                emit('layerTriggered', layerIndex);
             }
         }));
 
@@ -177,7 +177,7 @@ export class LayerVizualizer extends React.Component<{ vizualizer: Vizualizer },
             }
             this.props.vizualizer.selectLayers(layerIdxs);
             for (let layerIdx of layerIdxs) {
-                $(window).trigger('layerTriggered', layerIdx);
+                emit('layerTriggered', layerIdx);
             }
             if (layerIdxs.length > 0) {
                 await showLayerResidues3DAndFocus(layerIdxs, this.state.data, Tunnels.chainsByLabel(this.state.channel));
@@ -186,8 +186,8 @@ export class LayerVizualizer extends React.Component<{ vizualizer: Vizualizer },
                 context.plugin.canvas3d?.mark(loci, MarkerAction.Select);
                 context.visual.resetSelectColor();
             }
-            $(window).trigger('layerSelected', { layerIds: layerIdxs.slice() });
-            $(window).trigger('resize');
+            emit('layerSelected', layerIdxs.slice());
+            emitResize();
             LayerColors.setSelectChannelLiningResidues(false);
         }));
         this.unsubscribe.push(LayerColors.attachOnChannelRemoved((ref) => {
@@ -199,12 +199,11 @@ export class LayerVizualizer extends React.Component<{ vizualizer: Vizualizer },
             }
         }));
 
-        $(window).on("lvContentResize", this.repaint);
-        $(window).on("resize", this.repaint);
-        this.unsubscribe.push(() => {
-            $(window).off("lvContentResize", this.repaint);
-            $(window).off("resize", this.repaint);
-        });
+        window.addEventListener("resize", this.repaint);
+        this.unsubscribe.push(
+            listen("lvContentResize", this.repaint),
+            () => window.removeEventListener("resize", this.repaint),
+        );
     }
 
     componentWillUnmount() {
@@ -732,7 +731,7 @@ class InteractionMap extends React.Component<State> {
         LayerColors.invokeLayerIndexOver(layerIdx);
         if (!this.props.app.state.isLayerSelected) {
             this.props.app.setState({ layerIds: [layerIdx] });
-            $(window).trigger('layerTriggered', layerIdx);
+            emit('layerTriggered', layerIdx);
         }
     }
 
@@ -748,15 +747,15 @@ class InteractionMap extends React.Component<State> {
 
         instance.selectLayers(layerIdxs);
         for (let layerIdx of layerIdxs) {
-            $(window).trigger('layerTriggered', layerIdx);
+            emit('layerTriggered', layerIdx);
         }
         if (layerIdxs.length > 0) {
             await showLayerResidues3DAndFocus(layerIdxs, this.props.data, Tunnels.chainsByLabel(this.props.channel));
             LayerColors.invokeLayerIndexSelect(layerIdxs[0])
             SelectionHelper.selectTunnelByRef();
         }
-        $(window).trigger('layerSelected', { layerIds: layerIdxs.slice() });
-        $(window).trigger('resize');
+        emit('layerSelected', layerIdxs.slice());
+        emitResize();
 
         LayerColors.setSelectChannelLiningResidues(false);
         //TODO: maybe SelectionHelper.highlightSelectedChannel(this.props.controller);

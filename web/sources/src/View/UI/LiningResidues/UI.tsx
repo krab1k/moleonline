@@ -4,11 +4,11 @@ import { Residues } from "../../CommonUtils/Residues";
 import { Tunnels } from "../../CommonUtils/Tunnels";
 import { annotatedResidueRows, annotationCell, Datagrid, DGElementRow, DGNoDataInfoRow, DGRowEmpty, headCell, isBackbone } from "../Common/Datagrid/Components";
 import { ChannelsDBData } from "../../../Cache";
+import { emit } from "../../CommonUtils/Events";
 
 let DGTABLE_COLS_COUNT = 2;
 let NO_DATA_MESSAGE = "Select channel in 3D view for details...";
 
-declare function $(p: any): any;
 
 interface State {
     data: string[] | null,
@@ -30,7 +30,7 @@ export class LiningResidues extends React.Component<{}, State> {
         SelectionHelper.attachOnChannelSelectHandler((data) => {
             this.setState({ data: Residues.sort(data.ResidueFlow) });
             setTimeout(function () {
-                $(window).trigger('contentResize');
+                emit('contentResize');
             }, 1);
         });
 

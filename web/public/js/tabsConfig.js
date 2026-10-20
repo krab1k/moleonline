@@ -4,15 +4,15 @@ $( function() {
     // A shown tab gets its layout and the profile canvas, which skips resizing while hidden
     $(document).on("shown.bs.tab", "#left-tabs a, #right-tabs a", function() {
         dgResize();
-        $( window ).trigger('lvContentResize');
+        window.dispatchEvent(new Event('lvContentResize'));
     });
 
     $(document).on("click", "#bottom-tabs-toggler", function() {
         $( ".left-tabs" ).toggleClass( "bottom-tabs-toggled" );
         $( ".right-tabs" ).toggleClass( "bottom-tabs-toggled" );
-        $( window ).trigger('resize');
-        $( window ).trigger('contentResize');
-        $( window ).trigger('lvContentResize');
+        window.dispatchEvent(new Event('resize'));
+        window.dispatchEvent(new Event('contentResize'));
+        window.dispatchEvent(new Event('lvContentResize'));
     });
 
     $(document).on("click", "#left-panel-toggle-minimize", function() {
