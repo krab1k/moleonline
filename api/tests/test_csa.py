@@ -4,7 +4,7 @@ import pytest
 
 from mole_api.csa import CSA
 
-from .conftest import STRUCTURE, upload, wait
+from .conftest import STRUCTURE, upload, wait_session
 from .test_pdbe import FULL, FakePDBe
 
 
@@ -50,7 +50,7 @@ def test_sites_of_a_computation(client):
     id = client.post("/sessions", json={"pdb_id": "1TQN", "assembly": "asymmetric"}).json()["id"]
     assert client.get(f"/CSA/{id}").json() == [[{"Name": "Thr", "Chain": "A", "SequenceNumber": 309}, {"Name": "Phe", "Chain": "A", "SequenceNumber": 435},
                                                  {"Name": "Cys", "Chain": "A", "SequenceNumber": 442}]]
-    wait(client, id)
+    wait_session(client, id)
     client.delete(f"/sessions/{id}")
     assert client.get(f"/CSA/{id}").status_code == 410
 

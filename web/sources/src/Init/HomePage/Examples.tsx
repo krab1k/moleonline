@@ -1,8 +1,8 @@
 import React from "react";
-import { ApiService, CompInfo, MoleConfig, PoresConfig } from "../../MoleAPIService";
+import { ApiService, isDone, MoleConfig, PoresConfig } from "../../MoleAPIService";
 import { describeError } from "../../Http";
 import { Events } from "../../Bridge";
-import { ComputationInfo, JobStatus, SessionStatus } from "../../DataProxy";
+import { JobStatus, SessionStatus } from "../../DataProxy";
 
 export class Examples extends React.Component<{}, { activeButton: number }> {
     state = { activeButton: -1 }; // the example being started
@@ -29,27 +29,18 @@ export class Examples extends React.Component<{}, { activeButton: number }> {
             if (!response.ok) {
                 throw new Error(`Failed to fetch parameters`)
             }
-            let result;
-
+            // the example's parameters: its Mode (Mole, Pores) and Config, as the web exports them
             const data = await response.json();
-            if (data.Mode === "Mole") {
-                result = await ApiService.submitMoleJob(computationId, data.Config as MoleConfig);
-            } else {
-                result = await ApiService.submitPoresJob(computationId, data.Config as PoresConfig);
-            }
+            const job = await ApiService.createJob(computationId, data.Mode === "Mole"
+                ? { type: "tunnels", parameters: data.Config as MoleConfig }
+                : { type: "pores", parameters: data.Config as PoresConfig });
 
-            ComputationInfo.DataProvider.get(result.ComputationId, ((compId: string, info: CompInfo) => {
-                JobStatus.Watcher.registerOnChangeHandler(result.ComputationId, result.SubmitId, (status) => {
-                    if (status.Status !== "Running") {
-                        location.replace(`/online/${result.ComputationId}/${result.SubmitId}`);
-                    }
-                }, (err) => {
-                    Events.invokeNotifyMessage({
-                        messageType: "Danger",
-                        message: describeError(err, "Job status cannot be tracked. Please try to refresh the page.")
-                    });
-                })
-            }).bind(this), true, (_compId, error) => this.showError(error));
+            // the example's page once the job is done
+            JobStatus.Watcher.registerOnChangeHandler(computationId, job.number, (current) => {
+                if (isDone(current.state)) {
+                    location.replace(`/online/${computationId}/${job.number}`);
+                }
+            }, (err) => this.showError(describeError(err, "Job status cannot be tracked. Please try to refresh the page.")));
         } catch (error: any) {
             console.error('The example could not be started:', error);
             this.showError(describeError(error, "The example could not be started."));

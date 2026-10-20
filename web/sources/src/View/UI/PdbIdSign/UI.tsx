@@ -1,5 +1,5 @@
 import React from "react";
-import { ComputationInfo } from "../../../DataProxy";
+import { SessionInfo } from "../../../DataProxy";
 import { getParameters } from "../../../Common/Util/Router";
 
 interface State { pdbid?: string, err?: string };
@@ -13,12 +13,12 @@ export class PdbIdSign extends React.Component<{}, State> {
             this.setState({ err: "!!!" });
             return;
         }
-        ComputationInfo.get(params.computationId).then((res) => {
-            if (res.PdbId === "" || res.PdbId === null || res.PdbId === void 0) {
+        SessionInfo.get(params.computationId).then((res) => {
+            if (res.pdb_id === null) {
                 this.setState({ err: "---" });
             }
             else {
-                this.setState({ pdbid: res.PdbId });
+                this.setState({ pdbid: res.pdb_id });
             }
         })
             .catch(err => {

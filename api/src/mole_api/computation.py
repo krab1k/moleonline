@@ -37,6 +37,15 @@ class SessionState(StrEnum):
     failed = "failed"  # it could not be loaded (also stopped, or interrupted by a restart); nothing can run on it
 
 
+class JobState(StrEnum):
+    """Of a job, see Unit.job_state"""
+    queued = "queued"  # waits for a slot
+    running = "running"
+    finished = "finished"  # its results are available
+    failed = "failed"  # the error says why: MOLE's error, the time limit, out of memory, a restart
+    cancelled = "cancelled"
+
+
 class Report(BaseModel):
     """The state of a submission, the response of most requests; with an HTTP error status, ErrorMsg says why the
     request failed. A report of a computation that failed is not a failed request."""
@@ -55,6 +64,20 @@ class Unit(BaseModel):
     Started: datetime | None = None  # got a slot; Started - Submitted is the time in the queue (and the download)
     Finished: datetime | None = None  # Finished, Error or Aborted
     MoleVersion: str | None = None  # the results, and which parameters were defaults, depend on it
+
+    def job_state(self) -> JobState:
+        """The state of the unit as a job (one with parameters; a deleted session is gone before)"""
+        match self.Status:
+            case Status.Running:
+                return JobState.queued if self.Started is None else JobState.running
+            case Status.Initialized:  # submitted, its status is set right after
+                return JobState.queued
+            case Status.Finished:
+                return JobState.finished
+            case Status.Aborted:
+                return JobState.cancelled
+            case _:  # Error
+                return JobState.failed
 
 
 class Computation(BaseModel):

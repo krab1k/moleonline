@@ -10,8 +10,8 @@ import { Events } from "../Bridge";
 import { DataSources } from "../../config/common";
 import { addCaverTag, loadMoleData } from "./State";
 import { ChannelsDBChannels, MoleData } from "../DataInterface";
-import { ComputationInfo } from "../DataProxy";
-import { ApiService, CompInfo } from "../MoleAPIService";
+import { SessionInfo } from "../DataProxy";
+import { ApiService, Session } from "../MoleAPIService";
 import { describeError, isNotFound } from "../Http";
 import { ChannelsDBData as ChannelsDBDataCache, TunnelName } from "../Cache"
 import { Tunnels } from "./CommonUtils/Tunnels";
@@ -62,16 +62,16 @@ export class LeftPanel extends React.Component<{ context: Context }, { isLoading
         this.forceUpdate();
     }
 
-    // Channels of the finished submissions; the others have no results
-    private async loadSubmissionsChannels(info: CompInfo, channels: Map<number, ChannelsDBChannels>) {
-        for (const submission of info.Submissions) {
-            if (submission.Status !== "Finished") {
+    // Channels of the finished jobs; the others have no results
+    private async loadSubmissionsChannels(session: Session, channels: Map<number, ChannelsDBChannels>) {
+        for (const job of session.jobs) {
+            if (job.state !== "finished") {
                 continue;
             }
-            const submitId = submission.SubmitId;
+            const submitId = job.number;
             let data;
             try {
-                data = await ApiService.getChannelsData(info.ComputationId, submitId);
+                data = await ApiService.getChannelsData(session.id, submitId);
             } catch (e) {
                 if (isNotFound(e)) {
                     continue; // no channels after all
@@ -80,7 +80,7 @@ export class LeftPanel extends React.Component<{ context: Context }, { isLoading
             }
             const dataObj = JSON.parse(data) as MoleData;
             let guidData = TunnelsId.generateGuidAll(dataObj.Channels);
-            guidData = TunnelsId.generateIdAll(guidData, info.ComputationId, submitId.toString());
+            guidData = TunnelsId.generateIdAll(guidData, session.id, submitId.toString());
             TunnelName.reload({ Channels: guidData }, submitId.toString());
             Tunnels.addChannels(submitId.toString(), guidData);
             channels.set(submitId, guidData);
@@ -99,9 +99,10 @@ export class LeftPanel extends React.Component<{ context: Context }, { isLoading
         let computationId = params.computationId;
         const channels: Map<number, ChannelsDBChannels> = new Map();
 
-        ComputationInfo.DataProvider.get(computationId, ((compId: string, info: CompInfo) => {
+        SessionInfo.DataProvider.get(computationId, ((compId: string, info: Session) => {
             LoadingStatus.log('Processing data from current session...');
-            if (info.PdbId === '') {
+            const pdbId = info.pdb_id;
+            if (pdbId === null) {
                 (async () => {
                     LoadingStatus.log('Parsing data from current session...');
                     const data = await loadCifTunnels(`${DataSources.API_URL}/Data/${computationId}?submitId=0&format=molecule`);
@@ -129,8 +130,8 @@ export class LeftPanel extends React.Component<{ context: Context }, { isLoading
                 });
                 return;
             }
-            ChannelsDBDataCache.getChannelsData(info.PdbId).then(async channelsDbData => {
-                const annotations: Map<string, ChannelAnnotation[]> = await ChannelsDBDataCache.getChannelsAnnotations(info.PdbId);
+            ChannelsDBDataCache.getChannelsData(pdbId).then(async channelsDbData => {
+                const annotations: Map<string, ChannelAnnotation[]> = await ChannelsDBDataCache.getChannelsAnnotations(pdbId);
                 const guidChannelsDbData = TunnelsId.generateGuidAll(channelsDbData);
                 let completeChannelsDbData = addCaverTag(guidChannelsDbData);
                 completeChannelsDbData = TunnelsId.generateIdAllWithAnnotations(annotations, completeChannelsDbData, compId, 'channelsDb');
@@ -144,7 +145,7 @@ export class LeftPanel extends React.Component<{ context: Context }, { isLoading
                 this.setState({ channelsData: channels, isLoadingChannels: false })
             }).catch(async error => {
                 // 404: ChannelsDB has no data for this entry, it only has no ChannelsDB channels
-                if (info.Submissions.length === 0 && !isNotFound(error)) {
+                if (info.jobs.length === 0 && !isNotFound(error)) {
                     this.setState({ isLoadingChannels: false, error: String(error) })
                     Events.invokeNotifyMessage({
                         messageType: "Danger",

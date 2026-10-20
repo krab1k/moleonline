@@ -15,9 +15,9 @@ import { Representation } from "molstar/lib/mol-repr/representation";
 import { EmptyLoci } from "molstar/lib/mol-model/loci";
 import { Colors, Enum } from "../../../StaticData";
 import { Color } from "molstar/lib/mol-util/color";
-import { ApiService, CompInfo } from "../../../MoleAPIService";
+import { ApiService, Session } from "../../../MoleAPIService";
 import { describeError, isNotFound } from "../../../Http";
-import { ComputationInfo } from "../../../DataProxy";
+import { SessionInfo } from "../../../DataProxy";
 import { SelectionHelper } from "../../CommonUtils/Selection";
 import { TwoDProtsBridge } from "../../CommonUtils/TwoDProtsBridge";
 import { TunnelsId } from "../../CommonUtils/TunnelsId";
@@ -114,8 +114,8 @@ export class ChannelsControl extends React.Component<ChannelsControlProps, Chann
         let params = getParameters();
         if (params === null || params.submitId === 0) {
             if (params?.computationId) {
-                ComputationInfo.DataProvider.get(params.computationId, ((compId: string, info: CompInfo) => {
-                    if (info.PdbId === "") { // from file
+                SessionInfo.DataProvider.get(params.computationId, ((_id: string, session: Session) => {
+                    if (session.pdb_id === null) { // from file
                         this.setState({ currentSubmitId: -2 });
                         this.showInitialChannels(-2);
                     } else {
@@ -140,13 +140,13 @@ export class ChannelsControl extends React.Component<ChannelsControlProps, Chann
     componentDidMount() {
         this.initializeSubmissionData();
 
-        this.unsubscribe.push(Events.subscribeSubmitDone(async (newSubmitId, status) => {
+        this.unsubscribe.push(Events.subscribeSubmitDone(async (newSubmitId, state) => {
             // a submission started on this page is announced twice (its submit and the submissions list)
             if (this.loadingSubmitIds.has(newSubmitId)) {
                 return;
             }
             // a failed or stopped submission has no channels to load
-            if (status === "Finished" && !this.state.submissions.has(newSubmitId)) {
+            if (state === "finished" && !this.state.submissions.has(newSubmitId)) {
                 this.loadingSubmitIds.add(newSubmitId);
                 try {
                     const data = await ApiService.getChannelsData(this.props.computationId, newSubmitId)

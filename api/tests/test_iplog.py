@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from mole_api import iplog
 from mole_api.main import create_app
 
-from .conftest import STRUCTURE, make_settings, upload, wait
+from .conftest import STRUCTURE, make_settings, upload, wait_session
 
 LINE = re.compile(r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d (Init|Submit) - (\S+) (\S+) (\S+)$")
 
@@ -42,7 +42,7 @@ def test_id_from_the_request_stays_one_line(tmp_path):
 
 def test_stats_read_the_log(client, settings):
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
-    wait(client, id)
+    wait_session(client, id)
     stats = Path(__file__).parent.parent / "tools" / "stats.py"
     output = subprocess.run([sys.executable, "-I", stats, settings.working_directory, "year"], capture_output=True, text=True, check=True).stdout
     header, row = [line.split("\t") for line in output.splitlines()]

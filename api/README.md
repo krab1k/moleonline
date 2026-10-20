@@ -65,7 +65,7 @@ Everything is in the volume `data`, mounted at `/data`:
 | Path | Content |
 |---|---|
 | `/data/computations/<id>/` | one computation: the structure, `_object.json` (status), one folder per submission |
-| `/data/computations/Mole_api_IP_log.csv` | every load and submission request, also refused ones: time (UTC), `Init` or `Submit`, client address, `PDB`, `Upload`, `Mole` or `Pores`, computation id (`-` when none was created) |
+| `/data/computations/Mole_api_IP_log.csv` | every request creating a session or a job, also refused ones: time (UTC), `Init` (a session) or `Submit` (a job), client address, `PDB`, `Upload`, `Mole` (tunnels) or `Pores` (`-`: a job request without a type), session id (`-` when none was created) |
 | `/data/opm-cache/` | membrane files downloaded from OPM, reused for 30 days |
 
 Usage per month or year (computations, PDB entries and uploads, submissions and their outcome, distinct client
@@ -100,10 +100,10 @@ having run out of memory; the API keeps running.
 ## Endpoints
 
 The OpenAPI documentation is at `/docs` (`/openapi.json`). Endpoint names match in any case and a trailing slash
-is ignored, as in the former C# API (the web uses `/Compinfo/`). All responses are JSON. A request that fails has an HTTP error status and a report with `Status: "Error"` and `ErrorMsg`:
-400 invalid request (parameters, file type, data format), 404 no such computation, submission or data, 409 the computation
-is busy or could not be loaded, 410 deleted, 413 upload too large, 503 all slots busy, 500 server error. A report about a
-computation that failed (e.g. `Status` of a failed submission) is a successful request, 200.
+is ignored, as in the former C# API (`/Data`, `/CSA`, `/Version`). All responses are JSON. A request that fails has an HTTP error status and a report with `Status: "Error"` and `ErrorMsg`:
+400 invalid request (parameters, file type, data format), 404 no such session, job or data, 409 a job runs on the session
+or its structure could not be loaded, 410 deleted, 413 upload too large, 503 all slots busy, 500 server error. A session
+or job that failed is a successful request, 200, with its `state` and `error`.
 
 | Endpoint | |
 |---|---|
@@ -112,13 +112,11 @@ computation that failed (e.g. `Status` of a failed submission) is a successful r
 | `GET /sessions/{id}` | the session: `state` `queued`, `loading`, then `ready` or `failed` (`error` says why), the PDB entry and assembly, times |
 | `POST /sessions/{id}/cancel` | stop loading the structure (the session fails); only a queued or loading session |
 | `DELETE /sessions/{id}` | delete the session, `204 No Content`; `410 Gone` from then on |
-| `POST /Submit/Mole/{id}` | compute tunnels, body: MOLE parameters |
-| `POST /Submit/Pores/{id}` | compute a pore across the membrane, body: `InMembrane`, `IsBetaBarrel`, `Chains` (list of chain names, empty: all), `ProbeRadius`, `InteriorThreshold` (`null`: the default) |
-| `GET /Status/{id}?submitId=` | status of a computation or one submission |
-| `GET /CompInfo/{id}` | the computation and the parameters of all submissions |
+| `POST /sessions/{id}/jobs` | a job on the session's structure: `{"type": "tunnels", "parameters": <MOLE parameters>}`, or `{"type": "pores", "parameters": {"InMembrane", "IsBetaBarrel", "Chains" (list of chain names, empty: all), "ProbeRadius", "InteriorThreshold" (null: the default)}}` for a pore across the membrane; `202 Accepted` with `Location`; one job runs on a session at a time |
+| `GET /sessions/{id}/jobs/{n}` | the job: `state` `queued`, `running`, then `finished`, `failed` (`error` says why) or `cancelled`, its parameters and times; jobs are numbered from 1, `GET /sessions/{id}` lists them all |
+| `POST /sessions/{id}/jobs/{n}/cancel` | stop the job (cancelled); only a queued or running job |
 | `GET /Data/{id}?submitId=&format=` | results: `json`, `report` (zip), `molecule`, `pymol`, `chimera`, `vmd`, `pdb`, `membrane` |
 | `GET /CSA/{id}` | catalytic active sites of the PDB entry from M-CSA, one per copy, starting points for tunnels |
-| `POST /Kill/{id}` | stop the running submission |
 | `GET /Version` | versions of the API (also of the pores tool) and MOLE |
 
 The active sites of `/CSA` come from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (Ribeiro et al., Nucleic

@@ -1,5 +1,5 @@
 import { ChannelsDBData, MoleData } from "./DataInterface";
-import { ComputationStatus, MoleConfig, PoresConfig } from "./MoleAPIService";
+import { Job, JobState, MoleConfig, PoresConfig } from "./MoleAPIService";
 import { Handlers } from "./View/CommonUtils/Handlers";
 
 export class Instances {
@@ -24,7 +24,7 @@ export interface CopyParametersParams {
 };
 
 export type NewSubmitHandler = (submitId: number) => void;
-export type SubmitDoneHandler = (submitId: number, status: ComputationStatus) => void;
+export type SubmitDoneHandler = (submitId: number, state: JobState) => void;
 export type ChangeSubmitIdHandler = (submitId: number) => void;
 export type ChannelSelectHandler = (channelId: string) => void;
 export type ChangeHasKillableHandler = (hasKillable: boolean) => void;
@@ -71,7 +71,7 @@ export class Events {
     public static invokeNewSubmit(submitId: number) { this.invoke("NEW-SUBMIT", submitId); }
 
     public static subscribeSubmitDone(h: SubmitDoneHandler) { return this.subscribe("SUBMIT-DONE", h); }
-    public static invokeSubmitDone(submitId: number, status: ComputationStatus) { this.invoke("SUBMIT-DONE", submitId, status); }
+    public static invokeSubmitDone(submitId: number, state: JobState) { this.invoke("SUBMIT-DONE", submitId, state); }
 
     public static subscribeChangeSubmitId(h: ChangeSubmitIdHandler) { return this.subscribe("CHANGE-SUBMIT-ID", h); }
     public static invokeChangeSubmitId(submitId: number) { this.invoke("CHANGE-SUBMIT-ID", submitId); }
@@ -94,7 +94,8 @@ export class Events {
     public static subscribeCopyParameters(h: CopyParametersHandler) { return this.subscribe("COPY-PARAMETERS", h); }
     public static invokeCopyParameters(params: CopyParametersParams) { this.invoke("COPY-PARAMETERS", params); }
 
-    public static subscribeOnReSubmit(h: CopyParametersHandler) { return this.subscribe("ON-RESUBMIT", h); }
-    public static invokeOnReSubmit(promise: any) { this.invoke("ON-RESUBMIT", promise); }
+    // a submission's parameters sent again: the request creating the job
+    public static subscribeOnReSubmit(h: (created: Promise<Job>) => void) { return this.subscribe("ON-RESUBMIT", h); }
+    public static invokeOnReSubmit(created: Promise<Job>) { this.invoke("ON-RESUBMIT", created); }
 
 }

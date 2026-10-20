@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2016 - now David Sehnal, licensed under Apache 2.0, See LICENSE file for more info.
  */
-import { ComputationInfo, DataProxyCSAResidues, JobStatus, SessionStatus } from "../DataProxy";
+import { DataProxyCSAResidues, JobStatus, SessionInfo, SessionStatus } from "../DataProxy";
 import { ChannelsDBChannels, ChannelsDBData, firstNonEmptyCategory, Membrane, MoleData, Origins, Tunnel, TunnelMetaInfo } from "../DataInterface";
 import { ChannelsDBData as ChannelsDBDataCache, LastVisibleChannels } from "../Cache";
 import { getParameters } from "../Common/Util/Router";
@@ -154,7 +154,7 @@ function generateGuidMole(moleData: MoleData) {
 
 // Only a pore submission computes the membrane
 async function hasPoresSubmission(computationId: string) {
-    return (await ComputationInfo.get(computationId)).Submissions.some(s => s.Mode === "Pores");
+    return (await SessionInfo.get(computationId)).jobs.some(j => j.type === "pores");
 }
 
 async function downloadMembraneData(computationId: string) {
@@ -227,12 +227,12 @@ export async function downloadChannelsData(computationId: string, submitId: numb
 async function downloadChannelsDBData(computationId: string) {
     await removeChannelsData();
     return new Promise<any>((res, rej) => {
-        ComputationInfo.get(computationId).then(val => {
-            if (!val.PdbId) {
+        SessionInfo.get(computationId).then(val => {
+            if (val.pdb_id === null) {
                 rej('ChannelsDB has channels only for PDB entries, not for an uploaded structure.');
                 return;
             }
-            ChannelsDBDataCache.getChannelsData(val.PdbId).then(data => {
+            ChannelsDBDataCache.getChannelsData(val.pdb_id).then(data => {
                 let update = Context.getInstance().plugin.build();
                 update
                     .toRoot()
@@ -264,8 +264,8 @@ async function downloadChannelsDBData(computationId: string) {
 function downloadProteinData(computationId: string, submitId: number) {
     return new Promise<any>(async (res, rej) => {
         try {
-            const p = await ComputationInfo.get(computationId);
-            await Context.getInstance().load(`${DataSources.API_URL}/Data/${computationId}?submitId=${submitId}&format=molecule`, false, p.AssemblyId)
+            const p = await SessionInfo.get(computationId);
+            await Context.getInstance().load(`${DataSources.API_URL}/Data/${computationId}?submitId=${submitId}&format=molecule`, false, p.assembly_id)
                 .then((data) => {
                     res(data);
                 })
@@ -307,32 +307,32 @@ export function loadData(channelsDB: boolean) {
         }
         if (CommonOptions.DEBUG_MODE)
             console.log("Status watcher - BEFORE EXEC");
-        JobStatus.Watcher.registerOnChangeHandler(computationId, submitId, (status => {
+        // only the job has no results (failed, cancelled, no such job): the session's structure (0), then why
+        const structureThen = (reason: string) => {
+            const proteinLoaded = context.plugin.state.data.tree.children.has('protein-data');
+            acquireData(computationId, 0, () => rej(reason), rej, !proteinLoaded, false, false);
+        };
+        JobStatus.Watcher.registerOnChangeHandler(computationId, submitId, (job => {
             if (CommonOptions.DEBUG_MODE)
-                console.log("Watcher iteration");
-            let proteinLoaded = context.plugin.state.data.tree.children.has('protein-data')
-            if (status.Status === "Initializing" || status.Status === "Running") {
-                //Do Nothing
-                if (CommonOptions.DEBUG_MODE)
-                    console.log("Waiting for status change");
-            }
-            else if (status.Status === "Initialized") {
-                acquireData(computationId, submitId, res, rej, !proteinLoaded, submitId == 0, channelsDB);   //TODO podminka pro prenacteni kanalu pro submit 0
-            }
-            else if (status.Status === "Error" || status.Status === "Aborted") {
-                // only this submission has no results: show the computation's structure, then why
-                // (a stopped submission comes without a message)
-                const reason = status.ErrorMsg.trim() || (status.Status === "Aborted" ? `Submission #${submitId} was stopped, it has no results.` : `The status is ${status.Status}.`);
-                acquireData(computationId, submitId, () => rej(reason), rej, !proteinLoaded, false, false);
-            }
-            else if (status.Status === "FailedInitialization" || status.Status === "Deleted") {
-                // no structure to show
-                rej(status.ErrorMsg.trim() || `The status is ${status.Status}.`);
-            }
-            else if (status.Status === "Finished") {
+                console.log("Watcher iteration", job.state);
+            if (job.state === "finished") {
+                const proteinLoaded = context.plugin.state.data.tree.children.has('protein-data');
                 acquireData(computationId, submitId, res, rej, !proteinLoaded, true, channelsDB);
             }
-        }), (err) => rej(err));
+            else if (job.state === "failed") {
+                structureThen(job.error.trim() || `Submission #${submitId} failed.`);
+            }
+            else if (job.state === "cancelled") {
+                structureThen(`Submission #${submitId} was stopped, it has no results.`);
+            }
+            // queued, running: wait for the next state
+        }), (err) => {
+            if (isNotFound(err)) {
+                structureThen(`Submission #${submitId} does not exist.`);
+            } else {
+                rej(err); // deleted (410), or the API cannot be reached
+            }
+        });
     })
 
     // no structure after all: whoever waits for its chains goes on (resolving them again later is a no-op)

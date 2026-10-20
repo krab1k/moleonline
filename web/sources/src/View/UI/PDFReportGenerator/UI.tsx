@@ -1,6 +1,6 @@
 import React from "react";
 import { ChannelsDBData, firstNonEmptyCategory, MoleData, Tunnel, TunnelMetaInfo } from "../../../DataInterface";
-import { CompInfo, formatChains, MoleConfig, PoresConfig, Submission } from "../../../MoleAPIService";
+import { formatChains, Job, MoleConfig, PoresConfig, Session } from "../../../MoleAPIService";
 import { PDFTemplate, Service } from "../../../TemplateService";
 import { Events, Instances } from "../../../Bridge";
 import { Vizualizer } from "../../LayerVizualizer/Vizualizer";
@@ -11,15 +11,15 @@ import { Residues } from "../../CommonUtils/Residues";
 import { SelectionHelper } from "../../CommonUtils/Selection";
 import { ChannelsDBData as ChannelsDBDataCache, LastVisibleChannels } from "../../../Cache";
 import { getParameters, isInChannelsDBMode, URLParams } from "../../../Common/Util/Router";
-import { flattenResidues, flattenResiduesArray, isMoleJob, pointsToString } from "../../CommonUtils/Misc";
-import { ComputationInfo } from "../../../DataProxy";
+import { flattenResidues, flattenResiduesArray, pointsToString } from "../../CommonUtils/Misc";
+import { SessionInfo } from "../../../DataProxy";
 import { CommonOptions } from "../../../../config/common";
 import { showChannelVisuals } from "../../State";
 import { Context } from "../../Context";
 
 declare function $(p: any): any;
 
-interface ConfigPromiseType { submission: Submission, compInfo: CompInfo };
+interface ConfigPromiseType { job: Job, session: Session };
 
 interface AppState {
     data: MoleData | ChannelsDBData | null,
@@ -258,14 +258,14 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
         });
     }
 
-    private addParamsPageCommon(template: string, urlParams: URLParams | null, compInfo: CompInfo) {
-        const isUserStructure = compInfo.PdbId === void 0 || compInfo.PdbId === null || compInfo.PdbId === "";
+    private addParamsPageCommon(template: string, urlParams: URLParams | null, session: Session) {
+        const isUserStructure = session.pdb_id === null;
         return fill(template, {
             "COMP-ID": urlParams?.computationId,
             "SUBMIT-ID": urlParams && String(urlParams.submitId),
             "URL": location.href,
-            "PDBID": isUserStructure ? "User structure" : compInfo.PdbId,
-            "ASSEMBLY-ID": isUserStructure ? "User structure" : (compInfo.AssemblyId ?? "Asymmetric unit"),
+            "PDBID": session.pdb_id ?? "User structure",
+            "ASSEMBLY-ID": isUserStructure ? "User structure" : (session.assembly_id ?? "Asymmetric unit"),
         });
     }
 
@@ -327,20 +327,17 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
                     rej("URL parameters cannot be parsed");
                     return;
                 }
-                ComputationInfo.DataProvider.get(urlParams.computationId, (compId, info) => {
+                SessionInfo.DataProvider.get(urlParams.computationId, (id, session) => {
                     if (urlParams === null) {
                         rej("URL parameters cannot be parsed");
                     }
-                    else {
-                        if (compId === urlParams.computationId) {
-                            for (let s of info.Submissions) {
-                                if (s.SubmitId === urlParams.submitId) {
-                                    res({ submission: s, compInfo: info });
-                                    return;
-                                }
-                            }
+                    else if (id === urlParams.computationId) {
+                        const job = session.jobs.find(j => j.number === urlParams!.submitId);
+                        if (job === undefined) {
                             rej("Submission data not available!");
+                            return;
                         }
+                        res({ job, session });
                     }
                 });
             });
@@ -360,15 +357,14 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
                 let reportContent = "";
 
                 if (!channelsDBMode && val !== null) {
-                    let modeMole = isMoleJob(val.submission);
                     let paramsPageTemplate = template.paramsPageHtml.slice();
-                    paramsPageTemplate = this.addParamsPageCommon(paramsPageTemplate, urlParams, val.compInfo);
+                    paramsPageTemplate = this.addParamsPageCommon(paramsPageTemplate, urlParams, val.session);
 
-                    if (modeMole) {
-                        paramsPageTemplate = this.addParamsPageMole(paramsPageTemplate, val.submission.MoleConfig);
+                    if (val.job.type === "tunnels") {
+                        paramsPageTemplate = this.addParamsPageMole(paramsPageTemplate, val.job.parameters);
                     }
                     else {
-                        paramsPageTemplate = this.addParamsPagePores(paramsPageTemplate, val.submission.PoresConfig);
+                        paramsPageTemplate = this.addParamsPagePores(paramsPageTemplate, val.job.parameters);
                     }
                     reportContent += paramsPageTemplate;
                 }

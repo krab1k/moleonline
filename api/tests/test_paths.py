@@ -11,9 +11,9 @@ def test_endpoint_names_in_any_case_and_a_trailing_slash(client):
     response = client.post("/sessions/upload/", files={"file": ("1tqn.cif", STRUCTURE)})
     assert response.status_code == 202
     id = response.json()["id"]
-    for path in (f"/status/{id}", f"/STATUS/{id}/", f"/Status/{id}"):
-        assert client.get(path).json()["ComputationId"] == id
-    assert client.get(f"/Status/{id.lower()}").status_code == 404  # computation ids keep their case
+    for path in (f"/csa/{id}", f"/CSA/{id}/", f"/Csa/{id}"):
+        assert client.get(path).status_code == 200
+    assert client.get(f"/sessions/{id.lower()}").status_code == 404  # session ids keep their case
     assert client.get("/version/").status_code == 200
 
 

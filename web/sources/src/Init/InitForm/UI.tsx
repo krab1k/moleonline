@@ -1,10 +1,10 @@
 import React from "react";
-import {ApiService, CompInfo, Session} from "../../MoleAPIService";
+import {ApiService, Session} from "../../MoleAPIService";
 import { describeError } from "../../Http";
 import {Events} from "../../Bridge";
 import {TabbedContainer} from "../../Common/UI/Tabs/BootstrapTabs";
 import {getNthSession, LAST_N_SESSIONS_N} from "../../Common/Util/LastNSessions";
-import {ComputationInfo, SessionStatus} from "../../DataProxy";
+import {SessionInfo, SessionStatus} from "../../DataProxy";
 import AlertMessages from "../../Common/UI/AlertMessages/UI";
 
 // The API refuses larger uploads
@@ -255,17 +255,17 @@ export class InitForm extends React.Component<{}, State> {
 }
 
 interface LastSessionProps { session: string }
-interface LastSessionState { loaded: boolean, data: CompInfo | null }
+interface LastSessionState { loaded: boolean, data: Session | null }
 class LastSession extends React.Component<LastSessionProps, LastSessionState> {
     state: LastSessionState = { loaded: false, data: null }
 
     componentDidMount() {
         let computationId = this.props.session.split("|")[1].split("/")[0];
 
-        ComputationInfo.DataProvider.get(computationId, (compId, info) => {
+        SessionInfo.DataProvider.get(computationId, (_id, session) => {
             this.setState({
                 loaded: true,
-                data: info
+                data: session
             });
         });
     }
@@ -281,12 +281,11 @@ class LastSession extends React.Component<LastSessionProps, LastSessionState> {
                 <td colSpan={3}>{sessionUrl}</td>
             </tr>;
         }
-        const isPdbEntry = info.PdbId !== null && info.PdbId !== "";
         // a PDB entry loaded without an assembly is its asymmetric unit; an uploaded structure has no assembly
-        const assemblyId = info.AssemblyId ? info.AssemblyId : (isPdbEntry ? "Asymmetric unit" : "");
+        const assemblyId = info.assembly_id ?? (info.pdb_id !== null ? "Asymmetric unit" : "");
         return <tr onClick={open} className="linkLike">
             <td>{date}</td>
-            <td>{isPdbEntry ? info.PdbId : "User structure"}</td>
+            <td>{info.pdb_id ?? "User structure"}</td>
             <td>{assemblyId}</td>
             <td>{sessionUrl.split("/")[1]}</td>
         </tr>;

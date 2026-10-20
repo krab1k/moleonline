@@ -1,12 +1,12 @@
 import React from "react";
 import { Events as BridgeEvents, CopyParametersParams, Events } from "../../../Bridge";
 import { Events as FormEvents } from "../../CommonUtils/FormEvents";
-import { ApiService, CompInfo, ComputationStatus, formatChains, MoleConfig, PoresConfig, Submission as ServiceSubmission } from "../../../MoleAPIService";
+import { ApiService, formatChains, isDone, Job, JobState, MoleConfig, NewJob, PoresConfig, Session } from "../../../MoleAPIService";
 import { describeError, RequestError } from "../../../Http";
 import { MoleFormData, PoresFormData } from "./FormData";
-import { ComputationInfo, JobStatus } from "../../../DataProxy";
+import { JobStatus, SessionInfo } from "../../../DataProxy";
 import { TooltipText, WeightFunctions } from "../../../StaticData";
-import { flattenResidues, flattenResiduesArray, isMoleJob, parseResidues, pointsToString } from "../../CommonUtils/Misc";
+import { flattenResidues, flattenResiduesArray, parseResidues, pointsToString } from "../../CommonUtils/Misc";
 import { SimpleComboBox } from "../Common/Controls/Components";
 import { fakeRedirect, getParameters } from "../../../Common/Util/Router";
 import { TabbedContainer } from "../../../Common/UI/Tabs/BootstrapTabs";
@@ -18,7 +18,7 @@ import { StartingPointBox } from "./StartingPoints";
 import { getParamsKind } from "./ParamsChecker";
 import "molstar/lib/mol-plugin-ui/skin/light.scss";
 
-const Provider = ComputationInfo.DataProvider;
+const Provider = SessionInfo.DataProvider;
 
 let validationGroup = "SettingsFormValidatonGroup";
 
@@ -45,7 +45,7 @@ export class Controls extends React.Component {
 }
 
 interface SettingsProps {
-    initialData: CompInfo,
+    initialData: Session,
     submitId: number,
     parent: ControlTabs,
 }
@@ -62,7 +62,7 @@ export class Settings extends React.Component<SettingsProps, SettingsState> {
     state: SettingsState = {
         moleFormData: this.getMoleDefaultValues(),
         poresFormData: this.getPoresDefaultValues(),
-        computationId: this.props.initialData.ComputationId,
+        computationId: this.props.initialData.id,
         mode: "Channels",
     }
 
@@ -96,20 +96,21 @@ export class Settings extends React.Component<SettingsProps, SettingsState> {
         return data;
     }
 
-    handleSubmitPromise(promise: any) {
+    handleSubmitPromise(promise: Promise<Job>) {
+        const sessionId = this.state.computationId;
         promise
-            .then((result: any) => {
-                fakeRedirect(result.ComputationId, String(result.SubmitId));
+            .then((job) => {
+                fakeRedirect(sessionId, String(job.number));
 
-                Provider.get(result.ComputationId, ((compId: string, info: CompInfo) => {
-                    JobStatus.Watcher.registerOnChangeHandler(result.ComputationId, result.SubmitId, (status) => {
-                        if (checkCanSubmit(status.Status)) {
+                Provider.get(sessionId, ((_id: string, session: Session) => {
+                    JobStatus.Watcher.registerOnChangeHandler(sessionId, job.number, (current) => {
+                        if (isDone(current.state)) {
                             this.props.parent.setState({ canSubmit: true });
-                            BridgeEvents.invokeSubmitDone(result.SubmitId, status.Status);
-                            if (status.Status === "Error") {
+                            BridgeEvents.invokeSubmitDone(job.number, current.state);
+                            if (current.state === "failed") {
                                 BridgeEvents.invokeNotifyMessage({
                                     messageType: "Danger",
-                                    message: `Submission #${result.SubmitId} failed: ${status.ErrorMsg}`
+                                    message: `Submission #${job.number} failed: ${current.error}`
                                 });
                             }
                         }
@@ -120,10 +121,10 @@ export class Settings extends React.Component<SettingsProps, SettingsState> {
                         })
                     })
 
-                    this.props.parent.setState({ data: info });
+                    this.props.parent.setState({ data: session });
 
-                    BridgeEvents.invokeNewSubmit(result.SubmitId);
-                    BridgeEvents.invokeChangeSubmitId(result.SubmitId);
+                    BridgeEvents.invokeNewSubmit(job.number);
+                    BridgeEvents.invokeChangeSubmitId(job.number);
 
                 }).bind(this), true);
 
@@ -150,16 +151,10 @@ export class Settings extends React.Component<SettingsProps, SettingsState> {
             if (formGroup !== validationGroup) {
                 return;
             }
-            let promise;
-
-            if (this.state.mode === "Channels") {
-                promise = ApiService.submitMoleJob(this.state.computationId, this.state.moleFormData.getPackage())
-            }
-            else {
-                promise = ApiService.submitPoresJob(this.state.computationId, this.state.poresFormData.getPackage())
-            }
-
-            this.handleSubmitPromise(promise);
+            const job: NewJob = this.state.mode === "Channels"
+                ? { type: "tunnels", parameters: this.state.moleFormData.getPackage() }
+                : { type: "pores", parameters: this.state.poresFormData.getPackage() };
+            this.handleSubmitPromise(ApiService.createJob(this.state.computationId, job));
         }));
 
         this.unsubscribe.push(BridgeEvents.subscribeOnReSubmit((promise) => {
@@ -319,8 +314,8 @@ function valueOrDefault(value: any | null, def: any) {
     return (value === null) ? def : value;
 }
 
-function getSubmissionIdx(compInfo: CompInfo, submitId: number): number | null {
-    const idx = compInfo.Submissions.findIndex(s => s.SubmitId === submitId);
+function getSubmissionIdx(session: Session, number: number): number | null {
+    const idx = session.jobs.findIndex(j => j.number === number);
     return idx === -1 ? null : idx;
 }
 
@@ -342,11 +337,11 @@ function deepEqual(objA: any, objB: any): boolean {
 }
 
 interface SubmissionsProps {
-    computationInfo: CompInfo,
-    onResubmit: (info: CompInfo) => void
+    computationInfo: Session,
+    onResubmit: (info: Session) => void
 };
 interface SubmissionsState {
-    computationInfo: CompInfo | null,
+    computationInfo: Session | null,
     loading: boolean,
 };
 export class Submissions extends React.Component<SubmissionsProps, SubmissionsState> {
@@ -354,7 +349,7 @@ export class Submissions extends React.Component<SubmissionsProps, SubmissionsSt
     state: SubmissionsState = { computationInfo: null, loading: true }
     private hasKillable = false;
 
-    componentDidUpdate(prevProps: { computationInfo: CompInfo }) {
+    componentDidUpdate(prevProps: { computationInfo: Session }) {
         if (
             this.state.computationInfo !== null &&
             deepEqual(prevProps.computationInfo, this.props.computationInfo)
@@ -365,44 +360,39 @@ export class Submissions extends React.Component<SubmissionsProps, SubmissionsSt
         this.prepareSubmissionData(this.props.computationInfo);
     }
 
-    private prepareSubmissionData(computationInfo: CompInfo) {
+    private prepareSubmissionData(computationInfo: Session) {
         this.setState({ computationInfo: computationInfo });
 
         let hasKillable = false;
 
-        for (let submission of computationInfo.Submissions) {
-            if (submission.Status !== "Initializing" && submission.Status !== "Running") {
-                //Skip submission state check loop for submissions in stable and terminal state
+        for (let job of computationInfo.jobs) {
+            if (isDone(job.state)) {
+                // finished, failed or cancelled: its state stays
                 continue;
             }
             hasKillable = true;
-            JobStatus.Watcher.registerOnChangeHandler(this.props.computationInfo.ComputationId, submission.SubmitId, (state) => {
-                let oldStatus = submission.Status;
-
-                if (oldStatus === void 0 || oldStatus !== state.Status) {
-                    let currentCompInfo = this.state.computationInfo;
-                    if (currentCompInfo === null) {
-                        console.log(`Computation info was not initialized corectly.`);
+            JobStatus.Watcher.registerOnChangeHandler(this.props.computationInfo.id, job.number, (current) => {
+                if (current.state !== job.state) {
+                    let session = this.state.computationInfo;
+                    if (session === null) {
+                        console.log(`Session was not initialized corectly.`);
                         return;
                     }
-                    let subIdx = getSubmissionIdx(currentCompInfo, submission.SubmitId);
+                    let subIdx = getSubmissionIdx(session, job.number);
                     if (subIdx === null) {
-                        console.log(`Submission with id'${submission.SubmitId}' not found.`);
+                        console.log(`Submission #${job.number} not found.`);
                         return;
                     }
-                    currentCompInfo.Submissions[subIdx].Status = state.Status;
-                    currentCompInfo.Submissions[subIdx].ErrorMsg = state.ErrorMsg;
-                    this.setState({ computationInfo: currentCompInfo });
-                    if (oldStatus !== void 0) {
-                        let hasKillable_ = this.checkHasKillable(currentCompInfo);
-                        if (this.hasKillable !== hasKillable_) {
-                            this.hasKillable = hasKillable_;
-                            BridgeEvents.invokeChangeHasKillable(hasKillable_);
-                        }
+                    session.jobs[subIdx] = current;
+                    this.setState({ computationInfo: session });
+                    let hasKillable_ = this.checkHasKillable(session);
+                    if (this.hasKillable !== hasKillable_) {
+                        this.hasKillable = hasKillable_;
+                        BridgeEvents.invokeChangeHasKillable(hasKillable_);
                     }
                     // done (e.g. it was running when the page opened): its channels are loaded like those of a new one
-                    if (state.Status !== "Initializing" && state.Status !== "Running") {
-                        BridgeEvents.invokeSubmitDone(submission.SubmitId, state.Status);
+                    if (isDone(current.state)) {
+                        BridgeEvents.invokeSubmitDone(job.number, current.state);
                     }
                 }
             }, (err) => {
@@ -420,8 +410,9 @@ export class Submissions extends React.Component<SubmissionsProps, SubmissionsSt
         }
     }
 
-    private checkHasKillable(compInfo: CompInfo) {
-        return compInfo.Submissions.some(s => s.Status === "Running");
+    // a queued or running job can be cancelled
+    private checkHasKillable(session: Session) {
+        return session.jobs.some(j => !isDone(j.state));
     }
 
     componentDidMount() {
@@ -431,7 +422,7 @@ export class Submissions extends React.Component<SubmissionsProps, SubmissionsSt
     render() {
         if (this.state.computationInfo !== null && !this.state.loading) {
             let submissions: JSX.Element[] = [];
-            let submissionsData = this.state.computationInfo.Submissions;
+            let submissionsData = this.state.computationInfo.jobs;
             let submitId = 1;
             let params = getParameters();
             if (params !== null) {
@@ -439,21 +430,17 @@ export class Submissions extends React.Component<SubmissionsProps, SubmissionsSt
             }
 
             for (let s of submissionsData.sort((a, b) => {
-                return a.SubmitId - b.SubmitId;
+                return a.number - b.number;
             })) {
-                let stat = s.Status;
-
                 submissions.push(
-                    <Submission key={s.SubmitId} data={s} currentSubmitId={submitId} computationId={this.props.computationInfo.ComputationId} status={(stat === void 0) ? "Unknown" : stat} onResubmit={this.props.onResubmit} onCopy={(submitId: number) => {
-                        for (let submission of this.props.computationInfo.Submissions) {
-                            if (submission.SubmitId === submitId) {
-                                BridgeEvents.invokeCopyParameters({
-                                    mode: (isMoleJob(submission)) ? "mole" : "pores",
-                                    moleConfig: submission.MoleConfig,
-                                    poresConfig: submission.PoresConfig
-                                });
-                                return;
-                            }
+                    <Submission key={s.number} data={s} currentSubmitId={submitId} computationId={this.props.computationInfo.id} onResubmit={this.props.onResubmit} onCopy={(number: number) => {
+                        const job = this.props.computationInfo.jobs.find(j => j.number === number);
+                        if (job !== undefined) {
+                            BridgeEvents.invokeCopyParameters({
+                                mode: job.type === "tunnels" ? "mole" : "pores",
+                                moleConfig: job.type === "tunnels" ? job.parameters : null,
+                                poresConfig: job.type === "pores" ? job.parameters : null
+                            });
                         }
                     }} />
                 );
@@ -502,97 +489,85 @@ export class Submissions extends React.Component<SubmissionsProps, SubmissionsSt
     }
 }
 
-function checkCanKill(status: ComputationStatus) {
-    return status === "Running";
-}
+// The states as the submissions list shows them (the CSS class is state-<state>)
+const STATE_LABELS: Record<JobState, string> = {
+    queued: "Queued",
+    running: "Running",
+    finished: "Finished",
+    failed: "Failed",
+    cancelled: "Cancelled",
+};
 
-function checkCanSubmit(status: ComputationStatus) {
-    return !checkCanKill(status);
-}
+export class Submission extends React.Component<{ data: Job, computationId: string, currentSubmitId: number, onCopy: (number: number) => void, onResubmit: (info: Session) => void }, {}> {
 
-const RESUBMITTABLE_STATUSES: ComputationStatus[] = ["Aborted", "Error", "FailedInitialization", "Finished", "Initialized"];
-
-function checkCanResubmit(status: ComputationStatus) {
-    return RESUBMITTABLE_STATUSES.includes(status);
-}
-
-export class Submission extends React.Component<{ data: ServiceSubmission, computationId: string, status: string, currentSubmitId: number, onCopy: (submitId: number) => void, onResubmit: (info: CompInfo) => void }, {}> {
-
-    getMoleJob(data: ServiceSubmission) {
+    getMoleJob(params: MoleConfig) {
         return <div className="panel-body">
             <h4>Active Atoms/Residues</h4>
-            Ignore Hydrogens: {(data.MoleConfig.Cavity === void 0) ? "False" : (data.MoleConfig.Cavity.IgnoreHydrogens) ? "True" : "False"}<br />
-            Ignore HETATMs: {(data.MoleConfig.Cavity === void 0) ? "False" : (data.MoleConfig.Cavity.IgnoreHETAtoms) ? "True" : "False"}<br />
-            Query Filter: {(data.MoleConfig.QueryFilter === void 0) ? "" : data.MoleConfig.QueryFilter}<br />
-            Ignored Residues: {(data.MoleConfig.NonActiveResidues === void 0 || data.MoleConfig.NonActiveResidues === null) ? "" : flattenResidues(data.MoleConfig.NonActiveResidues)}<br />
-            Specific Chains: {(data.MoleConfig.Input === void 0) ? "" : data.MoleConfig.Input.SpecificChains}<br />
+            Ignore Hydrogens: {(params.Cavity === void 0) ? "False" : (params.Cavity.IgnoreHydrogens) ? "True" : "False"}<br />
+            Ignore HETATMs: {(params.Cavity === void 0) ? "False" : (params.Cavity.IgnoreHETAtoms) ? "True" : "False"}<br />
+            Query Filter: {(params.QueryFilter === void 0) ? "" : params.QueryFilter}<br />
+            Ignored Residues: {(params.NonActiveResidues === void 0 || params.NonActiveResidues === null) ? "" : flattenResidues(params.NonActiveResidues)}<br />
+            Specific Chains: {(params.Input === void 0) ? "" : params.Input.SpecificChains}<br />
             <h4>Cavity Parameters</h4>
-            Probe Radius: {(data.MoleConfig.Cavity === void 0) ? "" : data.MoleConfig.Cavity.ProbeRadius}<br />
-            Interior Threshold: {(data.MoleConfig.Cavity === void 0) ? "" : data.MoleConfig.Cavity.InteriorThreshold}<br />
+            Probe Radius: {(params.Cavity === void 0) ? "" : params.Cavity.ProbeRadius}<br />
+            Interior Threshold: {(params.Cavity === void 0) ? "" : params.Cavity.InteriorThreshold}<br />
             <h4>Channel Parameters</h4>
-            Origin Radius: {(data.MoleConfig.Tunnel === void 0 || data.MoleConfig.Tunnel === null) ? "" : data.MoleConfig.Tunnel.OriginRadius}<br />
-            Surface Cover Radius: {(data.MoleConfig.Tunnel === void 0 || data.MoleConfig.Tunnel === null) ? "" : data.MoleConfig.Tunnel.SurfaceCoverRadius}<br />
-            Weight Function: {(data.MoleConfig.Tunnel === void 0 || data.MoleConfig.Tunnel === null) ? "" : data.MoleConfig.Tunnel.WeightFunction}<br />
-            Bottleneck Radius: {(data.MoleConfig.Tunnel === void 0 || data.MoleConfig.Tunnel === null) ? "" : data.MoleConfig.Tunnel.BottleneckRadius}<br />
-            Bottleneck Tolerance: {(data.MoleConfig.Tunnel === void 0 || data.MoleConfig.Tunnel === null) ? "" : data.MoleConfig.Tunnel.BottleneckTolerance}<br />
-            Max Tunnel Similarity: {(data.MoleConfig.Tunnel === void 0 || data.MoleConfig.Tunnel === null) ? "" : data.MoleConfig.Tunnel.MaxTunnelSimilarity}<br />
-            Merge Pores: {(data.MoleConfig.PoresMerged === void 0 || data.MoleConfig.PoresMerged === null) ? "False" : (data.MoleConfig.PoresMerged) ? "True" : "False"}<br />
-            Automatic Pores: {(data.MoleConfig.PoresAuto === void 0 || data.MoleConfig.PoresAuto === null) ? "False" : (data.MoleConfig.PoresAuto) ? "True" : "False"}<br />
+            Origin Radius: {(params.Tunnel === void 0 || params.Tunnel === null) ? "" : params.Tunnel.OriginRadius}<br />
+            Surface Cover Radius: {(params.Tunnel === void 0 || params.Tunnel === null) ? "" : params.Tunnel.SurfaceCoverRadius}<br />
+            Weight Function: {(params.Tunnel === void 0 || params.Tunnel === null) ? "" : params.Tunnel.WeightFunction}<br />
+            Bottleneck Radius: {(params.Tunnel === void 0 || params.Tunnel === null) ? "" : params.Tunnel.BottleneckRadius}<br />
+            Bottleneck Tolerance: {(params.Tunnel === void 0 || params.Tunnel === null) ? "" : params.Tunnel.BottleneckTolerance}<br />
+            Max Tunnel Similarity: {(params.Tunnel === void 0 || params.Tunnel === null) ? "" : params.Tunnel.MaxTunnelSimilarity}<br />
+            Merge Pores: {(params.PoresMerged === void 0 || params.PoresMerged === null) ? "False" : (params.PoresMerged) ? "True" : "False"}<br />
+            Automatic Pores: {(params.PoresAuto === void 0 || params.PoresAuto === null) ? "False" : (params.PoresAuto) ? "True" : "False"}<br />
             <h4>Selection</h4>
-            Starting Point: {(data.MoleConfig.Origin === void 0 || data.MoleConfig.Origin === null) ? "" : (data.MoleConfig.Origin.Residues === void 0 || data.MoleConfig.Origin.Residues === null || data.MoleConfig.Origin.Residues.length === 0) ? "" : flattenResiduesArray(data.MoleConfig.Origin.Residues)}<br />
-            Starting Point[x,y,z]: {(data.MoleConfig.Origin === void 0 || data.MoleConfig.Origin === null) ? "" : (data.MoleConfig.Origin.Points === void 0 || data.MoleConfig.Origin.Points === null) ? "" : pointsToString(data.MoleConfig.Origin.Points)}<br />
-            End Point: {(data.MoleConfig.CustomExits === void 0 || data.MoleConfig.CustomExits === null) ? "" : (data.MoleConfig.CustomExits.Residues === void 0 || data.MoleConfig.CustomExits.Residues === null || data.MoleConfig.CustomExits.Residues.length === 0) ? "" : flattenResiduesArray(data.MoleConfig.CustomExits.Residues)}<br />
-            End Point[x,y,z]: {(data.MoleConfig.CustomExits === void 0 || data.MoleConfig.CustomExits === null) ? "" : (data.MoleConfig.CustomExits.Points === void 0 || data.MoleConfig.CustomExits.Points === null) ? "" : pointsToString(data.MoleConfig.CustomExits.Points)}<br />
-            Query: {(data.MoleConfig.Origin === void 0 || data.MoleConfig.Origin === null) ? "" : (data.MoleConfig.Origin.QueryExpression === void 0 || data.MoleConfig.Origin.QueryExpression === null) ? "" : data.MoleConfig.Origin.QueryExpression}<br />
+            Starting Point: {(params.Origin === void 0 || params.Origin === null) ? "" : (params.Origin.Residues === void 0 || params.Origin.Residues === null || params.Origin.Residues.length === 0) ? "" : flattenResiduesArray(params.Origin.Residues)}<br />
+            Starting Point[x,y,z]: {(params.Origin === void 0 || params.Origin === null) ? "" : (params.Origin.Points === void 0 || params.Origin.Points === null) ? "" : pointsToString(params.Origin.Points)}<br />
+            End Point: {(params.CustomExits === void 0 || params.CustomExits === null) ? "" : (params.CustomExits.Residues === void 0 || params.CustomExits.Residues === null || params.CustomExits.Residues.length === 0) ? "" : flattenResiduesArray(params.CustomExits.Residues)}<br />
+            End Point[x,y,z]: {(params.CustomExits === void 0 || params.CustomExits === null) ? "" : (params.CustomExits.Points === void 0 || params.CustomExits.Points === null) ? "" : pointsToString(params.CustomExits.Points)}<br />
+            Query: {(params.Origin === void 0 || params.Origin === null) ? "" : (params.Origin.QueryExpression === void 0 || params.Origin.QueryExpression === null) ? "" : params.Origin.QueryExpression}<br />
         </div>
     }
 
-    getPoresJob(data: ServiceSubmission) {
+    getPoresJob(params: PoresConfig) {
         return <div className="panel-body">
-            Beta Structure: {(data.PoresConfig.IsBetaBarrel) ? "True" : "False"}<br />
-            Membrane Region: {(data.PoresConfig.InMembrane === void 0) ? "False" : (data.PoresConfig.InMembrane) ? "True" : "False"}<br />
-            Specific Chains: {formatChains(data.PoresConfig.Chains)}<br />
-            Probe Radius: {(data.PoresConfig === void 0) ? "" : data.PoresConfig.ProbeRadius}<br />
-            Interior Threshold: {(data.PoresConfig === void 0) ? "" : data.PoresConfig.InteriorThreshold}<br />
+            Beta Structure: {(params.IsBetaBarrel) ? "True" : "False"}<br />
+            Membrane Region: {(params.InMembrane === void 0) ? "False" : (params.InMembrane) ? "True" : "False"}<br />
+            Specific Chains: {formatChains(params.Chains)}<br />
+            Probe Radius: {(params === void 0) ? "" : params.ProbeRadius}<br />
+            Interior Threshold: {(params === void 0) ? "" : params.InteriorThreshold}<br />
         </div>
     }
 
     render() {
         let currentSubmitId = this.props.currentSubmitId;
         let data = this.props.data;
-        let canResubmit = checkCanResubmit(this.props.status as ComputationStatus);
-
-        let contents;
-        if (isMoleJob(data)) {
-            contents = this.getMoleJob(data);
-        }
-        else {
-            contents = this.getPoresJob(data);
-        }
+        let canResubmit = isDone(data.state);
+        let contents = data.type === "tunnels" ? this.getMoleJob(data.parameters) : this.getPoresJob(data.parameters);
 
         return (
             <div className="panel panel-default">
                 <div className="panel-heading">
-                    <a data-bs-toggle="collapse" href={`#submit-data-${data.SubmitId}`} onClick={(e) => {
+                    <a data-bs-toggle="collapse" href={`#submit-data-${data.number}`} onClick={(e) => {
                         if (e.currentTarget.attributes.getNamedItem('aria-expanded')!.value === 'true') {
-                            if (data.SubmitId !== this.props.currentSubmitId) {
-                                changeSubmitId(this.props.computationId, data.SubmitId);
+                            if (data.number !== this.props.currentSubmitId) {
+                                changeSubmitId(this.props.computationId, data.number);
                             }
                         }
                     }}>
                         <h4 className="panel-title">
-                            #{data.SubmitId}
+                            #{data.number}
                         </h4>
                         <div className="submission-state">
-                            Status: <span className={`state-${this.props.status}`}>{this.props.status}</span>
+                            Status: <span className={`state-${data.state}`}>{STATE_LABELS[data.state]}</span>
                         </div>
-                        {data.ErrorMsg ? <div className="submission-error">{data.ErrorMsg}</div> : null}
+                        {data.error ? <div className="submission-error">{data.error}</div> : null}
                     </a>
                 </div>
-                <div id={`submit-data-${data.SubmitId}`} className={`panel-collapse collapse${(currentSubmitId === data.SubmitId) ? ' show' : ''}`}>
+                <div id={`submit-data-${data.number}`} className={`panel-collapse collapse${(currentSubmitId === data.number) ? ' show' : ''}`}>
                     {contents}
                     <div className="panel-footer">
-                        <span className="btn btn-sm btn-primary" onClick={(() => this.exportParams()).bind(this)}>Export</span><span className="btn btn-sm btn-primary" onClick={(() => this.copyParams(data.SubmitId)).bind(this)}>Copy</span><span className="btn btn-sm btn-primary" aria-disabled={!canResubmit} onClick={(() => this.reSubmit()).bind(this)}>Resubmit</span>
+                        <span className="btn btn-sm btn-primary" onClick={(() => this.exportParams()).bind(this)}>Export</span><span className="btn btn-sm btn-primary" onClick={(() => this.copyParams(data.number)).bind(this)}>Copy</span><span className="btn btn-sm btn-primary" aria-disabled={!canResubmit} onClick={(() => this.reSubmit()).bind(this)}>Resubmit</span>
                     </div>
                 </div>
             </div>
@@ -600,16 +575,9 @@ export class Submission extends React.Component<{ data: ServiceSubmission, compu
     }
 
     private reSubmit() {
-        if (isMoleJob(this.props.data)) {
-            BridgeEvents.invokeOnReSubmit(
-                ApiService.submitMoleJob(this.props.computationId, this.props.data.MoleConfig)
-            );
-        }
-        else {
-            BridgeEvents.invokeOnReSubmit(
-                ApiService.submitPoresJob(this.props.computationId, this.props.data.PoresConfig)
-            );
-        }
+        const data = this.props.data;
+        const job: NewJob = data.type === "tunnels" ? { type: "tunnels", parameters: data.parameters } : { type: "pores", parameters: data.parameters };
+        BridgeEvents.invokeOnReSubmit(ApiService.createJob(this.props.computationId, job));
     }
 
     private copyParams(submitId: number) {
@@ -625,15 +593,7 @@ export class Submission extends React.Component<{ data: ServiceSubmission, compu
         let currentSubmitId = this.props.currentSubmitId;
         let computationId = this.props.computationId;
         let data = this.props.data;
-        let result;
-        if (isMoleJob(data)) {
-            const moleData = new MoleFormData(data.MoleConfig)
-            result = moleData.getPackage();
-        }
-        else {
-            const poreData = new PoresFormData(data.PoresConfig);
-            result = poreData.getPackage();
-        }
+        const result = data.type === "tunnels" ? new MoleFormData(data.parameters).getPackage() : new PoresFormData(data.parameters).getPackage();
 
         const jsonString = JSON.stringify(result, null, 2);
 
@@ -664,7 +624,7 @@ function changeSubmitId(computationId: string, submitId: number) {
 
 interface ControlTabState {
     activeTabIdx: number,
-    data?: CompInfo,
+    data?: Session,
     err?: String,
     submitId: number,
     canSubmit: boolean,
@@ -694,12 +654,8 @@ export class ControlTabs extends React.Component<{ activeTab?: number }, Control
             if (parameters.isChannelsDB) {
                 submitId = -1;
             }
-            Provider.get(parameters.computationId, ((compId: string, info: CompInfo) => {
-                //CompInfo => Status==="Error" => Submissions neexistuje! Response ma format /Status na misto /CompInfo
-                if (info === null) {
-                    return;
-                }
-                this.setState({ data: info, submitId: submitId });
+            Provider.get(parameters.computationId, ((_id: string, session: Session) => {
+                this.setState({ data: session, submitId: submitId });
             }).bind(this));
         } else {
             this.setState({ err: "Parameters from url cannot be properly processed." });
@@ -773,7 +729,7 @@ interface ControlButtonsState {
 }
 interface ControlButtonsProps {
     submitId: number,
-    computationInfo: CompInfo | undefined,
+    computationInfo: Session | undefined,
     isLoading: boolean,
     setOpenControls: (open: boolean) => void,
 }
@@ -802,19 +758,8 @@ export class ControlButtons extends React.Component<ControlButtonsProps, Control
         }
     }
 
-    private getSubmissions() {
-        let submissions: ServiceSubmission[] = [];
-        if (this.props.computationInfo !== void 0) {
-            submissions = this.sortSubmissions(this.props.computationInfo.Submissions);
-        }
-
-        return submissions;
-    }
-
-    private sortSubmissions(items: ServiceSubmission[]): ServiceSubmission[] {
-        return items.sort((a, b) => {
-            return a.SubmitId - b.SubmitId;
-        });
+    private getSubmissions(): Job[] {
+        return [...this.props.computationInfo?.jobs ?? []].sort((a, b) => a.number - b.number);
     }
 
     private prepareSubmissionItems(): SubmissionCoboboxItem[] {
@@ -823,7 +768,7 @@ export class ControlButtons extends React.Component<ControlButtonsProps, Control
         let rv = [];
 
         if (this.props.computationInfo !== void 0) {
-            if (this.props.computationInfo.PdbId !== null && this.props.computationInfo.PdbId !== "") {
+            if (this.props.computationInfo.pdb_id !== null) {
                 rv.push({
                     label: 'ChDB',
                     value: '-1'
@@ -850,8 +795,8 @@ export class ControlButtons extends React.Component<ControlButtonsProps, Control
         for (let item of submissions) {
             rv.push(
                 {
-                    label: `${item.SubmitId}`,
-                    value: `${item.SubmitId}`
+                    label: `${item.number}`,
+                    value: `${item.number}`
                 }
             );
         }
@@ -872,7 +817,7 @@ export class ControlButtons extends React.Component<ControlButtonsProps, Control
         let idx = e.currentTarget.selectedIndex;
         let submitId = (e.currentTarget.options[idx] as HTMLOptionElement).value;
         let sid = Number(submitId).valueOf();
-        changeSubmitId(this.props.computationInfo.ComputationId, sid);
+        changeSubmitId(this.props.computationInfo.id, sid);
         this.setState({ submitId: sid });
     }
 
@@ -885,7 +830,7 @@ export class ControlButtons extends React.Component<ControlButtonsProps, Control
 
         if (submitId !== void 0) {
             let sid = Number(submitId).valueOf();
-            changeSubmitId(this.props.computationInfo.ComputationId, sid);
+            changeSubmitId(this.props.computationInfo.id, sid);
             this.setState({ submitId: sid });
         }
     }
@@ -912,7 +857,7 @@ export class ControlButtons extends React.Component<ControlButtonsProps, Control
         }
 
         for (let idx = 0; idx < submissions.length; idx++) {
-            if (submissions[idx].SubmitId === this.props.submitId) {
+            if (submissions[idx].number === this.props.submitId) {
                 if (!left) {
                     let nextIdx = idx + 1;
                     return nextIdx < submissions.length;
@@ -1023,15 +968,14 @@ export class ControlButtons extends React.Component<ControlButtonsProps, Control
         if (info === void 0 || !window.confirm("Do you really want to kill the running job?")) {
             return;
         }
-        ApiService.killRunningJob(info.ComputationId).then((result) => {
-            if (result.Status !== "Aborted") {
-                BridgeEvents.invokeNotifyMessage({
-                    message: (result.ErrorMsg.length === 0) ? "Attempt to kill job was not successful." : result.ErrorMsg,
-                    messageType: "Warning"
-                });
-                return;
+        // the job still queued or running: one at a time on a session, the last one
+        ApiService.getSession(info.id).then(session => {
+            const running = session.jobs.filter(j => !isDone(j.state)).pop();
+            if (running === undefined) {
+                throw new Error("No job is running.");
             }
-
+            return ApiService.cancelJob(info.id, running.number);
+        }).then(() => {
             BridgeEvents.invokeNotifyMessage({
                 message: "Job has been successfully killed.",
                 messageType: "Success"
@@ -1050,7 +994,7 @@ export class ControlButtons extends React.Component<ControlButtonsProps, Control
         if (info === void 0 || !window.confirm("Do you really want to delete the whole computation, with all its submissions?")) {
             return;
         }
-        ApiService.deleteSession(info.ComputationId).then(() => {
+        ApiService.deleteSession(info.id).then(() => {
             BridgeEvents.invokeNotifyMessage({
                 message: "Current computation was successfully deleted. You will be redirected to initial page.",
                 messageType: "Success"

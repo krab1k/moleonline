@@ -146,26 +146,26 @@
     text-align: right;
 }
 
-.submissions .submission-state .state-Unknown {
+.submissions .submission-state .state-queued {
     font-style: italic;
 }
 
-.submissions .submission-state .state-Error {
+.submissions .submission-state .state-failed {
     color: red;
     font-weight: bold;
 }
 
-.submissions .submission-state .state-Aborted {
+.submissions .submission-state .state-cancelled {
     color: blue;
     font-weight: bold;
 }
 
-.submissions .submission-state .state-Running {
+.submissions .submission-state .state-running {
     color: orange;
     font-style: italic;
 }
 
-.submissions .submission-state .state-Finished {
+.submissions .submission-state .state-finished {
     color: lime;
     font-weight: bold;
 }

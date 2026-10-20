@@ -1,5 +1,5 @@
 import React from "react";
-import { ComputationInfo } from "../../../DataProxy";
+import { SessionInfo } from "../../../DataProxy";
 import { getParameters } from "../../../Common/Util/Router";
 import { CommonOptions } from "../../../../config/common";
 
@@ -13,8 +13,8 @@ export class Annotate extends React.Component<{}, { computationId?: string, pdbi
             return;
         }
         this.setState({ computationId: params.computationId });
-        ComputationInfo.DataProvider.get(params.computationId, (_compId, info) => {
-            this.setState({ pdbid: info.PdbId ? info.PdbId : null });
+        SessionInfo.DataProvider.get(params.computationId, (_id, session) => {
+            this.setState({ pdbid: session.pdb_id });
         });
     }
 

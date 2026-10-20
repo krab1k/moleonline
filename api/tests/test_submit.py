@@ -1,4 +1,4 @@
-"""POST /Submit/Mole: tunnel computations with a fake MOLE"""
+"""POST /sessions/{id}/jobs: tunnel jobs with a fake MOLE"""
 
 import json
 import time
@@ -9,7 +9,7 @@ import pytest
 
 from mole_api.main import STATIC_FILES
 
-from .conftest import MOLE_VERSION, STRUCTURE, upload, wait, wait_for_file
+from .conftest import MOLE_VERSION, STRUCTURE, upload, wait, wait_session, wait_for_file
 from .test_iplog import logged
 from .test_runner import UNTIL_GO
 
@@ -19,22 +19,30 @@ RESULTS = 'mkdir -p "$(dirname "$1")/json" && echo "{}" > "$(dirname "$1")/json/
 
 def loaded(client) -> str:
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
-    assert wait(client, id)["Status"] == "Initialized"
+    assert wait_session(client, id)["state"] == "ready"
     return id
 
 
-def submit(client, id: str, parameters="{}"):
-    return client.post(f"/Submit/Mole/{id}", content=parameters if isinstance(parameters, str) else json.dumps(parameters),
+def submit(client, id: str, parameters="{}", type: str = "tunnels"):
+    """A job with these parameters: an object, or the text of the parameters as sent (also not JSON)"""
+    text = parameters if isinstance(parameters, str) else json.dumps(parameters)
+    return client.post(f"/sessions/{id}/jobs", content=f'{{"type": "{type}", "parameters": {text}}}',
                        headers={"Content-Type": "application/json"})
 
 
-def test_computation_runs_and_finishes(api):
+def test_job_runs_and_finishes(api):
     client = api(run=RESULTS)
     id = loaded(client)
     response = submit(client, id)
-    assert response.status_code == 200
-    assert response.json() == {"ComputationId": id, "SubmitId": 1, "Status": "Running", "ErrorMsg": ""}  # the load's unit
-    assert wait(client, id, 1)["Status"] == "Finished"
+    assert response.status_code == 202
+    assert response.headers["location"] == f"/sessions/{id}/jobs/1"
+    job = response.json()
+    assert (job["number"], job["type"], job["state"], job["error"]) == (1, "tunnels", "queued", "")  # numbered from 1
+    assert job["parameters"]["Cavity"]["ProbeRadius"] == 5.0  # stored with the defaults
+    done = wait(client, id, 1)
+    assert done["state"] == "finished"
+    assert done["submitted"] <= done["started"] <= done["finished"]
+    assert client.get(f"/sessions/{id}").json()["jobs"] == [done]
 
     folder = client.app.state.settings.working_directory / id / "1"
     with zipfile.ZipFile(folder / "report.zip") as report:
@@ -46,7 +54,7 @@ def test_computation_runs_and_finishes(api):
     unit = json.loads((folder.parent / "_object.json").read_text())["ComputationUnits"][0]
     assert unit["Submitted"] <= unit["Started"] <= unit["Finished"]
     assert unit["MoleVersion"] == MOLE_VERSION
-    assert submit(client, id).json()["SubmitId"] == 2
+    assert submit(client, id).json()["number"] == 2
 
 
 def xml(client, id: str, submit_id: int) -> ET.Element:
@@ -92,11 +100,11 @@ def test_input_of_the_examples(client):
     ("", "Input format error"),
     ({"Cavity": {"ProbeRadius": 100}}, "Invalid parameters. Probe radius must be between 1.4 and 45."),
     ({"Tunnel": {"WeightFunction": "x", "MaxTunnelSimilarity": 2}}, "Invalid parameters. Max tunnel similarity must be between 0 and 1. Weight function must be one of"),
-    ({"Input": {"ReadAllModels": True}}, "Input format error. Input.ReadAllModels: Extra inputs are not permitted"),  # only the first model is used
-    ({"Cavity": {"ProbeRadius": "big"}}, "Input format error. Cavity.ProbeRadius:"),
-    ({"Origin": {"Points": [{"X": "NaN", "Y": 0, "Z": 0}]}}, "Input format error. Origin.Points.0.X: Input should be a finite number"),
-    ('{"CustomExits": {"Points": [{"X": 0, "Y": Infinity, "Z": 0}]}}', "Input format error. CustomExits.Points.0.Y: Input should be a finite number"),
-    ('{"Cavity": {"ProbeRadius": NaN}}', "Input format error. Cavity.ProbeRadius: Input should be a finite number"),
+    ({"Input": {"ReadAllModels": True}}, "Input format error. parameters.Input.ReadAllModels: Extra inputs are not permitted"),  # only the first model is used
+    ({"Cavity": {"ProbeRadius": "big"}}, "Input format error. parameters.Cavity.ProbeRadius:"),
+    ({"Origin": {"Points": [{"X": "NaN", "Y": 0, "Z": 0}]}}, "Input format error. parameters.Origin.Points.0.X: Input should be a finite number"),
+    ('{"CustomExits": {"Points": [{"X": 0, "Y": Infinity, "Z": 0}]}}', "Input format error. parameters.CustomExits.Points.0.Y: Input should be a finite number"),
+    ('{"Cavity": {"ProbeRadius": NaN}}', "Input format error. parameters.Cavity.ProbeRadius: Input should be a finite number"),
 ])
 def test_invalid_parameters_are_400(client, settings, parameters, message):
     id = loaded(client)
@@ -104,31 +112,65 @@ def test_invalid_parameters_are_400(client, settings, parameters, message):
     assert response.status_code == 400
     assert response.json()["ComputationId"] == id and response.json()["Status"] == "Error"
     assert response.json()["ErrorMsg"].startswith(message)
-    assert logged(settings)[-1] == ("Submit", "testclient", "Mole", id)  # refused ones too
+    assert client.get(f"/sessions/{id}").json()["jobs"] == []
+    # refused ones too; the type from a body that is JSON
+    kind = "-" if parameters in ("not json", "") else "Mole"
+    assert logged(settings)[-1] == ("Submit", "testclient", kind, id)
+
+
+@pytest.mark.parametrize("body", [
+    '{"parameters": {}}',  # no type
+    '{"type": "cavities", "parameters": {}}',
+    '{"type": [], "parameters": {}}',  # not a string
+    '{"type": {}, "parameters": {}}',
+    '{"type": "tunnels", "parameters": {}, "extra": 1}',
+    '[]',
+])
+def test_invalid_job_is_400(client, settings, body):
+    id = loaded(client)
+    response = client.post(f"/sessions/{id}/jobs", content=body, headers={"Content-Type": "application/json"})
+    assert response.status_code == 400
+    assert response.json()["ErrorMsg"].startswith("Input format error")
+    kind = "Mole" if '"tunnels"' in body else "-"
+    assert logged(settings)[-1] == ("Submit", "testclient", kind, id)
 
 
 def test_extra_fields_of_the_web_are_ignored(client):
     id = loaded(client)
     parameters = {"Tunnel": {"UseCustomExitsOnly": False}, "Origin": {"Residues": [[{"Chain": "A", "SequenceNumber": 1, "OperatorName": "1_555", "Name": "ALA"}]]}}
-    assert submit(client, id, parameters).status_code == 200
+    assert submit(client, id, parameters).status_code == 202
 
 
-def test_busy_computation_refuses_and_stops(api):
+def test_busy_session_refuses_and_the_job_is_cancelled(api):
     client = api(run=UNTIL_GO)
     id = loaded(client)
     submit(client, id)
     wait_for_file(client.app.state.settings.working_directory / id / "1" / "started")
 
+    assert client.get(f"/sessions/{id}/jobs/1").json()["state"] == "running"
     busy = submit(client, id)
     assert busy.status_code == 409 and "still running" in busy.json()["ErrorMsg"]
-    killed = client.post(f"/Kill/{id}")
-    assert killed.status_code == 200
-    assert killed.json() == {"ComputationId": id, "SubmitId": 1, "Status": "Aborted", "ErrorMsg": ""}
+    cancelled = client.post(f"/sessions/{id}/jobs/1/cancel")
+    assert cancelled.status_code == 200
+    assert (cancelled.json()["state"], cancelled.json()["error"]) == ("cancelled", "")
     time.sleep(0.2)
-    assert client.get(f"/Status/{id}?submitId=1").json()["Status"] == "Aborted"  # the run did not write over it
+    assert client.get(f"/sessions/{id}/jobs/1").json()["state"] == "cancelled"  # the run did not write over it
+    again = client.post(f"/sessions/{id}/jobs/1/cancel")
+    assert again.status_code == 409 and again.json()["ErrorMsg"] == "The job is cancelled, only a queued or running job can be cancelled."
 
-    again = submit(client, id)  # a stopped computation does not block the structure
-    assert again.status_code == 200 and again.json()["SubmitId"] == 2
+    second = submit(client, id)  # a cancelled job does not block the structure
+    assert second.status_code == 202 and second.json()["number"] == 2
+    assert client.post(f"/sessions/{id}/jobs/1/cancel").status_code == 409  # not the running one
+
+
+def test_finished_job_cannot_be_cancelled_and_unknown_jobs_are_404(api):
+    client = api(run=RESULTS)
+    id = loaded(client)
+    submit(client, id)
+    assert wait(client, id, 1)["state"] == "finished"
+    assert client.post(f"/sessions/{id}/jobs/1/cancel").status_code == 409
+    for response in (client.get(f"/sessions/{id}/jobs/2"), client.post(f"/sessions/{id}/jobs/2/cancel"), client.get(f"/sessions/{id}/jobs/0")):
+        assert response.status_code == 404
 
 
 def test_all_slots_busy_is_503(api):
@@ -137,17 +179,18 @@ def test_all_slots_busy_is_503(api):
     submit(client, first)
     response = submit(client, second)
     assert response.status_code == 503 and "heavy load" in response.json()["ErrorMsg"]
+    assert client.get(f"/sessions/{second}").json()["jobs"] == []
 
 
 @pytest.mark.parametrize("load, status, message", [
     ("exit 3", 409, "could not be loaded"),
-    (UNTIL_GO, 409, "still being initialized"),
+    (UNTIL_GO, 409, "still being loaded"),
 ])
 def test_structure_not_loaded_is_409(api, load, status, message):
     client = api(load=load)
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     if load == "exit 3":
-        wait(client, id)
+        wait_session(client, id)
     response = submit(client, id)
     assert response.status_code == status and message in response.json()["ErrorMsg"]
 
@@ -156,16 +199,16 @@ def test_structure_not_loaded_is_409(api, load, status, message):
     ("exit 7", "The computation failed with exit code 7."),
     ("echo 'Invalid structure' >&2", "Invalid structure\n"),
 ])
-def test_failed_computation_is_an_error(api, run, message):
+def test_failed_job(api, run, message):
     client = api(run=run)
     id = loaded(client)
     submit(client, id)
-    status = wait(client, id, 1)
-    assert status["Status"] == "Error" and status["ErrorMsg"] == message
-    assert submit(client, id).status_code == 200  # the structure is still loaded
+    job = wait(client, id, 1)
+    assert job["state"] == "failed" and job["error"] == message
+    assert submit(client, id).status_code == 202  # the structure is still loaded
 
 
-def test_unknown_and_deleted_computation(client):
+def test_unknown_and_deleted_session(client):
     assert submit(client, "nope").status_code == 404
     id = loaded(client)
     client.delete(f"/sessions/{id}")

@@ -6,7 +6,7 @@ import zipfile
 
 import pytest
 
-from .conftest import STRUCTURE, upload, wait, wait_for_file
+from .conftest import STRUCTURE, upload, wait, wait_session, wait_for_file
 from .test_runner import UNTIL_GO
 from .test_submit import submit
 
@@ -21,9 +21,9 @@ def finished(api):
     """A client and a computation with one finished submission"""
     client = api(load=RESULTS, run=RESULTS)
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
-    wait(client, id)
+    wait_session(client, id)
     submit(client, id)
-    assert wait(client, id, 1)["Status"] == "Finished"
+    assert wait(client, id, 1)["state"] == "finished"
     return client, id
 
 
@@ -76,7 +76,7 @@ def test_refused(finished, query, status, message):
 def test_no_results_of_a_failed_submission(api, run):
     client = api(run=run)
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
-    wait(client, id)
+    wait_session(client, id)
     submit(client, id)
     wait(client, id, 1)
     for format in ("json", "report", "pdb", "pymol"):
@@ -89,14 +89,14 @@ def test_no_results_of_a_failed_submission(api, run):
 def test_no_results_while_running(api):
     client = api(run=RESULTS + "; " + UNTIL_GO)
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
-    wait(client, id)
+    wait_session(client, id)
     submit(client, id)
     folder = client.app.state.settings.working_directory / id / "1"
     wait_for_file(folder / "started")
     assert (folder / "json" / "data.json").exists()  # MOLE writes as it goes
     assert client.get(f"/Data/{id}?submitId=1").status_code == 404
     (folder / "go").touch()
-    assert wait(client, id, 1)["Status"] == "Finished"
+    assert wait(client, id, 1)["state"] == "finished"
     assert client.get(f"/Data/{id}?submitId=1").status_code == 200
     assert sorted(p.name for p in folder.glob("report.zip*")) == ["report.zip"]  # written under another name first
 
@@ -104,7 +104,7 @@ def test_no_results_while_running(api):
 def test_results_of_the_load(api):
     client = api(load=RESULTS)
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
-    assert wait(client, id)["Status"] == "Initialized"
+    assert wait_session(client, id)["state"] == "ready"
     assert client.get(f"/Data/{id}?submitId=0").json() == {"Channels": {}}
 
 

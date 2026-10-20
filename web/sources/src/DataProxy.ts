@@ -1,5 +1,5 @@
 import { CommonOptions } from "../config/common";
-import { ApiService, CompInfo, InitResponse, CSAResidues, Cofactors, Session } from "./MoleAPIService";
+import { ApiService, CSAResidues, Cofactors, isDone, Job, Session } from "./MoleAPIService";
 import { describeError, isRefused } from "./Http";
 import {Tunnel} from "./DataInterface";
 
@@ -82,15 +82,15 @@ class KeyedDataProvider<T> {
     }
 }
 
-export namespace ComputationInfo {
-    export const DataProvider = new KeyedDataProvider<CompInfo>(
-        compId => ApiService.getComputationInfoList(compId),
-        'Could not load computation info from the MOLE API.',
+export namespace SessionInfo {
+    export const DataProvider = new KeyedDataProvider<Session>(
+        sessionId => ApiService.getSession(sessionId),
+        'Could not load the session from the MOLE API.',
     );
 
-    // The cached computation info as a promise; rejects with the message for the user
-    export function get(computationId: string): Promise<CompInfo> {
-        return new Promise((res, rej) => DataProvider.get(computationId, (_compId, info) => res(info), false, (_compId, error) => rej(error)));
+    // The cached session as a promise; rejects with the message for the user
+    export function get(sessionId: string): Promise<Session> {
+        return new Promise((res, rej) => DataProvider.get(sessionId, (_id, session) => res(session), false, (_id, error) => rej(error)));
     }
 }
 
@@ -132,7 +132,7 @@ export namespace SessionStatus {
 }
 
 export namespace JobStatus {
-    export type OnStatusChangeHandler = (status: InitResponse) => void;
+    export type OnStatusChangeHandler = (job: Job) => void;
     export type OnErrHandler = (err: any) => void;
     export class Watcher {
         private static handlers: Map<String, OnStatusChangeHandler[]>
@@ -182,7 +182,7 @@ export namespace JobStatus {
             }
         }
 
-        private static notifyStatusUpdate(computationId: string, submitId: number, status: InitResponse) {
+        private static notifyStatusUpdate(computationId: string, submitId: number, status: Job) {
             let handlers = this.handlers.get(this.makeHash(computationId, submitId));
             if (handlers === void 0) {
                 return;
@@ -213,29 +213,19 @@ export namespace JobStatus {
         private static readonly MAX_RETRY_MS = 30000;
 
         private static waitForResult(computationId: string, submitId: number, pollMs = Watcher.FIRST_POLL_MS, failures = 0) {
-            ApiService.getStatus(computationId, submitId).then((state) => {
+            ApiService.getJob(computationId, submitId).then((job) => {
                 if (CommonOptions.DEBUG_MODE)
-                    console.log(state);
-                switch (state.Status) {
-                    case "Initializing":
-                    case "Running":
-                        this.notifyStatusUpdate(computationId, submitId, state);
-                        window.setTimeout(() => {
-                            this.waitForResult(computationId, submitId, Math.min(pollMs * 1.5, Watcher.MAX_POLL_MS));
-                        }, pollMs);
-                        break;
-                    case "Initialized":
-                    case "FailedInitialization":
-                    case "Error":
-                    case "Deleted":
-                    case "Aborted":
-                    case "Finished":
-                        this.notifyStatusUpdate(computationId, submitId, state);
-                        this.removeHandlers(computationId, submitId);
-                        break;
+                    console.log(job);
+                this.notifyStatusUpdate(computationId, submitId, job);
+                if (isDone(job.state)) {
+                    this.removeHandlers(computationId, submitId);
+                } else {
+                    window.setTimeout(() => {
+                        this.waitForResult(computationId, submitId, Math.min(pollMs * 1.5, Watcher.MAX_POLL_MS));
+                    }, pollMs);
                 }
             }, (err) => { // only a failed request is retried, not an error in the code above
-                // a refused request (404 unknown computation or submission, 410 deleted) is final
+                // a refused request (404 unknown session or job, 410 deleted) is final
                 if (!isRefused(err) && failures < Watcher.MAX_RETRIES) {
                     const retryMs = Math.min(2000 * 2 ** failures, Watcher.MAX_RETRY_MS);
                     if (CommonOptions.DEBUG_MODE)

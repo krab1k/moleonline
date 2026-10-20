@@ -12,20 +12,6 @@ export interface paths {
      */
     get: operations["get_version"];
   };
-  "/Status/{computation_id}": {
-    /**
-     * Get Status
-     * @description State of a submission: -1 the last one, 0 (default) the first one, the load
-     */
-    get: operations["get_status"];
-  };
-  "/CompInfo/{computation_id}": {
-    /**
-     * Get Info
-     * @description The computation and its submissions with their parameters, so that the web can show them again
-     */
-    get: operations["get_info"];
-  };
   "/CSA/{computation_id}": {
     /**
      * Get Csa
@@ -79,30 +65,28 @@ export interface paths {
      */
     post: operations["cancel_session"];
   };
-  "/Submit/Mole/{computation_id}": {
+  "/sessions/{session_id}/jobs": {
     /**
-     * Submit Mole
-     * @description Computes tunnels (pores with PoresAuto, PoresMerged or exits without an origin) in the loaded structure, in
-     * the background: Running, then Finished or Error (see Status with the SubmitId of the answer)
+     * Create Job
+     * @description A job on the session's structure, run in the background: queued, running, then finished, failed or
+     * cancelled. Poll the job (Location). One job runs on a session at a time (409 while one does), 503 when the
+     * server is busy.
      */
-    post: operations["submit_mole"];
+    post: operations["create_job"];
   };
-  "/Submit/Pores/{computation_id}": {
+  "/sessions/{session_id}/jobs/{number}": {
     /**
-     * Submit Pores
-     * @description Computes a pore across the membrane, in the background: the pores tool places the membrane (from OPM for
-     * the preferred assembly of a PDB entry, otherwise predicted by MEMEMBED) and writes MOLE's input of a path
-     * along its normal, MOLE computes the pore (see Status, membrane.json in Data)
+     * Get Job
+     * @description The job's state: queued, running, then finished, failed (with the error) or cancelled
      */
-    post: operations["submit_pores"];
+    get: operations["get_job"];
   };
-  "/Kill/{computation_id}": {
+  "/sessions/{session_id}/jobs/{number}/cancel": {
     /**
-     * Kill
-     * @description Stops the computation's run, a download of its structure too: Aborted, or FailedInitialization for a load
-     * (nothing can run on it)
+     * Cancel Job
+     * @description Stops the job: cancelled. Only a queued or running job can be cancelled.
      */
-    post: operations["kill"];
+    post: operations["cancel_job"];
   };
 }
 
@@ -119,24 +103,43 @@ export interface components {
       /** Sequencenumber */
       SequenceNumber: number;
     };
-    /** CompInfo */
-    CompInfo: {
-      /** Computationid */
-      ComputationId: string;
-      /** Userstructure */
-      UserStructure: boolean;
-      /** Pdbid */
-      PdbId: string;
-      /** Assemblyid */
-      AssemblyId: string | null;
-      /** Submissions */
-      Submissions: components["schemas"]["Submission"][];
-    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
     };
+    /**
+     * Job
+     * @description A tunnel or pore computation on a session's structure
+     */
+    Job: {
+      /** Number */
+      number: number;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "tunnels" | "pores";
+      state: components["schemas"]["JobState"];
+      /** Error */
+      error: string;
+      /** Parameters */
+      parameters: {
+        [key: string]: unknown;
+      };
+      /** Submitted */
+      submitted: string | null;
+      /** Started */
+      started: string | null;
+      /** Finished */
+      finished: string | null;
+    };
+    /**
+     * JobState
+     * @description Of a job, see Unit.job_state
+     * @enum {string}
+     */
+    JobState: "queued" | "running" | "finished" | "failed" | "cancelled";
     /** MoleCavity */
     MoleCavity: {
       /**
@@ -298,6 +301,19 @@ export interface components {
       SurfaceCoverRadius?: number;
     };
     /**
+     * NewPoresJob
+     * @description A pore across the membrane: the pores tool places the membrane (from OPM for the preferred assembly of a PDB
+     * entry, otherwise predicted by MEMEMBED) and MOLE computes the pore along its normal
+     */
+    NewPoresJob: {
+      /**
+       * Type
+       * @constant
+       */
+      type: "pores";
+      parameters: components["schemas"]["PoresRequest"];
+    };
+    /**
      * NewSession
      * @description A session of a PDB entry
      */
@@ -309,6 +325,18 @@ export interface components {
        * @default preferred
        */
       assembly?: string;
+    };
+    /**
+     * NewTunnelsJob
+     * @description Tunnels (pores with PoresAuto, PoresMerged or exits without an origin): MOLE's parameters
+     */
+    NewTunnelsJob: {
+      /**
+       * Type
+       * @constant
+       */
+      type: "tunnels";
+      parameters: components["schemas"]["MoleParameters"];
     };
     /**
      * PoresRequest
@@ -374,6 +402,8 @@ export interface components {
       created: string | null;
       /** Loaded */
       loaded: string | null;
+      /** Jobs */
+      jobs: components["schemas"]["Job"][];
     };
     /**
      * SessionState
@@ -386,24 +416,6 @@ export interface components {
      * @enum {string}
      */
     Status: "Aborted" | "Initialized" | "Initializing" | "Running" | "Finished" | "Error" | "Deleted" | "FailedInitialization";
-    /** Submission */
-    Submission: {
-      /** Submitid */
-      SubmitId: number;
-      /** Mode */
-      Mode: ("Mole" | "Pores") | null;
-      Status: components["schemas"]["Status"];
-      /** Errormsg */
-      ErrorMsg: string;
-      /** Moleconfig */
-      MoleConfig: {
-        [key: string]: unknown;
-      };
-      /** Poresconfig */
-      PoresConfig: {
-        [key: string]: unknown;
-      };
-    };
     /** ValidationError */
     ValidationError: {
       /** Location */
@@ -448,95 +460,6 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["Version"];
-        };
-      };
-    };
-  };
-  /**
-   * Get Status
-   * @description State of a submission: -1 the last one, 0 (default) the first one, the load
-   */
-  get_status: {
-    parameters: {
-      query?: {
-        submitId?: number;
-      };
-      path: {
-        computation_id: string;
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Not Found */
-      404: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Gone */
-      410: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-    };
-  };
-  /**
-   * Get Info
-   * @description The computation and its submissions with their parameters, so that the web can show them again
-   */
-  get_info: {
-    parameters: {
-      path: {
-        computation_id: string;
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        content: {
-          "application/json": components["schemas"]["CompInfo"];
-        };
-      };
-      /** @description Not Found */
-      404: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Gone */
-      410: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        content: {
-          "application/json": components["schemas"]["Report"];
         };
       };
     };
@@ -855,26 +778,27 @@ export interface operations {
     };
   };
   /**
-   * Submit Mole
-   * @description Computes tunnels (pores with PoresAuto, PoresMerged or exits without an origin) in the loaded structure, in
-   * the background: Running, then Finished or Error (see Status with the SubmitId of the answer)
+   * Create Job
+   * @description A job on the session's structure, run in the background: queued, running, then finished, failed or
+   * cancelled. Poll the job (Location). One job runs on a session at a time (409 while one does), 503 when the
+   * server is busy.
    */
-  submit_mole: {
+  create_job: {
     parameters: {
       path: {
-        computation_id: string;
+        session_id: string;
       };
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["MoleParameters"];
+        "application/json": components["schemas"]["NewTunnelsJob"] | components["schemas"]["NewPoresJob"];
       };
     };
     responses: {
       /** @description Successful Response */
-      200: {
+      202: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/json": components["schemas"]["Job"];
         };
       };
       /** @description Bad Request */
@@ -922,43 +846,25 @@ export interface operations {
     };
   };
   /**
-   * Submit Pores
-   * @description Computes a pore across the membrane, in the background: the pores tool places the membrane (from OPM for
-   * the preferred assembly of a PDB entry, otherwise predicted by MEMEMBED) and writes MOLE's input of a path
-   * along its normal, MOLE computes the pore (see Status, membrane.json in Data)
+   * Get Job
+   * @description The job's state: queued, running, then finished, failed (with the error) or cancelled
    */
-  submit_pores: {
+  get_job: {
     parameters: {
       path: {
-        computation_id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PoresRequest"];
+        session_id: string;
+        number: number;
       };
     };
     responses: {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        content: {
-          "application/json": components["schemas"]["Report"];
+          "application/json": components["schemas"]["Job"];
         };
       };
       /** @description Not Found */
       404: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Conflict */
-      409: {
         content: {
           "application/json": components["schemas"]["Report"];
         };
@@ -981,30 +887,24 @@ export interface operations {
           "application/json": components["schemas"]["Report"];
         };
       };
-      /** @description Service Unavailable */
-      503: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
     };
   };
   /**
-   * Kill
-   * @description Stops the computation's run, a download of its structure too: Aborted, or FailedInitialization for a load
-   * (nothing can run on it)
+   * Cancel Job
+   * @description Stops the job: cancelled. Only a queued or running job can be cancelled.
    */
-  kill: {
+  cancel_job: {
     parameters: {
       path: {
-        computation_id: string;
+        session_id: string;
+        number: number;
       };
     };
     responses: {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/json": components["schemas"]["Job"];
         };
       };
       /** @description Not Found */

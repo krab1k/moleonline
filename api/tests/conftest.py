@@ -70,15 +70,15 @@ def wait_session(client: TestClient, id: str, seconds: float = 30) -> dict:
     raise TimeoutError(f"session {id} is still loading after {seconds} s")
 
 
-def wait(client: TestClient, id: str, submit_id: int = 0, seconds: float = 30) -> dict:
-    """The status once the load or the submission is no longer in progress"""
+def wait(client: TestClient, id: str, number: int, seconds: float = 30) -> dict:
+    """The job once it is no longer queued or running"""
     end = time.monotonic() + seconds
     while time.monotonic() < end:
-        status = client.get(f"/Status/{id}", params={"submitId": submit_id}).json()
-        if status["Status"] not in ("Initializing", "Running"):
-            return status
+        job = client.get(f"/sessions/{id}/jobs/{number}").json()
+        if job["state"] not in ("queued", "running"):
+            return job
         time.sleep(0.05)
-    raise TimeoutError(f"computation {id} is still in progress after {seconds} s")
+    raise TimeoutError(f"job {number} of session {id} is still in progress after {seconds} s")
 
 
 def wait_for_file(path: Path, seconds: float = 10) -> None:

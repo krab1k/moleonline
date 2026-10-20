@@ -1,4 +1,4 @@
-import { MoleConfigPoint, MoleConfigResidue, Submission } from "../../MoleAPIService";
+import { MoleConfigPoint, MoleConfigResidue } from "../../MoleAPIService";
 import { StringPoint } from "./Selection";
 
 declare function $(p: any): any;
@@ -60,10 +60,6 @@ export function pointsToString(points: MoleConfigPoint[]): string {
         rv += `[${p.X},${p.Y},${p.Z}]`;
     }
     return rv;
-}
-
-export function isMoleJob(data: Submission) {
-    return data.Mode === "Mole";
 }
 
 export function parseResidues(residues: string | undefined): { Chain: string, SequenceNumber: number, OperatorName: string, Name: string }[] {

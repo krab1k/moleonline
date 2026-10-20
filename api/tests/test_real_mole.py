@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from .conftest import STRUCTURE, upload, wait
+from .conftest import STRUCTURE, upload, wait, wait_session
 from .test_submit import EXAMPLES, submit
 
 MOLE = os.environ.get("MOLE2")
@@ -15,10 +15,10 @@ MOLE = os.environ.get("MOLE2")
 def test_tunnels_of_an_uploaded_structure(api):
     client = api(mole=Path(MOLE))
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
-    assert wait(client, id, seconds=120)["Status"] == "Initialized"
+    assert wait_session(client, id, seconds=120)["state"] == "ready"
 
-    assert submit(client, id, (EXAMPLES / "1tqn_point_channels.json").read_text()).status_code == 200  # the example of the documentation
-    assert wait(client, id, 1, seconds=120)["Status"] == "Finished"
+    assert submit(client, id, (EXAMPLES / "1tqn_point_channels.json").read_text()).status_code == 202  # the example of the documentation
+    assert wait(client, id, 1, seconds=120)["state"] == "finished"
     data = client.get(f"/Data/{id}?submitId=1").json()
     assert data["Version"] == client.get("/Version").json()["MoleVersion"]  # read from MOLE when the API started
     assert any(data["Channels"].values())  # tunnels, paths or pores
@@ -26,4 +26,4 @@ def test_tunnels_of_an_uploaded_structure(api):
         response = client.get(f"/Data/{id}?submitId=1&format={format}")
         assert response.status_code == 200 and len(response.content) > 100, format
     assert client.get(f"/Data/{id}?submitId=0").status_code == 200  # the cavities of the load
-    assert client.get(f"/CompInfo/{id}").json()["Submissions"][0]["Status"] == "Finished"
+    assert client.get(f"/sessions/{id}").json()["jobs"][0]["state"] == "finished"

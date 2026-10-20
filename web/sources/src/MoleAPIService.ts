@@ -7,16 +7,20 @@ import type { components } from "./MoleAPISchema";
 // The parameter types below stay the web's own: the forms' data, which the API reads a part of.
 type Schemas = components["schemas"];
 
+// A tunnel or pore computation on a session: queued, running, then finished, failed (error says why) or cancelled.
+// The API describes the parameters as plain objects; by the job's type they are MOLE's (mole.json) or the pore's.
+export type Job = Omit<Schemas["Job"], "type" | "parameters"> & NewJob;
+export type JobState = Schemas["JobState"];
+export type NewJob = { type: "tunnels", parameters: MoleConfig } | { type: "pores", parameters: PoresConfig };
+
 // A loaded structure, on which jobs run: queued, loading, then ready or failed (error says why)
-export type Session = Schemas["Session"];
+export type Session = Omit<Schemas["Session"], "jobs"> & { jobs: Job[] };
 export type SessionState = Schemas["SessionState"];
 
-export type ComputationStatus = Schemas["Status"];
-// A successful answer always has the computation; only a refused upload (an error, thrown by Http) has none
-export type InitResponse = Schemas["Report"] & { ComputationId: string };
-export type CompInfo = Omit<Schemas["CompInfo"], "Submissions"> & { Submissions: Submission[] };
-// The API describes the submitted parameters as plain objects; they are mole.json and pores.json
-export type Submission = Omit<Schemas["Submission"], "MoleConfig" | "PoresConfig"> & { MoleConfig: MoleConfig, PoresConfig: PoresConfig };
+// A job no longer queued or running
+export function isDone(state: JobState): boolean {
+    return state !== "queued" && state !== "running";
+}
 
 export interface MoleConfig {
     Input?: MoleConfigInput,
@@ -86,18 +90,6 @@ export type PatternQueryExpression = string;
 export type Cofactors = Map<ResidueName, PatternQueryExpression>;
 export type MembranePoints = MembranePoint[];
 
-// The API sends SubmitId as a number. Anything else is an API bug: fail instead of converting it.
-function checkSubmitId(submitId: unknown, url: string) {
-    if (typeof submitId !== "number") {
-        throw new Error(`${url}: SubmitId must be a number, got ${JSON.stringify(submitId)}`);
-    }
-}
-
-function checkReport(report: any, url: string): InitResponse {
-    checkSubmitId(report.SubmitId, url);
-    return report;
-}
-
 export class ApiService {
     private static baseUrl = DataSources.API_URL;
 
@@ -120,39 +112,27 @@ export class ApiService {
         return deleteEmpty(`${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}`);
     }
 
-    public static getStatus(computationId: string, submitId?: number): Promise<InitResponse> {
-        let url = `${this.baseUrl}/Status/${computationId}${submitId !== void 0 ? `?submitId=${submitId}` : ""}`;
-        return getJson(url).then(r => checkReport(r, url));
-    }
-
-    public static getComputationInfoList(computationId: string): Promise<CompInfo> {
-        let url = `${this.baseUrl}/Compinfo/${computationId}`;
-        return getJson(url).then((val) => {
-            for (const submission of val.Submissions) {
-                checkSubmitId(submission.SubmitId, url);
+    public static createJob(sessionId: string, job: NewJob): Promise<Job> {
+        const body: NewJob = job.type === "tunnels" ? job : {
+            type: "pores",
+            // exactly these fields: the API refuses unknown ones
+            parameters: {
+                InMembrane: job.parameters.InMembrane,
+                IsBetaBarrel: job.parameters.IsBetaBarrel,
+                Chains: job.parameters.Chains,
+                InteriorThreshold: job.parameters.InteriorThreshold,
+                ProbeRadius: job.parameters.ProbeRadius
             }
-            return val;
-        })
-    }
-
-    public static submitMoleJob(computationId: string, data: MoleConfig) {
-        let url = `${this.baseUrl}/Submit/Mole/${computationId}`;
-        return postJson(url, data).then(r => checkReport(r, url));
-    }
-
-    public static submitPoresJob(computationId: string, data: PoresConfig) {
-        let url = `${this.baseUrl}/Submit/Pores/${computationId}`;
-
-        // exactly these fields: the API refuses unknown ones
-        const body: PoresConfig = {
-            InMembrane: data.InMembrane,
-            IsBetaBarrel: data.IsBetaBarrel,
-            Chains: data.Chains,
-            InteriorThreshold: data.InteriorThreshold,
-            ProbeRadius: data.ProbeRadius
         };
+        return postJson(`${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/jobs`, body);
+    }
 
-        return postJson(url, body).then(r => checkReport(r, url));
+    public static getJob(sessionId: string, number: number): Promise<Job> {
+        return getJson(`${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/jobs/${number}`);
+    }
+
+    public static cancelJob(sessionId: string, number: number): Promise<Job> {
+        return postEmpty(`${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/jobs/${number}/cancel`);
     }
 
     public static getChannelsData(computationId: string, submitId: number): Promise<string> {
@@ -162,11 +142,6 @@ export class ApiService {
 
     public static getMembraneData(computationId: string): Promise<MembranePoints> {
         return getJson(`${this.baseUrl}/Data/${computationId}?format=membrane`);
-    }
-
-    public static killRunningJob(computationId: string) {
-        let url = `${this.baseUrl}/Kill/${computationId}`;
-        return postEmpty(url).then(r => checkReport(r, url));
     }
 
     public static getCSAResidues(computationId: string): Promise<CSAResidues> {

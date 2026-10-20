@@ -9,9 +9,9 @@ from contextlib import asynccontextmanager
 from importlib.metadata import version
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, FastAPI, Request, Response
+from fastapi import APIRouter, Body, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.concurrency import run_in_threadpool
@@ -25,7 +25,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from . import computation, data, iplog, mole, pdbe, upload
 from .csa import CSA, CSAResidue
 from .paths import AspNetPaths
-from .computation import Computation, Report, SessionState, Status
+from .computation import Computation, JobState, Report, SessionState, Status, Unit
 from .config import Settings
 from .parameters import MoleParameters, PoresParameters, PoresRequest
 from .runner import Runner, Step
@@ -57,28 +57,38 @@ STATIC_FILES = Path(__file__).parent / "static"  # served at /: the example inpu
 
 
 def can_run(request: Request, c: Computation) -> tuple[int, str] | None:
-    """Why a new submission cannot start, with the HTTP status"""
+    """Why a new job cannot start, with the HTTP status"""
     match c.last.Status:
         case Status.Running:
-            return 409, "Previous computation is still running. This one has not been started. Please, try again later."
+            return 409, "The previous job is still running. This one has not been started. Please, try again later."
         case Status.Initializing:
-            return 409, "The structure is still being initialized. This computation has not been started. Please, try again later."
+            return 409, "The structure is still being loaded. This job has not been started. Please, try again later."
         case Status.FailedInitialization:
-            return 409, "The structure could not be loaded, no computation can run on it."
+            return 409, "The structure could not be loaded, no job can run on it."
     if len(request.app.state.runner.jobs) >= request.app.state.settings.max_concurrent_computations:
-        return 503, "Server is under heavy load, computation has not started. Please try again later"
+        return 503, "Server is under heavy load, the job has not started. Please try again later"
     return None
 
 
-class LoggedSubmission(APIRoute):
-    """A submission (/Submit/Mole/{computation_id}) is logged before its body is read, so a refused one too"""
+# the job types as the IP log names them (Mole, Pores), as the former API's endpoints
+LOGGED_TYPES = {"tunnels": "Mole", "pores": "Pores"}
+
+
+class LoggedJob(APIRoute):
+    """A new job is logged before its body is validated, so a refused one too; its type from the body (- when the body
+    has none)"""
 
     def get_route_handler(self):
-        handle, kind = super().get_route_handler(), self.path.split("/")[2]
+        handle = super().get_route_handler()
 
         async def logged(request: Request):
+            try:
+                type = json.loads(await request.body()).get("type")  # the body stays for handle
+            except (ValueError, AttributeError):  # not JSON, not an object
+                type = None
+            kind = LOGGED_TYPES.get(type, "-") if isinstance(type, str) else "-"  # unvalidated: e.g. a list
             iplog.write(request.app.state.settings.working_directory, "Submit", request.client and request.client.host,
-                        kind, request.path_params["computation_id"])
+                        kind, request.path_params["session_id"])
             return await handle(request)
         return logged
 
@@ -93,23 +103,6 @@ UPLOAD_FORM = {"requestBody": {"required": True, "content": {"multipart/form-dat
     "properties": {"file": {"type": "string", "format": "binary", "description": "*.pdb, *.cif, *.pdb.gz or *.cif.gz, at most 30 MB unpacked"}}}}}}}
 
 
-class Submission(BaseModel):
-    SubmitId: int
-    Mode: Literal["Mole", "Pores"] | None  # None: no parameters were submitted
-    Status: Status
-    ErrorMsg: str
-    MoleConfig: dict  # mole.json, {} for pores
-    PoresConfig: dict  # what the user submitted of pores.json, {} for tunnels
-
-
-class CompInfo(BaseModel):
-    ComputationId: str
-    UserStructure: bool
-    PdbId: str
-    AssemblyId: str | None
-    Submissions: list[Submission]  # those with a folder
-
-
 PORES_PARAMETERS = "pores.json"  # the input of the pores tool, also what the user submitted
 # a process of its own, as MOLE: a stop or the time limit kills it with MEMEMBED; the tests replace it
 PORES_TOOL = [sys.executable, "-m", "mole_api.pores"]
@@ -117,15 +110,6 @@ PORES_TOOL = [sys.executable, "-m", "mole_api.pores"]
 
 def run_mole(settings: Settings, input: Path) -> Step:
     return Step([str(settings.mole), str(input)], errors_on_stderr=True)  # MOLE reports errors on stderr, with exit code 0
-
-
-def submission(c: Computation, unit: computation.Unit) -> Submission:
-    folder = c.submit_directory(unit.SubmitId)
-    tunnels, pores = folder / mole.PARAMETERS, folder / PORES_PARAMETERS
-    return Submission(SubmitId=unit.SubmitId, Mode="Mole" if tunnels.exists() else "Pores" if pores.exists() else None,
-                      Status=unit.Status, ErrorMsg=unit.ErrorMsg,
-                      MoleConfig=json.loads(tunnels.read_text()) if tunnels.exists() else {},
-                      PoresConfig=PoresParameters.model_validate_json(pores.read_bytes()).user_parameters() if pores.exists() else {})
 
 
 def pore_found(directory: Path) -> str | None:
@@ -138,6 +122,56 @@ def pore_found(directory: Path) -> str | None:
     return None
 
 
+class Job(BaseModel):
+    """A tunnel or pore computation on a session's structure"""
+    number: int  # from 1, in the session
+    type: Literal["tunnels", "pores"]
+    state: JobState
+    error: str  # why it failed, empty otherwise
+    # tunnels: MOLE's parameters (mole.json); pores: those of the pore (InMembrane, IsBetaBarrel, Chains, ProbeRadius,
+    # InteriorThreshold); as stored, with the defaults filled in
+    parameters: dict
+    submitted: datetime | None  # UTC; None in jobs of the former API
+    started: datetime | None  # got a slot
+    finished: datetime | None
+
+
+def job(c: Computation, unit: Unit) -> Job | None:
+    """The unit as a job; None for the load (no parameters)"""
+    folder = c.submit_directory(unit.SubmitId)
+    tunnels, pores = folder / mole.PARAMETERS, folder / PORES_PARAMETERS
+    if tunnels.exists():
+        type, parameters = "tunnels", json.loads(tunnels.read_text())
+    elif pores.exists():
+        type, parameters = "pores", PoresParameters.model_validate_json(pores.read_bytes()).user_parameters()
+    else:
+        return None
+    return Job(number=unit.SubmitId, type=type, state=unit.job_state(), error=unit.ErrorMsg, parameters=parameters,
+               submitted=unit.Submitted, started=unit.Started, finished=unit.Finished)
+
+
+def jobs(c: Computation) -> list[Job]:
+    return [j for u in c.ComputationUnits if (j := job(c, u)) is not None]
+
+
+class NewTunnelsJob(BaseModel):
+    """Tunnels (pores with PoresAuto, PoresMerged or exits without an origin): MOLE's parameters"""
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["tunnels"]
+    parameters: MoleParameters
+
+
+class NewPoresJob(BaseModel):
+    """A pore across the membrane: the pores tool places the membrane (from OPM for the preferred assembly of a PDB
+    entry, otherwise predicted by MEMEMBED) and MOLE computes the pore along its normal"""
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["pores"]
+    parameters: PoresRequest
+
+
+NewJob = Annotated[NewTunnelsJob | NewPoresJob, Body(discriminator="type")]
+
+
 class Session(BaseModel):
     """A structure loaded by MOLE, on which jobs run"""
     id: str
@@ -147,12 +181,13 @@ class Session(BaseModel):
     assembly_id: str | None  # the PDB entry's assembly that was loaded; None: the asymmetric unit, or an upload
     created: datetime | None  # UTC; None in sessions created before the times were recorded
     loaded: datetime | None  # the load ended (ready or failed)
+    jobs: list[Job]
 
 
 def session(c: Computation) -> Session:
     state, why = c.session_state()
     return Session(id=c.ComputationId, state=state, error=why, pdb_id=None if c.UserStructure else c.PdbId,
-                   assembly_id=c.AssemblyId, created=c.Created, loaded=c.Loaded)
+                   assembly_id=c.AssemblyId, created=c.Created, loaded=c.Loaded, jobs=jobs(c))
 
 
 class NewSession(BaseModel):
@@ -200,17 +235,17 @@ async def create_from_upload(request: Request) -> Computation | JSONResponse:
     return c
 
 
-def submit(request: Request, computation_id: str, parameters: MoleParameters | PoresRequest,
-           write_input: Callable[[Computation, Path], list[Step]], finish: Callable[[Computation, Path], str | None]) -> Report | JSONResponse:
-    """A new submission of the computation, run in the background, or why it is refused. write_input: writes its input
-    into its folder, returns its processes; finish: after them, in a thread, returns why the run failed (see Runner)."""
-    found = find(request, computation_id)
+def start_job(request: Request, session_id: str, parameters: MoleParameters | PoresRequest,
+              write_input: Callable[[Computation, Path], list[Step]], finish: Callable[[Computation, Path], str | None]) -> Job | JSONResponse:
+    """A new job of the session, run in the background, or why it is refused. write_input: writes its input into its
+    folder, returns its processes; finish: after them, in a thread, returns why the run failed (see Runner)."""
+    found = find(request, session_id)
     if isinstance(found, JSONResponse):
         return found
     if problems := parameters.problems():
-        return error(computation_id, 400, problems)
+        return error(session_id, 400, problems)
     if refused := can_run(request, found):
-        return error(computation_id, *refused)
+        return error(session_id, *refused)
 
     found.add_submission(request.app.state.mole_version)
     directory = found.submit_directory(found.last.SubmitId)
@@ -219,10 +254,10 @@ def submit(request: Request, computation_id: str, parameters: MoleParameters | P
         steps = write_input(found, directory)
     except Exception as e:  # e.g. the structure is missing
         found.change_status(Status.Error, str(e))
-        return respond(found.report(), 500)
-    report = found.report()  # before the run can change it
+        return error(session_id, 500, str(e), found.last.SubmitId)
+    started = job(found, found.last)  # before the run can change it
     request.app.state.runner.start(found, lambda: steps, init=False, finish=lambda: finish(found, directory))
-    return report
+    return started
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -239,8 +274,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.runner.stop()
         await app.state.pdbe.aclose()
 
-    # operation ids are the functions' names (get_status), readable in generated clients, not FastAPI's
-    # get_status_Status__computation_id__get
+    # operation ids are the functions' names (get_job), readable in generated clients, not FastAPI's
+    # get_job_sessions__session_id__jobs__number__get
     app = FastAPI(title="MOLEonline API", version=version("mole-api"), lifespan=lifespan,
                   generate_unique_id_function=lambda route: route.name)
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=iplog.PROXIES)  # the client address, also for the log
@@ -254,8 +289,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(RequestValidationError)
     async def invalid(request: Request, e: RequestValidationError) -> JSONResponse:
         """400 with a report, as the former C# API answered (not FastAPI's 422)"""
-        details = "; ".join(f"{'.'.join(str(part) for part in error['loc'] if part != 'body')}: {error['msg']}" for error in e.errors())
-        return error(request.path_params.get("computation_id"), 400, f"Input format error. {details}")
+        def where(loc: tuple) -> str:  # the field in the body; without the job type, the tag of NewJob's union
+            parts = [str(part) for part in loc if part != "body"]
+            return ".".join(parts[1:] if parts and parts[0] in LOGGED_TYPES else parts)
+        details = "; ".join(f"{where(error['loc'])}: {error['msg']}" for error in e.errors())
+        id = request.path_params.get("session_id") or request.path_params.get("computation_id")
+        return error(id, 400, f"Input format error. {details}")
 
     @app.get("/", include_in_schema=False)
     def home() -> RedirectResponse:
@@ -265,26 +304,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def get_version(request: Request) -> Version:
         """Versions of the API (with the pores tool) and of MOLE"""
         return Version(APIVersion=app.version, MoleVersion=request.app.state.mole_version)
-
-    @app.get("/Status/{computation_id}", responses=errors(404, 410))
-    def get_status(request: Request, computation_id: str, submitId: int = 0) -> Report:
-        """State of a submission: -1 the last one, 0 (default) the first one, the load"""
-        found = find(request, computation_id)
-        if isinstance(found, JSONResponse):
-            return found
-        report = found.report(submitId)
-        if not any(u.SubmitId == report.SubmitId for u in found.ComputationUnits):
-            return respond(report, 404)  # "SubmitId N not found."
-        return report
-
-    @app.get("/CompInfo/{computation_id}", responses=errors(404, 410))
-    def get_info(request: Request, computation_id: str) -> CompInfo:
-        """The computation and its submissions with their parameters, so that the web can show them again"""
-        found = find(request, computation_id)
-        if isinstance(found, JSONResponse):
-            return found
-        return CompInfo(ComputationId=found.ComputationId, UserStructure=found.UserStructure, PdbId=found.PdbId, AssemblyId=found.AssemblyId,
-                        Submissions=[submission(found, u) for u in found.ComputationUnits if found.submit_directory(u.SubmitId).is_dir()])
 
     @functools.cache
     def csa() -> CSA:
@@ -388,64 +407,80 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         found.change_status(Status.Deleted)
         return Response(status_code=204)
 
-    # on the event loop, as the runs: a stop and a run never interleave, nor two submissions
-    submissions = APIRouter(prefix="/Submit", route_class=LoggedSubmission)
+    # creating and cancelling jobs: async, on the event loop as the runs (see cancel_session); creating them is logged
+    new_jobs = APIRouter(prefix="/sessions", tags=["jobs"], route_class=LoggedJob)
+    job_routes = APIRouter(prefix="/sessions", tags=["jobs"])
 
-    @submissions.post("/Mole/{computation_id}", responses=errors(400, 404, 409, 410, 503))
-    async def submit_mole(request: Request, computation_id: str, parameters: MoleParameters) -> Report:
-        """Computes tunnels (pores with PoresAuto, PoresMerged or exits without an origin) in the loaded structure, in
-        the background: Running, then Finished or Error (see Status with the SubmitId of the answer)"""
+    @new_jobs.post("/{session_id}/jobs", status_code=202, responses=errors(400, 404, 409, 410, 503))
+    async def create_job(request: Request, response: Response, session_id: str, new: NewJob) -> Job:
+        """A job on the session's structure, run in the background: queued, running, then finished, failed or
+        cancelled. Poll the job (Location). One job runs on a session at a time (409 while one does), 503 when the
+        server is busy."""
         settings: Settings = request.app.state.settings
 
-        def write_input(c: Computation, directory: Path) -> list[Step]:
-            path = mole.computation_input(c, parameters)
-            (directory / mole.PARAMETERS).write_text(parameters.model_dump_json(indent=2))
-            return [run_mole(settings, path)]
-        return submit(request, computation_id, parameters, write_input, lambda c, directory: mole.zip_report(directory, c.structure_path()))
+        if isinstance(new, NewTunnelsJob):
+            parameters = new.parameters
 
-    @submissions.post("/Pores/{computation_id}", responses=errors(400, 404, 409, 410, 503))
-    async def submit_pores(request: Request, computation_id: str, parameters: PoresRequest) -> Report:
-        """Computes a pore across the membrane, in the background: the pores tool places the membrane (from OPM for
-        the preferred assembly of a PDB entry, otherwise predicted by MEMEMBED) and writes MOLE's input of a path
-        along its normal, MOLE computes the pore (see Status, membrane.json in Data)"""
-        settings: Settings = request.app.state.settings
+            def write_input(c: Computation, directory: Path) -> list[Step]:
+                path = mole.computation_input(c, parameters)
+                (directory / mole.PARAMETERS).write_text(parameters.model_dump_json(indent=2))
+                return [run_mole(settings, path)]
 
-        def write_input(c: Computation, directory: Path) -> list[Step]:
-            tool_input = directory / PORES_PARAMETERS
-            tool_input.write_text(PoresParameters(
-                Structure=str(c.structure_path()), PdbId=c.PdbId if c.DbModePores else None, WorkingDirectory=str(directory),
-                Membrane=str(c.folder() / "membrane.json"), Memembed=str(settings.memembed), OpmCache=str(settings.opm_cache),
-                **parameters.model_dump(),
-            ).model_dump_json(indent=2))
-            return [Step([*PORES_TOOL, str(tool_input)]), run_mole(settings, directory / mole.INPUT)]
+            def finish(c: Computation, directory: Path) -> str | None:
+                mole.zip_report(directory, c.structure_path())
+                return None
+        else:
+            pores = new.parameters
 
-        def finish(c: Computation, directory: Path) -> str | None:
-            if problem := pore_found(directory):
-                return problem
-            mole.zip_report(directory, c.structure_path())
-            return None
-        return submit(request, computation_id, parameters, write_input, finish)
+            def write_input(c: Computation, directory: Path) -> list[Step]:
+                tool_input = directory / PORES_PARAMETERS
+                tool_input.write_text(PoresParameters(
+                    Structure=str(c.structure_path()), PdbId=c.PdbId if c.DbModePores else None, WorkingDirectory=str(directory),
+                    Membrane=str(c.folder() / "membrane.json"), Memembed=str(settings.memembed), OpmCache=str(settings.opm_cache),
+                    **pores.model_dump(),
+                ).model_dump_json(indent=2))
+                return [Step([*PORES_TOOL, str(tool_input)]), run_mole(settings, directory / mole.INPUT)]
 
-    app.include_router(sessions)
-    app.include_router(submissions)
+            def finish(c: Computation, directory: Path) -> str | None:
+                if problem := pore_found(directory):
+                    return problem
+                mole.zip_report(directory, c.structure_path())
+                return None
 
-    # on the event loop, as the runs: a stop and a run never interleave
-    @app.post("/Kill/{computation_id}", responses=errors(404, 409, 410))
-    async def kill(request: Request, computation_id: str) -> Report:
-        """Stops the computation's run, a download of its structure too: Aborted, or FailedInitialization for a load
-        (nothing can run on it)"""
-        found = find(request, computation_id)
+        started = start_job(request, session_id, new.parameters, write_input, finish)
+        if isinstance(started, JSONResponse):
+            return started
+        response.headers["Location"] = request.url_for("get_job", session_id=session_id, number=started.number).path
+        return started
+
+    @job_routes.get("/{session_id}/jobs/{number}", responses=errors(404, 410))
+    def get_job(request: Request, session_id: str, number: int) -> Job:
+        """The job's state: queued, running, then finished, failed (with the error) or cancelled"""
+        found = find(request, session_id)
         if isinstance(found, JSONResponse):
             return found
-        if not request.app.state.runner.kill(computation_id):
-            report = found.report()
-            return error(computation_id, 409, f'Cannot kill computation with the status "{report.Status}"', report.SubmitId)
-        if found.last.Status == Status.Initializing:
-            found.change_status(Status.FailedInitialization, STOPPED_LOAD)
-        else:
-            found.change_status(Status.Aborted)
-        return found.report()
+        if (wanted := next((j for j in jobs(found) if j.number == number), None)) is None:
+            return error(session_id, 404, f"Job {number} does not exist.", number)
+        return wanted
 
+    @job_routes.post("/{session_id}/jobs/{number}/cancel", responses=errors(404, 409, 410))
+    async def cancel_job(request: Request, session_id: str, number: int) -> Job:
+        """Stops the job: cancelled. Only a queued or running job can be cancelled."""
+        found = find(request, session_id)
+        if isinstance(found, JSONResponse):
+            return found
+        if (wanted := next((j for j in jobs(found) if j.number == number), None)) is None:
+            return error(session_id, 404, f"Job {number} does not exist.", number)
+        # the session's run is its last job's, if that one runs
+        if (number != found.last.SubmitId or wanted.state not in (JobState.queued, JobState.running)
+                or not request.app.state.runner.kill(session_id)):
+            return error(session_id, 409, f"The job is {wanted.state}, only a queued or running job can be cancelled.", number)
+        found.change_status(Status.Aborted)
+        return job(found, found.last)
+
+    app.include_router(sessions)
+    app.include_router(new_jobs)
+    app.include_router(job_routes)
     return app
 
 

@@ -75,7 +75,7 @@ def test_ready_session_cannot_be_cancelled_and_its_job_runs_on(api):
     wait_for_file(folder / "started")
     assert client.post(f"/sessions/{id}/cancel").status_code == 409  # jobs are cancelled on their own
     (folder / "go").touch()
-    assert wait(client, id, 1)["Status"] == "Finished"
+    assert wait(client, id, 1)["state"] == "finished"
 
 
 def test_delete_stops_the_run_and_is_410_after(api):
@@ -89,7 +89,7 @@ def test_delete_stops_the_run_and_is_410_after(api):
     assert gone(child)
     assert (client.app.state.settings.working_directory / id / "1tqn.cif").exists()  # the files are kept
     for response in (client.get(f"/sessions/{id}"), client.post(f"/sessions/{id}/cancel"), client.delete(f"/sessions/{id}"),
-                     client.get(f"/Status/{id}")):
+                     client.get(f"/sessions/{id}/jobs/1"), client.post(f"/sessions/{id}/jobs", json={"type": "tunnels", "parameters": {}})):
         assert response.status_code == 410
         assert response.json()["ErrorMsg"] == "The computation has been deleted."
 

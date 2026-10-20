@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from .conftest import STRUCTURE, gone, upload, wait, wait_for_file
+from .conftest import STRUCTURE, gone, upload, wait_session, wait_for_file
 
 # the fake MOLE marks that it started (next to its input), then waits until the test lets it go
 STARTED = 'touch "$(dirname "$1")/started"'
@@ -24,14 +24,15 @@ def test_waiting_for_a_slot(api):
     time.sleep(0.3)
     saved = lambda id: json.loads((folder / id / "_object.json").read_text())["ComputationUnits"][0]
     assert saved(second)["Started"] is None  # waits for the slot
-    assert client.get(f"/Status/{second}").json()["Status"] == "Initializing"
+    assert client.get(f"/sessions/{second}").json()["state"] == "queued"
+    assert client.get(f"/sessions/{first}").json()["state"] == "loading"
 
     (folder / first / "0" / "go").touch()
-    assert wait(client, first)["Status"] == "Initialized"
+    assert wait_session(client, first)["state"] == "ready"
     wait_for_file(folder / second / "0" / "started")
     assert saved(second)["Started"] > saved(second)["Submitted"]
     (folder / second / "0" / "go").touch()
-    assert wait(client, second)["Status"] == "Initialized"
+    assert wait_session(client, second)["state"] == "ready"
 
 
 @pytest.mark.parametrize("fake, message", [
@@ -41,17 +42,17 @@ def test_waiting_for_a_slot(api):
 ])
 def test_failed_load(api, fake, message):
     client = api(load=fake)
-    status = wait(client, load(client))
-    assert status["Status"] == "FailedInitialization"
-    assert status["ErrorMsg"] == message
+    session = wait_session(client, load(client))
+    assert session["state"] == "failed"
+    assert session["error"] == message
 
 
 def test_tool_that_cannot_start(api):
     client = api()
     client.app.state.settings.mole.unlink()  # e.g. removed after the start
-    status = wait(client, load(client))
-    assert status["Status"] == "FailedInitialization"
-    assert "No such file" in status["ErrorMsg"]
+    session = wait_session(client, load(client))
+    assert session["state"] == "failed"
+    assert "No such file" in session["error"]
 
 
 def test_time_limit_kills_the_whole_process_tree(api):
@@ -59,9 +60,9 @@ def test_time_limit_kills_the_whole_process_tree(api):
     client = api(load='sleep 30 & echo $! > "$(dirname "$1")/child"; ' + UNTIL_GO)
     client.app.state.runner.time_limit = 0.5
     id = load(client)
-    status = wait(client, id)
-    assert status["Status"] == "FailedInitialization"
-    assert status["ErrorMsg"] == "The computation exceeded the time limit of 30 minutes."
+    session = wait_session(client, id)
+    assert session["state"] == "failed"
+    assert session["error"] == "The computation exceeded the time limit of 30 minutes."
     child = int((client.app.state.settings.working_directory / id / "0" / "child").read_text())
     assert gone(child)
 

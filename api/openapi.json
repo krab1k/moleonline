@@ -24,156 +24,6 @@
         }
       }
     },
-    "/Status/{computation_id}": {
-      "get": {
-        "summary": "Get Status",
-        "description": "State of a submission: -1 the last one, 0 (default) the first one, the load",
-        "operationId": "get_status",
-        "parameters": [
-          {
-            "name": "computation_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Computation Id"
-            }
-          },
-          {
-            "name": "submitId",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0,
-              "title": "Submitid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "410": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Gone"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Internal Server Error"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/CompInfo/{computation_id}": {
-      "get": {
-        "summary": "Get Info",
-        "description": "The computation and its submissions with their parameters, so that the web can show them again",
-        "operationId": "get_info",
-        "parameters": [
-          {
-            "name": "computation_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Computation Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CompInfo"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "410": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Gone"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Internal Server Error"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/CSA/{computation_id}": {
       "get": {
         "summary": "Get Csa",
@@ -698,19 +548,22 @@
         }
       }
     },
-    "/Submit/Mole/{computation_id}": {
+    "/sessions/{session_id}/jobs": {
       "post": {
-        "summary": "Submit Mole",
-        "description": "Computes tunnels (pores with PoresAuto, PoresMerged or exits without an origin) in the loaded structure, in\nthe background: Running, then Finished or Error (see Status with the SubmitId of the answer)",
-        "operationId": "submit_mole",
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Create Job",
+        "description": "A job on the session's structure, run in the background: queued, running, then finished, failed or\ncancelled. Poll the job (Location). One job runs on a session at a time (409 while one does), 503 when the\nserver is busy.",
+        "operationId": "create_job",
         "parameters": [
           {
-            "name": "computation_id",
+            "name": "session_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Computation Id"
+              "title": "Session Id"
             }
           }
         ],
@@ -719,18 +572,33 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MoleParameters"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/NewTunnelsJob"
+                  },
+                  {
+                    "$ref": "#/components/schemas/NewPoresJob"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "tunnels": "#/components/schemas/NewTunnelsJob",
+                    "pores": "#/components/schemas/NewPoresJob"
+                  }
+                },
+                "title": "New"
               }
             }
           }
         },
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Report"
+                  "$ref": "#/components/schemas/Job"
                 }
               }
             }
@@ -808,52 +676,44 @@
         }
       }
     },
-    "/Submit/Pores/{computation_id}": {
-      "post": {
-        "summary": "Submit Pores",
-        "description": "Computes a pore across the membrane, in the background: the pores tool places the membrane (from OPM for\nthe preferred assembly of a PDB entry, otherwise predicted by MEMEMBED) and writes MOLE's input of a path\nalong its normal, MOLE computes the pore (see Status, membrane.json in Data)",
-        "operationId": "submit_pores",
+    "/sessions/{session_id}/jobs/{number}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Job",
+        "description": "The job's state: queued, running, then finished, failed (with the error) or cancelled",
+        "operationId": "get_job",
         "parameters": [
           {
-            "name": "computation_id",
+            "name": "session_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Computation Id"
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PoresRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Report"
+                  "$ref": "#/components/schemas/Job"
                 }
               }
             }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Bad Request"
           },
           "404": {
             "content": {
@@ -865,16 +725,6 @@
             },
             "description": "Not Found"
           },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
           "410": {
             "content": {
               "application/json": {
@@ -884,16 +734,6 @@
               }
             },
             "description": "Gone"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Service Unavailable"
           },
           "500": {
             "content": {
@@ -918,19 +758,31 @@
         }
       }
     },
-    "/Kill/{computation_id}": {
+    "/sessions/{session_id}/jobs/{number}/cancel": {
       "post": {
-        "summary": "Kill",
-        "description": "Stops the computation's run, a download of its structure too: Aborted, or FailedInitialization for a load\n(nothing can run on it)",
-        "operationId": "kill",
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Cancel Job",
+        "description": "Stops the job: cancelled. Only a queued or running job can be cancelled.",
+        "operationId": "cancel_job",
         "parameters": [
           {
-            "name": "computation_id",
+            "name": "session_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Computation Id"
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
             }
           }
         ],
@@ -940,7 +792,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Report"
+                  "$ref": "#/components/schemas/Job"
                 }
               }
             }
@@ -1024,49 +876,6 @@
         ],
         "title": "CSAResidue"
       },
-      "CompInfo": {
-        "properties": {
-          "ComputationId": {
-            "type": "string",
-            "title": "Computationid"
-          },
-          "UserStructure": {
-            "type": "boolean",
-            "title": "Userstructure"
-          },
-          "PdbId": {
-            "type": "string",
-            "title": "Pdbid"
-          },
-          "AssemblyId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assemblyid"
-          },
-          "Submissions": {
-            "items": {
-              "$ref": "#/components/schemas/Submission"
-            },
-            "type": "array",
-            "title": "Submissions"
-          }
-        },
-        "type": "object",
-        "required": [
-          "ComputationId",
-          "UserStructure",
-          "PdbId",
-          "AssemblyId",
-          "Submissions"
-        ],
-        "title": "CompInfo"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1079,6 +888,95 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Job": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "tunnels",
+              "pores"
+            ],
+            "title": "Type"
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "submitted": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted"
+          },
+          "started": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started"
+          },
+          "finished": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "type",
+          "state",
+          "error",
+          "parameters",
+          "submitted",
+          "started",
+          "finished"
+        ],
+        "title": "Job",
+        "description": "A tunnel or pore computation on a session's structure"
+      },
+      "JobState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "finished",
+          "failed",
+          "cancelled"
+        ],
+        "title": "JobState",
+        "description": "Of a job, see Unit.job_state"
       },
       "MoleCavity": {
         "properties": {
@@ -1303,6 +1201,26 @@
         "type": "object",
         "title": "MoleTunnel"
       },
+      "NewPoresJob": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "pores",
+            "title": "Type"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/PoresRequest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "parameters"
+        ],
+        "title": "NewPoresJob",
+        "description": "A pore across the membrane: the pores tool places the membrane (from OPM for the preferred assembly of a PDB\nentry, otherwise predicted by MEMEMBED) and MOLE computes the pore along its normal"
+      },
       "NewSession": {
         "properties": {
           "pdb_id": {
@@ -1322,6 +1240,26 @@
         ],
         "title": "NewSession",
         "description": "A session of a PDB entry"
+      },
+      "NewTunnelsJob": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "tunnels",
+            "title": "Type"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/MoleParameters"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "parameters"
+        ],
+        "title": "NewTunnelsJob",
+        "description": "Tunnels (pores with PoresAuto, PoresMerged or exits without an origin): MOLE's parameters"
       },
       "PoresRequest": {
         "properties": {
@@ -1452,6 +1390,13 @@
               }
             ],
             "title": "Loaded"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            },
+            "type": "array",
+            "title": "Jobs"
           }
         },
         "type": "object",
@@ -1462,7 +1407,8 @@
           "pdb_id",
           "assembly_id",
           "created",
-          "loaded"
+          "loaded",
+          "jobs"
         ],
         "title": "Session",
         "description": "A structure loaded by MOLE, on which jobs run"
@@ -1491,56 +1437,6 @@
           "FailedInitialization"
         ],
         "title": "Status"
-      },
-      "Submission": {
-        "properties": {
-          "SubmitId": {
-            "type": "integer",
-            "title": "Submitid"
-          },
-          "Mode": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "Mole",
-                  "Pores"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mode"
-          },
-          "Status": {
-            "$ref": "#/components/schemas/Status"
-          },
-          "ErrorMsg": {
-            "type": "string",
-            "title": "Errormsg"
-          },
-          "MoleConfig": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Moleconfig"
-          },
-          "PoresConfig": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Poresconfig"
-          }
-        },
-        "type": "object",
-        "required": [
-          "SubmitId",
-          "Mode",
-          "Status",
-          "ErrorMsg",
-          "MoleConfig",
-          "PoresConfig"
-        ],
-        "title": "Submission"
       },
       "ValidationError": {
         "properties": {

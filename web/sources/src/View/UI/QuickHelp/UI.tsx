@@ -1,6 +1,6 @@
 import React from "react";
-import { ComputationInfo, JobStatus } from "../../../DataProxy";
-import { CompInfo } from "../../../MoleAPIService";
+import { JobStatus, SessionInfo } from "../../../DataProxy";
+import { isDone, Session } from "../../../MoleAPIService";
 import { TunnelName } from "../../../Cache";
 import { Events } from "../../../Bridge";
 import { MoleChannels, Tunnel } from "../../../DataInterface";
@@ -21,23 +21,23 @@ export class QuickHelp extends React.Component<{}, State> {
         failure: null
     };
 
-    private compInfo: CompInfo | null = null;
+    private session: Session | null = null;
     private currentSubmitId: number | null = null;
 
-    // Shows why the current submission failed: from CompInfo, or from the status of a job still running
+    // Shows why the current submission failed: from the session, or from the state of a job still running
     private checkCurrentSubmission() {
         const submitId = this.currentSubmitId;
-        const submission = this.compInfo?.Submissions.find(s => s.SubmitId === submitId);
-        if (this.compInfo === null || submitId === null || submission === undefined) {
+        const job = this.session?.jobs.find(j => j.number === submitId);
+        if (this.session === null || submitId === null || job === undefined) {
             return;
         }
-        if (submission.Status === "Error") {
-            this.setState({ failure: submission.ErrorMsg });
+        if (job.state === "failed") {
+            this.setState({ failure: job.error });
         }
-        else if (submission.Status === "Running" || submission.Status === "Initializing") {
-            JobStatus.Watcher.registerOnChangeHandler(this.compInfo.ComputationId, submitId, (status) => {
-                if (status.Status === "Error" && this.currentSubmitId === submitId) {
-                    this.setState({ failure: status.ErrorMsg });
+        else if (!isDone(job.state)) {
+            JobStatus.Watcher.registerOnChangeHandler(this.session.id, submitId, (current) => {
+                if (current.state === "failed" && this.currentSubmitId === submitId) {
+                    this.setState({ failure: current.error });
                 }
             }, () => { });
         }
@@ -52,11 +52,11 @@ export class QuickHelp extends React.Component<{}, State> {
                 this.setState({ failure: null });
                 this.checkCurrentSubmission();
             });
-            ComputationInfo.DataProvider.subscribe(params.computationId, (compid, info) => {
-                this.compInfo = info;
+            SessionInfo.DataProvider.subscribe(params.computationId, (_id, session) => {
+                this.session = session;
                 // Each handler updates only its own keys, so that updates in the same tick do not overwrite each other
                 this.setState({
-                    hasSubmissions: info.Submissions.length > 0,
+                    hasSubmissions: session.jobs.length > 0,
                     hasChannels: TunnelName.getCachedItemsCount() > 0,
                 });
                 this.checkCurrentSubmission();
