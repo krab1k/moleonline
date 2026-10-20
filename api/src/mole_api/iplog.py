@@ -8,9 +8,7 @@ from pathlib import Path
 
 FILE_NAME = "Mole_api_IP_log.csv"
 
-# the client address from the reverse proxy (nginx, X-Forwarded-For): it runs in another container with an address of
-# the Docker network, not known in advance; public addresses cannot pass a client address
-PROXIES = ["127.0.0.0/8", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"]
+# the client address is the reverse proxy's X-Forwarded-For, from the proxies of the setting TRUSTED_PROXIES (config.py)
 
 
 def write(working_directory: Path, request: str, address: str | None, kind: str, computation_id: str | None) -> None:

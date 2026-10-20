@@ -28,5 +28,6 @@ COPY --from=api /app/.venv /app/.venv
 RUN mkdir /data && chown $APP_UID:$APP_UID /data
 USER $APP_UID
 EXPOSE 8080
-# one process: the runs and their slots are kept in memory; requests are logged by nginx
-ENTRYPOINT ["/app/.venv/bin/uvicorn", "mole_api.main:app", "--host", "0.0.0.0", "--port", "8080", "--root-path", "/api", "--no-access-log"]
+# one process: the runs and their slots are kept in memory; requests are logged by the proxy in front. uvicorn reads
+# its other options from UVICORN_* variables, e.g. UVICORN_ROOT_PATH=/api behind a proxy serving the API under /api/
+ENTRYPOINT ["/app/.venv/bin/uvicorn", "mole_api.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]

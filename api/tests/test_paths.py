@@ -14,8 +14,8 @@ def test_static_files(client):
 
 
 def test_behind_the_proxy_prefix(settings):
-    # nginx serves the API under /api/ and strips the prefix; uvicorn runs with --root-path /api and passes the
-    # paths with it (/api/docs), which the test client does not: they are written here as uvicorn passes them
+    # a proxy serves the API under /api/ and strips the prefix; uvicorn runs with UVICORN_ROOT_PATH=/api and passes
+    # the paths with it (/api/docs), which the test client does not: they are written here as uvicorn passes them
     with TestClient(create_app(settings), root_path="/api") as client:
         assert "url: '/api/openapi.json'" in client.get("/api/docs").text  # the documentation asks through the proxy
         assert client.get("/api/openapi.json").json()["servers"] == [{"url": "/api"}]  # so does "Try it out"

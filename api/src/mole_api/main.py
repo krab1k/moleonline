@@ -15,6 +15,7 @@ from fastapi import APIRouter, Body, FastAPI, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.routing import APIRoute
@@ -25,7 +26,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from . import data, iplog, mole, pdbe, storage, upload
-from .config import Settings
+from .config import HttpSettings, Settings
 from .csa import CSA, CSAResidue
 from .parameters import MoleParameters, PoresParameters, PoresRequest
 from .runner import Runner, Step
@@ -275,7 +276,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         content[PROBLEM] = content.pop("application/json")
         return app.openapi_schema
     app.openapi = openapi
-    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=iplog.PROXIES)  # the client address, also for the log
+    http = settings or HttpSettings()
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=http.trusted_proxies)  # the client address, also for the log
     app.add_middleware(GZipMiddleware)  # for clients that accept it; not zips, data.json often has megabytes
 
     @app.exception_handler(Exception)
@@ -499,6 +501,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sessions)
     app.include_router(new_jobs)
     app.include_router(job_routes)
+
+    # CORS around the whole stack, so that also the 500 of an unexpected error (answered by Starlette's outermost
+    # middleware, outside of those added) has its headers; the exposed headers are those the web reads
+    build = app.build_middleware_stack
+    app.build_middleware_stack = lambda: CORSMiddleware(build(), allow_origins=http.cors_origins, allow_methods=["GET", "POST", "DELETE"],
+                                                        allow_headers=["Content-Type"],
+                                                        expose_headers=["Location", "Retry-After", "Content-Disposition"])
     return app
 
 

@@ -14,49 +14,38 @@ The container contains:
 
 ## Running
 
-The API runs with the web from the repository's [`compose.yaml`](../compose.yaml), see the
-[README](../README.md#running). From the repository's root:
+The API deploys on its own, the web calls it from its own site (CORS). [`compose.yaml`](compose.yaml) runs it
+on port `API_PORT` (default 8000). In this directory:
 
 ```sh
 docker compose up -d --build
+docker compose logs -f    # one line per event; requests are not logged, errors with the request path
 ```
 
-The API has no port on the host. It listens on port 8080 in the compose project's network, as the
-service `api`, for the web's nginx container. Startup checks the configuration: if a path is wrong, the
-container stops and its log says what is wrong.
+The settings (see [Configuration](#configuration)) go into `.env` next to `compose.yaml`, which compose also
+reads for `API_PORT` and `API_MEMORY_LIMIT`. Startup checks them: if a path is wrong, the container stops and its
+log says what is wrong.
 
-```sh
-docker compose logs -f api    # one line per event; requests are not logged, errors with the request path
-```
+### Behind a proxy
 
-To reach the API from the host, e.g. for debugging, publish the port in `compose.override.yaml`
-(compose reads it next to `compose.yaml`, in the repository's root):
-
-```yaml
-services:
-  api:
-    ports:
-      - "127.0.0.1:8080:8080"
-```
-
-### nginx
-
-The web's nginx container (the service `web`, `web/docker/site.conf` and `web/docker/conf.d/api.conf.template`)
-serves the API under `/api` and proxies it to `api:8080` over the compose project's network. The API takes the
-client address from `X-Forwarded-For` when the request comes from loopback or a private network, as the Docker
-network is (the IP log, see below). The API runs with `--root-path /api`, so its
-documentation (`/api/docs`) and "Try it out" use the proxy's URLs; on a port published for debugging the endpoints
-work, the documentation does not.
+In production a reverse proxy (nginx, a Kubernetes ingress) serves the API over HTTPS. The API takes the client
+address (the request log, see below) from `X-Forwarded-For` of the proxies in `TRUSTED_PROXIES`, by default any on
+loopback or a private network; with clients connecting to the API directly, set `TRUSTED_PROXIES=[]`. A proxy
+serving the API under a path, e.g. `https://example.org/api/`, strips it and the API runs with
+`UVICORN_ROOT_PATH=/api`, so that its documentation (`/api/docs`) and "Try it out" use the proxy's URLs. For nginx:
 
 ```nginx
 location /api/ {
-    proxy_pass http://api:8080/;
+    proxy_pass http://127.0.0.1:8000/;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     client_max_body_size 31m;    # uploaded structures, the API accepts files up to 30 MB, also when unpacked
 }
 ```
+
+The API runs as one process: the runs and their slots are kept in memory, so it runs as one container (one replica),
+with its data on a persistent volume.
 
 ### Data
 
@@ -72,7 +61,7 @@ Usage per month or year (sessions of PDB entries and uploads, jobs and their out
 addresses), from the status files and the IP log:
 
 ```sh
-docker compose exec -T api /app/.venv/bin/python -I - /data/computations month < api/tools/stats.py
+docker compose exec -T api /app/.venv/bin/python -I - /data/computations month < tools/stats.py
 ```
 
 Computations running during a restart are reported as failed ("interrupted by a restart"); the user
@@ -91,11 +80,14 @@ Settings are environment variables, the defaults are the container's (`src/mole_
 | `MOLE` | `/opt/mole2/mole2` | full path |
 | `MEMEMBED` | `/opt/memembed/memembed` | full path, the membrane of pore computations without OPM's |
 | `OPM_CACHE` | `/data/opm-cache` | membrane files downloaded from OPM, must be writable |
+| `CORS_ORIGINS` | `["*"]` | sites whose pages may call the API, a JSON list, e.g. `["https://moleonline.cz"]` |
+| `TRUSTED_PROXIES` | private networks | reverse proxies whose `X-Forwarded-For` gives the client's address (the request log), a JSON list of addresses and networks; `[]` when clients connect directly, so that none can choose its address |
+| `UVICORN_ROOT_PATH` | none | the path prefix of a proxy serving the API under it, e.g. `/api` (uvicorn's `--root-path`) |
 
 All times the API stores are in UTC.
 
-The container's memory, all computations together, is limited to `API_MEMORY_LIMIT` (compose, default `24g`, e.g. in
-`.env` next to the repository's `compose.yaml`). Above it the kernel stops the largest process, a computation, which is reported as
+The container's memory, all computations together, is limited to `API_MEMORY_LIMIT` (compose, default `24g`, in
+`.env` next to `compose.yaml`). Above it the kernel stops the largest process, a computation, which is reported as
 having run out of memory; the API keeps running.
 
 ## Endpoints

@@ -12,6 +12,8 @@ services:
     mem_limit: ${API_MEMORY_LIMIT:-24g}
     # the same, so no swap: by default the container may swap as much again, slowing the host instead of the kill
     memswap_limit: ${API_MEMORY_LIMIT:-24g}
+    environment:
+      UVICORN_ROOT_PATH: /api # served by the web's nginx under /api/
     volumes:
       - data:/data # computations, the submission log, OPM files
 

@@ -2,3 +2,6 @@
 __pycache__/
 # all production results of Pores.exe, the tests use a trimmed copy in tests/pores/data/
 tests/pores/reference/
+# the instance's settings and local changes of compose.yaml
+/.env
+/compose.override.yaml

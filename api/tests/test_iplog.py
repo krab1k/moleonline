@@ -35,6 +35,14 @@ def test_client_address_from_the_proxy(tmp_path):
         assert logged(settings)[-1][1] == logged_address
 
 
+def test_no_trusted_proxies(tmp_path):
+    # the API without a proxy in front (TRUSTED_PROXIES=[]): no client chooses its address
+    settings = make_settings(tmp_path).model_copy(update={"trusted_proxies": []})
+    with TestClient(create_app(settings), client=("172.18.0.5", 40000)) as client:
+        client.post("/sessions/upload", files={"file": ("1tqn.txt", b"x")}, headers={"X-Forwarded-For": "203.0.113.7"})
+    assert logged(settings)[-1][1] == "172.18.0.5"
+
+
 def test_id_from_the_request_stays_one_line(tmp_path):
     iplog.write(tmp_path, "Submit", "203.0.113.7", "Mole", "x\ny z/" + "a" * 50)
     assert (tmp_path / iplog.FILE_NAME).read_text().endswith(" Submit - 203.0.113.7 Mole x?y?z?" + "a" * 34 + "\n")

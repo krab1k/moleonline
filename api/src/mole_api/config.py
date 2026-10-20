@@ -9,7 +9,17 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
-class Settings(BaseSettings):
+class HttpSettings(BaseSettings):
+    """Read when the application is built, before Settings (its middleware)"""
+    # sites whose pages may call the API (CORS); the results are public by their ids
+    cors_origins: list[str] = ["*"]
+    # the reverse proxies whose X-Forwarded-For gives the client address (the request log); [] when clients connect
+    # directly, so that no client can choose its address. By default private networks, where a proxy in front
+    # (nginx in compose, an ingress in Kubernetes) has an address not known in advance
+    trusted_proxies: list[str] = ["127.0.0.0/8", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"]
+
+
+class Settings(HttpSettings):
     working_directory: Path = Path("/data/computations")  # computations and the submission log
     max_concurrent_computations: int = Field(4, ge=1)
     # runs (loads, jobs) waiting for a slot beyond those running; more are refused (503). 0: none waits
