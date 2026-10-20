@@ -36,8 +36,10 @@ import { ControlsTab } from "./UI/ControlsTab/UI";
 import { LayerColors } from "./CommonUtils/LayerColors";
 import { RightPanel } from "./RightPanel";
 import { LeftPanel } from "./LeftPanel";
+import { initTooltips } from "../Common/Bootstrap";
 
 (function () {
+    initTooltips();
     updateWithCurrentSession();
 
     let lvSettings: LayersVizualizerSettings = {

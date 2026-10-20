@@ -1,0 +1,3 @@
+/* Bootstrap and its icons from npm, linked where the pages need them before their own styles */
+@import "bootstrap/dist/css/bootstrap.min.css";
+@import "bootstrap-icons/font/bootstrap-icons.min.css";

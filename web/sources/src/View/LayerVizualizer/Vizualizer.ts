@@ -1,4 +1,5 @@
 import { roundToDecimal } from "../../Common/Util/Numbers";
+import { C2S } from "../../vendor/canvas2svg";
 import { LayerData } from "../../DataInterface";
 import { Bundle } from "../../StaticData";
 import { isActive } from "../CommonUtils/Tabs";
@@ -6,7 +7,6 @@ import { ArrowHeadLine, Axis, ColorMixer, ColorPaletteFunctionSettings, ContextA
 import { Paintable, Axis as AxisCompnent, Positionable } from "./Components";
 
 declare function $(p: any): any;
-declare var C2S: any;
 
 // The colour at value, linearly between minColor at min and maxColor at max
 function interpolate(min: number, minColor: RGBColor, max: number, maxColor: RGBColor, value: number): RGBColor {

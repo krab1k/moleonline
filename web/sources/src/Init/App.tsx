@@ -5,8 +5,10 @@ import ReactDOM from 'react-dom/client';
 import { AlertMessages } from '../Common/UI/AlertMessages/UI';
 import { InitForm } from './InitForm/UI';
 import { Examples } from './HomePage/Examples';
+import { initTooltips } from '../Common/Bootstrap';
 
 (function () {
+    initTooltips();
     const alertMessagesElement = document.getElementById("alert-messages");
     if (alertMessagesElement !== null) {
         ReactDOM.createRoot(alertMessagesElement).render(<AlertMessages />);
