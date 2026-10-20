@@ -22,7 +22,7 @@ describe('page events', () => {
     });
 
     it('reaches listeners added without the module', () => {
-        // tabsConfig.js and Mol* listen on the window directly
+        // Mol* listens to the window directly
         const contentResize = vi.fn(), resize = vi.fn();
         window.addEventListener('contentResize', contentResize);
         window.addEventListener('resize', resize);

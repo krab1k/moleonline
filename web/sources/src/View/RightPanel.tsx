@@ -12,14 +12,14 @@ import { LayerResidues } from "./UI/LayerResidues/UI";
 import { LiningResidues } from "./UI/LiningResidues/UI";
 import { ChannelParameters } from "./UI/ChannelParameters/UI";
 import { TwoDProts } from "./UI/2DProts/UI";
+import { adjustCollapsiblePanels } from "./CommonUtils/Layout";
 
-declare function doAfterCollapseActivated(): any;
 
 export class RightPanel extends React.Component<{ context: Context }, {twoDProts: boolean}> {
     state = { twoDProts: false };
 
     componentDidMount(): void {
-        doAfterCollapseActivated();
+        adjustCollapsiblePanels();
     }
 
 
@@ -33,11 +33,11 @@ export class RightPanel extends React.Component<{ context: Context }, {twoDProts
                 <div className="h-100 w-100" style={{visibility: this.state.twoDProts ? "visible" : "collapse"}}><TwoDProts /></div>
                 <button id="view-change" type="button" className="btn btn-outline-secondary change-view-button" onClick={() => {this.setState({twoDProts: !this.state.twoDProts})}}>{this.state.twoDProts ? "Mol*": "2DProts"}</button>
             </div>
-            <a className="sequence-viewer-header" id="sequence-collapse" onClick={() => {doAfterCollapseActivated()}} data-bs-toggle="collapse" href="#sequence-viewer" role="button" aria-expanded="false" aria-controls="sequence-viewer">Protein Sequence <span className="bi bi-arrows-expand"></span></a>
+            <a className="sequence-viewer-header" id="sequence-collapse" onClick={() => {adjustCollapsiblePanels()}} data-bs-toggle="collapse" href="#sequence-viewer" role="button" aria-expanded="false" aria-controls="sequence-viewer">Protein Sequence <span className="bi bi-arrows-expand"></span></a>
             <div className="chdb-panel sequence-viewer collapse" id="sequence-viewer">
                 <SequenceViewer controller={this.props.context} />
             </div>
-            <a id="bottom-panel-collapse" onClick={() => {doAfterCollapseActivated()}} className="sequence-viewer-header" data-bs-toggle="collapse" href="#bottom-pannel" role="button" aria-expanded="false" aria-controls="bottom-pannel"><span className="bi bi-arrows-expand"></span></a>
+            <a id="bottom-panel-collapse" onClick={() => {adjustCollapsiblePanels()}} className="sequence-viewer-header" data-bs-toggle="collapse" href="#bottom-pannel" role="button" aria-expanded="false" aria-controls="bottom-pannel"><span className="bi bi-arrows-expand"></span></a>
             <div className="chdb-panel bottom-panel collapse show d-flex" id="bottom-pannel">
                 <div className="left-tabs">
                     <div id="left-tabs">

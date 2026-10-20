@@ -38,15 +38,3 @@ export function doAfterTabActivated(tabbedElementId: string, tabId: string, call
     timer = window.setTimeout(checker, 10);
     return () => window.clearTimeout(timer);
 }
-
-export function leftPanelTabs() {
-    let checker = function () {
-        const leftPanel = $("#left-panel");
-        const tabs = $("#left-panel-tabs")[0];
-
-        const leftPanelWidth = leftPanel.width();
-
-        tabs.style.left = `${leftPanelWidth}px`;
-    };
-    window.setTimeout(checker, 10);
-}

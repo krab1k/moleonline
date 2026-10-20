@@ -1,6 +1,6 @@
 import React from "react";
 import { Context } from "./Context";
-import { leftPanelTabs } from "./CommonUtils/Tabs";
+import { leftPanelTabs } from "./CommonUtils/Layout";
 import { PluginControl } from "./UI/PluginControl/UI";
 import { ChannelsControl } from "./UI/PluginControl/ChannelsUI";
 import { PluginReactContext } from "molstar/lib/mol-plugin-ui/base";
