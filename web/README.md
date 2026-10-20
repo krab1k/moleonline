@@ -25,3 +25,6 @@ The development server (`npm run dev`, and `npm run preview` for a build) serves
 forwards it to a local API, `API_PROXY` in `.env.development` (`http://localhost:5077`).
 
 `npm test` runs the unit tests (Vitest, `sources/src/**/*.test.ts`) of the code that needs no browser.
+
+The types of the API's answers are generated from its OpenAPI description, `../api/openapi.json`, into
+`sources/src/MoleAPISchema.d.ts`: `npm run api-types` after the API changed (a test fails while they differ).

@@ -8,7 +8,8 @@
     "build-dev": "vite build --mode development --minify false --sourcemap",
     "preview": "vite preview --mode development",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit --skipLibCheck --incremental --tsBuildInfoFile node_modules/.cache/tsbuildinfo"
+    "typecheck": "tsc --noEmit --skipLibCheck --incremental --tsBuildInfoFile node_modules/.cache/tsbuildinfo",
+    "api-types": "openapi-typescript ../api/openapi.json -o sources/src/MoleAPISchema.d.ts"
   },
   "main": "index.js",
   "typings": "index.d.ts",
@@ -27,6 +28,7 @@
     "@types/node": "^22.2.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "openapi-typescript": "6.7.6",
     "sass": "1.83.4",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",

@@ -8,6 +8,7 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -93,7 +94,7 @@ UPLOAD_FORM = {"requestBody": {"required": True, "content": {"multipart/form-dat
 
 class Submission(BaseModel):
     SubmitId: int
-    Mode: str | None  # Mole, Pores; None: no parameters were submitted
+    Mode: Literal["Mole", "Pores"] | None  # None: no parameters were submitted
     Status: Status
     ErrorMsg: str
     MoleConfig: dict  # mole.json, {} for pores
@@ -206,7 +207,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.runner.stop()
         await app.state.pdbe.aclose()
 
-    app = FastAPI(title="MOLEonline API", version=version("mole-api"), lifespan=lifespan)
+    # operation ids are the functions' names (get_status), readable in generated clients, not FastAPI's
+    # get_status_Status__computation_id__get
+    app = FastAPI(title="MOLEonline API", version=version("mole-api"), lifespan=lifespan,
+                  generate_unique_id_function=lambda route: route.name)
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=iplog.PROXIES)  # the client address, also for the log
     app.add_middleware(AspNetPaths)
     app.add_middleware(GZipMiddleware)  # for clients that accept it; not zips, data.json often has megabytes

@@ -139,6 +139,10 @@ uv run pytest    # with a fake MOLE and pores tool in the API's tests, and a fak
 MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # also the tests needing them, skipped without
 ```
 
+`openapi.json` is the API's OpenAPI description, from which the web generates its types. After changing the API,
+update it with `uv run python tools/openapi.py` (a test fails while it is out of date), then `npm run api-types` in
+`web/`.
+
 The pores tool (`src/mole_api/pores`) runs as `python -m mole_api.pores <pores.json>`, its input is described in
 `cli.py`. Its tests (`tests/pores`) compare with production results of the original Pores, in `tests/pores/data/`
 (see its README).

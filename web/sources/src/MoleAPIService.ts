@@ -1,39 +1,18 @@
 import { DataSources } from "../config/common";
 import { MembranePoint } from "./DataInterface";
 import { deleteJson, getJson, getText, postEmpty, postForm, postJson } from "./Http";
+import type { components } from "./MoleAPISchema";
 
+// What the API returns, from its OpenAPI description (MoleAPISchema.d.ts, generated: npm run api-types).
+// The parameter types below stay the web's own: the forms' data, which the API reads a part of.
+type Schemas = components["schemas"];
 
-export type ComputationStatus =
-    "Initializing" |
-    "Initialized" |
-    "FailedInitialization" |
-    "Running" |
-    "Finished" |
-    "Error" |
-    "Deleted" |
-    "Aborted";
-export interface InitResponse {
-    ComputationId: string,
-    SubmitId: number,
-    Status: ComputationStatus,
-    ErrorMsg: string
-};
-export interface CompInfo {
-    ComputationId: string,
-    UserStructure: boolean,
-    PdbId: string,
-    AssemblyId: string | null,
-    Submissions: Submission[]
-};
-
-export interface Submission {
-    SubmitId: number,
-    Mode: "Mole" | "Pores" | null, // null: no parameters were submitted
-    Status: ComputationStatus,
-    ErrorMsg: string,
-    MoleConfig: MoleConfig,
-    PoresConfig: PoresConfig
-};
+export type ComputationStatus = Schemas["Status"];
+// A successful answer always has the computation; only a refused upload (an error, thrown by Http) has none
+export type InitResponse = Schemas["Report"] & { ComputationId: string };
+export type CompInfo = Omit<Schemas["CompInfo"], "Submissions"> & { Submissions: Submission[] };
+// The API describes the submitted parameters as plain objects; they are mole.json and pores.json
+export type Submission = Omit<Schemas["Submission"], "MoleConfig" | "PoresConfig"> & { MoleConfig: MoleConfig, PoresConfig: PoresConfig };
 
 export interface MoleConfig {
     Input?: MoleConfigInput,
@@ -96,7 +75,7 @@ export function formatChains(chains: string[] | null | undefined): string {
 }
 
 // CSA residues come without an operator: they refer to the chain in any copy of it
-export interface CSAResidue { Name: string, Chain: string, SequenceNumber: number };
+export type CSAResidue = Schemas["CSAResidue"];
 export type CSAResidues = CSAResidue[][];
 export type ResidueName = string;
 export type PatternQueryExpression = string;

@@ -1,0 +1,1356 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MOLEonline API",
+    "version": "0.7.0"
+  },
+  "paths": {
+    "/Version": {
+      "get": {
+        "summary": "Get Version",
+        "description": "Versions of the API (with the pores tool) and of MOLE",
+        "operationId": "get_version",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Version"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Status/{computation_id}": {
+      "get": {
+        "summary": "Get Status",
+        "description": "State of a submission: -1 the last one, 0 (default) the first one, the load",
+        "operationId": "get_status",
+        "parameters": [
+          {
+            "name": "computation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Computation Id"
+            }
+          },
+          {
+            "name": "submitId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Submitid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/CompInfo/{computation_id}": {
+      "get": {
+        "summary": "Get Info",
+        "description": "The computation and its submissions with their parameters, so that the web can show them again",
+        "operationId": "get_info",
+        "parameters": [
+          {
+            "name": "computation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Computation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompInfo"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/CSA/{computation_id}": {
+      "get": {
+        "summary": "Get Csa",
+        "description": "Active sites of the PDB entry from M-CSA (https://www.ebi.ac.uk/thornton-srv/m-csa/, CC BY 4.0), one per\ncopy, as tunnel starting points; none for an uploaded structure",
+        "operationId": "get_csa",
+        "parameters": [
+          {
+            "name": "computation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Computation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CSAResidue"
+                    }
+                  },
+                  "title": "Response Get Csa"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Data/{computation_id}": {
+      "get": {
+        "summary": "Get Data",
+        "description": "A result of a submission (-1: the last one, 0: the load) to download. Formats: json (MOLE's data.json, what\nthe web shows), report (zip of all), molecule (the structure), pymol, chimera, vmd (scripts), pdb (zip of the\ntunnels' profiles), membrane (membrane.json of a pore computation).",
+        "operationId": "get_data",
+        "parameters": [
+          {
+            "name": "computation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Computation Id"
+            }
+          },
+          {
+            "name": "submitId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": -1,
+              "title": "Submitid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "json",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, as an attachment"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Init": {
+      "post": {
+        "summary": "Init Upload",
+        "description": "A computation of an uploaded structure, loaded by MOLE in the background (Initializing, then Initialized\nor FailedInitialization, see Status). A gzipped file is stored unpacked.",
+        "operationId": "init_upload",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "*.pdb, *.cif, *.pdb.gz or *.cif.gz, at most 30 MB unpacked"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Init/{pdb_id}": {
+      "post": {
+        "summary": "Init Pdb",
+        "description": "A computation of a PDB entry, downloaded from PDBe and loaded by MOLE in the background (see Status).\nassembly: preferred (default): PDBe's preferred assembly, the one OPM has; asymmetric: the asymmetric unit;\nor an assembly id of the entry.",
+        "operationId": "init_pdb",
+        "parameters": [
+          {
+            "name": "pdb_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pdb Id"
+            }
+          },
+          {
+            "name": "assembly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "preferred",
+              "title": "Assembly"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Submit/Mole/{computation_id}": {
+      "post": {
+        "summary": "Submit Mole",
+        "description": "Computes tunnels (pores with PoresAuto, PoresMerged or exits without an origin) in the loaded structure, in\nthe background: Running, then Finished or Error (see Status with the SubmitId of the answer)",
+        "operationId": "submit_mole",
+        "parameters": [
+          {
+            "name": "computation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Computation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoleParameters"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Submit/Pores/{computation_id}": {
+      "post": {
+        "summary": "Submit Pores",
+        "description": "Computes a pore across the membrane, in the background: the pores tool places the membrane (from OPM for\nthe preferred assembly of a PDB entry, otherwise predicted by MEMEMBED) and writes MOLE's input of a path\nalong its normal, MOLE computes the pore (see Status, membrane.json in Data)",
+        "operationId": "submit_pores",
+        "parameters": [
+          {
+            "name": "computation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Computation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoresRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Kill/{computation_id}": {
+      "post": {
+        "summary": "Kill",
+        "description": "Stops the computation's run, a download of its structure too: Aborted, or FailedInitialization for a load\n(nothing can run on it)",
+        "operationId": "kill",
+        "parameters": [
+          {
+            "name": "computation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Computation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Delete/{computation_id}": {
+      "delete": {
+        "summary": "Delete",
+        "description": "Stops the computation's run and marks it deleted (410 from then on); its files are kept",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "computation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Computation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CSAResidue": {
+        "properties": {
+          "Name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "Chain": {
+            "type": "string",
+            "title": "Chain"
+          },
+          "SequenceNumber": {
+            "type": "integer",
+            "title": "Sequencenumber"
+          }
+        },
+        "type": "object",
+        "required": [
+          "Name",
+          "Chain",
+          "SequenceNumber"
+        ],
+        "title": "CSAResidue"
+      },
+      "CompInfo": {
+        "properties": {
+          "ComputationId": {
+            "type": "string",
+            "title": "Computationid"
+          },
+          "UserStructure": {
+            "type": "boolean",
+            "title": "Userstructure"
+          },
+          "PdbId": {
+            "type": "string",
+            "title": "Pdbid"
+          },
+          "AssemblyId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assemblyid"
+          },
+          "Submissions": {
+            "items": {
+              "$ref": "#/components/schemas/Submission"
+            },
+            "type": "array",
+            "title": "Submissions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ComputationId",
+          "UserStructure",
+          "PdbId",
+          "AssemblyId",
+          "Submissions"
+        ],
+        "title": "CompInfo"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MoleCavity": {
+        "properties": {
+          "IgnoreHETAtoms": {
+            "type": "boolean",
+            "title": "Ignorehetatoms",
+            "default": false
+          },
+          "IgnoreHydrogens": {
+            "type": "boolean",
+            "title": "Ignorehydrogens",
+            "default": false
+          },
+          "InteriorThreshold": {
+            "type": "number",
+            "title": "Interiorthreshold",
+            "default": 1.1
+          },
+          "ProbeRadius": {
+            "type": "number",
+            "title": "Proberadius",
+            "default": 5.0
+          }
+        },
+        "type": "object",
+        "title": "MoleCavity"
+      },
+      "MoleInput": {
+        "properties": {
+          "SpecificChains": {
+            "type": "string",
+            "title": "Specificchains",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MoleInput"
+      },
+      "MoleOrigin": {
+        "properties": {
+          "Points": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MolePoint"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "QueryExpression": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queryexpression"
+          },
+          "Residues": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "$ref": "#/components/schemas/MoleResidue"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residues"
+          }
+        },
+        "type": "object",
+        "title": "MoleOrigin",
+        "description": "Each part is optional"
+      },
+      "MoleParameters": {
+        "properties": {
+          "Input": {
+            "$ref": "#/components/schemas/MoleInput",
+            "default": {
+              "SpecificChains": ""
+            }
+          },
+          "Cavity": {
+            "$ref": "#/components/schemas/MoleCavity",
+            "default": {
+              "IgnoreHETAtoms": false,
+              "IgnoreHydrogens": false,
+              "InteriorThreshold": 1.1,
+              "ProbeRadius": 5.0
+            }
+          },
+          "Tunnel": {
+            "$ref": "#/components/schemas/MoleTunnel",
+            "default": {
+              "WeightFunction": "VoronoiScale",
+              "BottleneckRadius": 1.25,
+              "BottleneckTolerance": 3.0,
+              "MaxTunnelSimilarity": 0.7,
+              "OriginRadius": 5.0,
+              "SurfaceCoverRadius": 10.0
+            }
+          },
+          "NonActiveResidues": {
+            "items": {
+              "$ref": "#/components/schemas/MoleResidue"
+            },
+            "type": "array",
+            "title": "Nonactiveresidues",
+            "default": []
+          },
+          "QueryFilter": {
+            "type": "string",
+            "title": "Queryfilter",
+            "default": ""
+          },
+          "Origin": {
+            "$ref": "#/components/schemas/MoleOrigin",
+            "default": {}
+          },
+          "CustomExits": {
+            "$ref": "#/components/schemas/MoleOrigin",
+            "default": {}
+          },
+          "PoresMerged": {
+            "type": "boolean",
+            "title": "Poresmerged",
+            "default": false
+          },
+          "PoresAuto": {
+            "type": "boolean",
+            "title": "Poresauto",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "MoleParameters"
+      },
+      "MolePoint": {
+        "properties": {
+          "X": {
+            "type": "number",
+            "title": "X",
+            "default": 0
+          },
+          "Y": {
+            "type": "number",
+            "title": "Y",
+            "default": 0
+          },
+          "Z": {
+            "type": "number",
+            "title": "Z",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "MolePoint"
+      },
+      "MoleResidue": {
+        "properties": {
+          "Chain": {
+            "type": "string",
+            "title": "Chain",
+            "default": ""
+          },
+          "SequenceNumber": {
+            "type": "integer",
+            "title": "Sequencenumber",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "MoleResidue"
+      },
+      "MoleTunnel": {
+        "properties": {
+          "WeightFunction": {
+            "type": "string",
+            "title": "Weightfunction",
+            "default": "VoronoiScale"
+          },
+          "BottleneckRadius": {
+            "type": "number",
+            "title": "Bottleneckradius",
+            "default": 1.25
+          },
+          "BottleneckTolerance": {
+            "type": "number",
+            "title": "Bottlenecktolerance",
+            "default": 3.0
+          },
+          "MaxTunnelSimilarity": {
+            "type": "number",
+            "title": "Maxtunnelsimilarity",
+            "default": 0.7
+          },
+          "OriginRadius": {
+            "type": "number",
+            "title": "Originradius",
+            "default": 5.0
+          },
+          "SurfaceCoverRadius": {
+            "type": "number",
+            "title": "Surfacecoverradius",
+            "default": 10.0
+          }
+        },
+        "type": "object",
+        "title": "MoleTunnel"
+      },
+      "PoresRequest": {
+        "properties": {
+          "InMembrane": {
+            "type": "boolean",
+            "title": "Inmembrane",
+            "default": false
+          },
+          "IsBetaBarrel": {
+            "type": "boolean",
+            "title": "Isbetabarrel",
+            "default": false
+          },
+          "Chains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Chains",
+            "default": []
+          },
+          "ProbeRadius": {
+            "type": "number",
+            "title": "Proberadius",
+            "default": 13.0
+          },
+          "InteriorThreshold": {
+            "type": "number",
+            "title": "Interiorthreshold",
+            "default": 0.8
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PoresRequest",
+        "description": "Body of Submit/Pores. Unknown fields are an error: a misspelled one would otherwise be ignored silently. A null\nfield has its default (the web sends null)."
+      },
+      "Report": {
+        "properties": {
+          "ComputationId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computationid"
+          },
+          "SubmitId": {
+            "type": "integer",
+            "title": "Submitid"
+          },
+          "Status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "ErrorMsg": {
+            "type": "string",
+            "title": "Errormsg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ComputationId",
+          "SubmitId",
+          "Status",
+          "ErrorMsg"
+        ],
+        "title": "Report",
+        "description": "The state of a submission, the response of most requests; with an HTTP error status, ErrorMsg says why the\nrequest failed. A report of a computation that failed is not a failed request."
+      },
+      "Status": {
+        "type": "string",
+        "enum": [
+          "Aborted",
+          "Initialized",
+          "Initializing",
+          "Running",
+          "Finished",
+          "Error",
+          "Deleted",
+          "FailedInitialization"
+        ],
+        "title": "Status"
+      },
+      "Submission": {
+        "properties": {
+          "SubmitId": {
+            "type": "integer",
+            "title": "Submitid"
+          },
+          "Mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Mole",
+                  "Pores"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "Status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "ErrorMsg": {
+            "type": "string",
+            "title": "Errormsg"
+          },
+          "MoleConfig": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Moleconfig"
+          },
+          "PoresConfig": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Poresconfig"
+          }
+        },
+        "type": "object",
+        "required": [
+          "SubmitId",
+          "Mode",
+          "Status",
+          "ErrorMsg",
+          "MoleConfig",
+          "PoresConfig"
+        ],
+        "title": "Submission"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "Version": {
+        "properties": {
+          "APIVersion": {
+            "type": "string",
+            "title": "Apiversion"
+          },
+          "MoleVersion": {
+            "type": "string",
+            "title": "Moleversion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "APIVersion",
+          "MoleVersion"
+        ],
+        "title": "Version"
+      }
+    }
+  }
+}
