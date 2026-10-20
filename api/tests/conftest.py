@@ -56,7 +56,18 @@ def client(api):
 
 
 def upload(client: TestClient, name: str, content: bytes):
-    return client.post("/Init", files={"file": (name, content)})
+    return client.post("/sessions/upload", files={"file": (name, content)})
+
+
+def wait_session(client: TestClient, id: str, seconds: float = 30) -> dict:
+    """The session once its load ended: ready or failed"""
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        session = client.get(f"/sessions/{id}").json()
+        if session["state"] not in ("queued", "loading"):
+            return session
+        time.sleep(0.05)
+    raise TimeoutError(f"session {id} is still loading after {seconds} s")
 
 
 def wait(client: TestClient, id: str, submit_id: int = 0, seconds: float = 30) -> dict:

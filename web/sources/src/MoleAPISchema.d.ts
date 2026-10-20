@@ -43,22 +43,41 @@ export interface paths {
      */
     get: operations["get_data"];
   };
-  "/Init": {
+  "/sessions": {
     /**
-     * Init Upload
-     * @description A computation of an uploaded structure, loaded by MOLE in the background (Initializing, then Initialized
-     * or FailedInitialization, see Status). A gzipped file is stored unpacked.
+     * Create Session
+     * @description A session of a PDB entry: downloaded from PDBe and loaded by MOLE in the background. Poll the session
+     * (Location) until it is ready or failed.
      */
-    post: operations["init_upload"];
+    post: operations["create_session"];
   };
-  "/Init/{pdb_id}": {
+  "/sessions/upload": {
     /**
-     * Init Pdb
-     * @description A computation of a PDB entry, downloaded from PDBe and loaded by MOLE in the background (see Status).
-     * assembly: preferred (default): PDBe's preferred assembly, the one OPM has; asymmetric: the asymmetric unit;
-     * or an assembly id of the entry.
+     * Upload Session
+     * @description A session of an uploaded structure, loaded by MOLE in the background; a gzipped file is stored unpacked.
+     * Poll the session (Location) until it is ready or failed.
      */
-    post: operations["init_pdb"];
+    post: operations["upload_session"];
+  };
+  "/sessions/{session_id}": {
+    /**
+     * Get Session
+     * @description The session's state: queued, loading, then ready or failed (with the error)
+     */
+    get: operations["get_session"];
+    /**
+     * Delete Session
+     * @description Stops what runs and deletes the session: 410 Gone from then on (its files are kept)
+     */
+    delete: operations["delete_session"];
+  };
+  "/sessions/{session_id}/cancel": {
+    /**
+     * Cancel Session
+     * @description Stops loading the structure (also its download): the session fails. Only a queued or loading session can
+     * be cancelled; jobs are cancelled on their own.
+     */
+    post: operations["cancel_session"];
   };
   "/Submit/Mole/{computation_id}": {
     /**
@@ -84,13 +103,6 @@ export interface paths {
      * (nothing can run on it)
      */
     post: operations["kill"];
-  };
-  "/Delete/{computation_id}": {
-    /**
-     * Delete
-     * @description Stops the computation's run and marks it deleted (410 from then on); its files are kept
-     */
-    delete: operations["delete"];
   };
 }
 
@@ -286,6 +298,19 @@ export interface components {
       SurfaceCoverRadius?: number;
     };
     /**
+     * NewSession
+     * @description A session of a PDB entry
+     */
+    NewSession: {
+      /** Pdb Id */
+      pdb_id: string;
+      /**
+       * Assembly
+       * @default preferred
+       */
+      assembly?: string;
+    };
+    /**
      * PoresRequest
      * @description Body of Submit/Pores. Unknown fields are an error: a misspelled one would otherwise be ignored silently. A null
      * field has its default (the web sends null).
@@ -331,6 +356,31 @@ export interface components {
       /** Errormsg */
       ErrorMsg: string;
     };
+    /**
+     * Session
+     * @description A structure loaded by MOLE, on which jobs run
+     */
+    Session: {
+      /** Id */
+      id: string;
+      state: components["schemas"]["SessionState"];
+      /** Error */
+      error: string;
+      /** Pdb Id */
+      pdb_id: string | null;
+      /** Assembly Id */
+      assembly_id: string | null;
+      /** Created */
+      created: string | null;
+      /** Loaded */
+      loaded: string | null;
+    };
+    /**
+     * SessionState
+     * @description Of the loaded structure, see Computation.session_state
+     * @enum {string}
+     */
+    SessionState: "queued" | "loading" | "ready" | "failed";
     /**
      * Status
      * @enum {string}
@@ -589,11 +639,49 @@ export interface operations {
     };
   };
   /**
-   * Init Upload
-   * @description A computation of an uploaded structure, loaded by MOLE in the background (Initializing, then Initialized
-   * or FailedInitialization, see Status). A gzipped file is stored unpacked.
+   * Create Session
+   * @description A session of a PDB entry: downloaded from PDBe and loaded by MOLE in the background. Poll the session
+   * (Location) until it is ready or failed.
    */
-  init_upload: {
+  create_session: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NewSession"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        content: {
+          "application/json": components["schemas"]["Session"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+    };
+  };
+  /**
+   * Upload Session
+   * @description A session of an uploaded structure, loaded by MOLE in the background; a gzipped file is stored unpacked.
+   * Poll the session (Location) until it is ready or failed.
+   */
+  upload_session: {
     requestBody: {
       content: {
         "multipart/form-data": {
@@ -607,9 +695,9 @@ export interface operations {
     };
     responses: {
       /** @description Successful Response */
-      200: {
+      202: {
         content: {
-          "application/json": components["schemas"]["Report"];
+          "application/json": components["schemas"]["Session"];
         };
       };
       /** @description Bad Request */
@@ -633,29 +721,121 @@ export interface operations {
     };
   };
   /**
-   * Init Pdb
-   * @description A computation of a PDB entry, downloaded from PDBe and loaded by MOLE in the background (see Status).
-   * assembly: preferred (default): PDBe's preferred assembly, the one OPM has; asymmetric: the asymmetric unit;
-   * or an assembly id of the entry.
+   * Get Session
+   * @description The session's state: queued, loading, then ready or failed (with the error)
    */
-  init_pdb: {
+  get_session: {
     parameters: {
-      query?: {
-        assembly?: string;
-      };
       path: {
-        pdb_id: string;
+        session_id: string;
       };
     };
     responses: {
       /** @description Successful Response */
       200: {
         content: {
+          "application/json": components["schemas"]["Session"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
           "application/json": components["schemas"]["Report"];
         };
       };
-      /** @description Bad Request */
-      400: {
+      /** @description Gone */
+      410: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Session
+   * @description Stops what runs and deletes the session: 410 Gone from then on (its files are kept)
+   */
+  delete_session: {
+    parameters: {
+      path: {
+        session_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Gone */
+      410: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+    };
+  };
+  /**
+   * Cancel Session
+   * @description Stops loading the structure (also its download): the session fails. Only a queued or loading session can
+   * be cancelled; jobs are cancelled on their own.
+   */
+  cancel_session: {
+    parameters: {
+      path: {
+        session_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Session"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/json": components["schemas"]["Report"];
+        };
+      };
+      /** @description Gone */
+      410: {
         content: {
           "application/json": components["schemas"]["Report"];
         };
@@ -835,49 +1015,6 @@ export interface operations {
       };
       /** @description Conflict */
       409: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Gone */
-      410: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-    };
-  };
-  /**
-   * Delete
-   * @description Stops the computation's run and marks it deleted (410 from then on); its files are kept
-   */
-  delete: {
-    parameters: {
-      path: {
-        computation_id: string;
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        content: {
-          "application/json": components["schemas"]["Report"];
-        };
-      };
-      /** @description Not Found */
-      404: {
         content: {
           "application/json": components["schemas"]["Report"];
         };

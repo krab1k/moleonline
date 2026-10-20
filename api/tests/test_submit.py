@@ -18,7 +18,7 @@ RESULTS = 'mkdir -p "$(dirname "$1")/json" && echo "{}" > "$(dirname "$1")/json/
 
 
 def loaded(client) -> str:
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     assert wait(client, id)["Status"] == "Initialized"
     return id
 
@@ -145,7 +145,7 @@ def test_all_slots_busy_is_503(api):
 ])
 def test_structure_not_loaded_is_409(api, load, status, message):
     client = api(load=load)
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     if load == "exit 3":
         wait(client, id)
     response = submit(client, id)
@@ -168,5 +168,5 @@ def test_failed_computation_is_an_error(api, run, message):
 def test_unknown_and_deleted_computation(client):
     assert submit(client, "nope").status_code == 404
     id = loaded(client)
-    client.delete(f"/Delete/{id}")
+    client.delete(f"/sessions/{id}")
     assert submit(client, id).status_code == 410

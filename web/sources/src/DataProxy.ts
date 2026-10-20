@@ -1,5 +1,5 @@
 import { CommonOptions } from "../config/common";
-import { ApiService, CompInfo, InitResponse, CSAResidues, Cofactors } from "./MoleAPIService";
+import { ApiService, CompInfo, InitResponse, CSAResidues, Cofactors, Session } from "./MoleAPIService";
 import { describeError, isRefused } from "./Http";
 import {Tunnel} from "./DataInterface";
 
@@ -91,6 +91,43 @@ export namespace ComputationInfo {
     // The cached computation info as a promise; rejects with the message for the user
     export function get(computationId: string): Promise<CompInfo> {
         return new Promise((res, rej) => DataProvider.get(computationId, (_compId, info) => res(info), false, (_compId, error) => rej(error)));
+    }
+}
+
+export namespace SessionStatus {
+    // Poll often at first, then less often for long loads
+    const FIRST_POLL_MS = 500;
+    const MAX_POLL_MS = 5000;
+    // A request that fails on the network or the server is retried after 2, 4, 8, 16 and 30 s before it rejects;
+    // a refused one (404 unknown, 410 deleted) rejects at once
+    const MAX_RETRIES = 5;
+    const MAX_RETRY_MS = 30000;
+
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // The session once its load ended, ready or failed; onChange sees each state polled on the way
+    export async function waitUntilLoaded(sessionId: string, onChange?: (session: Session) => void): Promise<Session> {
+        let pollMs = FIRST_POLL_MS;
+        let failures = 0;
+        for (;;) {
+            let session: Session;
+            try {
+                session = await ApiService.getSession(sessionId);
+            } catch (err) {
+                if (isRefused(err) || failures >= MAX_RETRIES) {
+                    throw err;
+                }
+                await sleep(Math.min(2000 * 2 ** failures++, MAX_RETRY_MS));
+                continue;
+            }
+            failures = 0;
+            onChange?.(session);
+            if (session.state === "ready" || session.state === "failed") {
+                return session;
+            }
+            await sleep(pollMs);
+            pollMs = Math.min(pollMs * 1.5, MAX_POLL_MS);
+        }
     }
 }
 

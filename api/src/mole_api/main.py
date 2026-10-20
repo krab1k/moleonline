@@ -7,15 +7,16 @@ import uuid
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import version
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse, RedirectResponse, Response
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel, ConfigDict
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import UploadFile
@@ -24,7 +25,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from . import computation, data, iplog, mole, pdbe, upload
 from .csa import CSA, CSAResidue
 from .paths import AspNetPaths
-from .computation import Computation, Report, Status
+from .computation import Computation, Report, SessionState, Status
 from .config import Settings
 from .parameters import MoleParameters, PoresParameters, PoresRequest
 from .runner import Runner, Step
@@ -137,12 +138,43 @@ def pore_found(directory: Path) -> str | None:
     return None
 
 
+class Session(BaseModel):
+    """A structure loaded by MOLE, on which jobs run"""
+    id: str
+    state: SessionState
+    error: str  # why it failed, empty otherwise
+    pdb_id: str | None  # None: an uploaded structure
+    assembly_id: str | None  # the PDB entry's assembly that was loaded; None: the asymmetric unit, or an upload
+    created: datetime | None  # UTC; None in sessions created before the times were recorded
+    loaded: datetime | None  # the load ended (ready or failed)
+
+
+def session(c: Computation) -> Session:
+    state, why = c.session_state()
+    return Session(id=c.ComputationId, state=state, error=why, pdb_id=None if c.UserStructure else c.PdbId,
+                   assembly_id=c.AssemblyId, created=c.Created, loaded=c.Loaded)
+
+
+class NewSession(BaseModel):
+    """A session of a PDB entry"""
+    model_config = ConfigDict(extra="forbid")
+    pdb_id: str
+    # preferred: PDBe's preferred assembly, the one OPM has; asymmetric: the asymmetric unit; or an assembly id
+    assembly: str = pdbe.PREFERRED
+
+
+def created(request: Request, response: Response, c: Computation) -> Session:
+    """202 Accepted (the decorator's status) with Location, the session to poll"""
+    response.headers["Location"] = request.url_for("get_session", session_id=c.ComputationId).path
+    return session(c)
+
+
 class Version(BaseModel):
     APIVersion: str  # also of the pores tool, part of the API
     MoleVersion: str
 
 
-async def create_from_upload(request: Request) -> Report | JSONResponse:
+async def create_from_upload(request: Request) -> Computation | JSONResponse:
     """A computation of the uploaded structure, or why it is refused"""
     if int(request.headers.get("content-length") or 0) > upload.MAX_REQUEST_BYTES:  # not read at all
         return error(None, 413, upload.TOO_LARGE)
@@ -165,7 +197,7 @@ async def create_from_upload(request: Request) -> Report | JSONResponse:
         finally:
             temp.unlink(missing_ok=True)
     request.app.state.runner.start(c, lambda: [run_mole(settings, mole.load_input(c))], init=True)
-    return c.report()
+    return c
 
 
 def submit(request: Request, computation_id: str, parameters: MoleParameters | PoresRequest,
@@ -290,38 +322,71 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return error(computation_id, 404, f"Data in format '{format}' are not available.", submitId)
         return file
 
-    @app.post("/Init", responses=errors(400, 413), openapi_extra=UPLOAD_FORM)
-    async def init_upload(request: Request) -> Report:
-        """A computation of an uploaded structure, loaded by MOLE in the background (Initializing, then Initialized
-        or FailedInitialization, see Status). A gzipped file is stored unpacked."""
-        created = None
-        try:
-            response = await create_from_upload(request)
-            if isinstance(response, Report):
-                created = response.ComputationId
-            return response
-        finally:
-            iplog.write(request.app.state.settings.working_directory, "Init", request.client and request.client.host, "Upload", created)
+    sessions = APIRouter(prefix="/sessions", tags=["sessions"])
 
-    @app.post("/Init/{pdb_id}", responses=errors(400))
-    async def init_pdb(request: Request, pdb_id: str, assembly: str = pdbe.PREFERRED) -> Report:
-        """A computation of a PDB entry, downloaded from PDBe and loaded by MOLE in the background (see Status).
-        assembly: preferred (default): PDBe's preferred assembly, the one OPM has; asymmetric: the asymmetric unit;
-        or an assembly id of the entry."""
-        created = None
+    @sessions.post("", status_code=202, responses=errors(400))
+    async def create_session(request: Request, response: Response, new: NewSession) -> Session:
+        """A session of a PDB entry: downloaded from PDBe and loaded by MOLE in the background. Poll the session
+        (Location) until it is ready or failed."""
+        created_id = None
         settings: Settings = request.app.state.settings
         try:
-            if not pdbe.PDB_ID.match(pdb_id):
-                return error(None, 400, f"Invalid PDB id [{pdb_id}].")
-            if not pdbe.ASSEMBLY.match(assembly):
-                return error(None, 400, f"Invalid assembly [{assembly}]. Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
-            c = computation.create(settings.working_directory, request.app.state.mole_version, pdb_id.lower())
-            created = c.ComputationId
+            if not pdbe.PDB_ID.match(new.pdb_id):
+                return error(None, 400, f"Invalid PDB id [{new.pdb_id}].")
+            if not pdbe.ASSEMBLY.match(new.assembly):
+                return error(None, 400, f"Invalid assembly [{new.assembly}]. Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
+            c = computation.create(settings.working_directory, request.app.state.mole_version, new.pdb_id.lower())
+            created_id = c.ComputationId
             request.app.state.runner.start(c, lambda: [run_mole(settings, mole.load_input(c))], init=True,
-                                           prepare=lambda: pdbe.download(request.app.state.pdbe, c, assembly))
-            return c.report()
+                                           prepare=lambda: pdbe.download(request.app.state.pdbe, c, new.assembly))
+            return created(request, response, c)
         finally:
-            iplog.write(settings.working_directory, "Init", request.client and request.client.host, "PDB", created)
+            iplog.write(settings.working_directory, "Init", request.client and request.client.host, "PDB", created_id)
+
+    @sessions.post("/upload", status_code=202, responses=errors(400, 413), openapi_extra=UPLOAD_FORM)
+    async def upload_session(request: Request, response: Response) -> Session:
+        """A session of an uploaded structure, loaded by MOLE in the background; a gzipped file is stored unpacked.
+        Poll the session (Location) until it is ready or failed."""
+        created_id = None
+        try:
+            found = await create_from_upload(request)
+            if isinstance(found, JSONResponse):
+                return found
+            created_id = found.ComputationId
+            return created(request, response, found)
+        finally:
+            iplog.write(request.app.state.settings.working_directory, "Init", request.client and request.client.host, "Upload", created_id)
+
+    @sessions.get("/{session_id}", responses=errors(404, 410))
+    def get_session(request: Request, session_id: str) -> Session:
+        """The session's state: queued, loading, then ready or failed (with the error)"""
+        found = find(request, session_id)
+        return found if isinstance(found, JSONResponse) else session(found)
+
+    # cancel and delete stop runs: async, on the event loop as the runs, never in a worker thread (Runner is not
+    # thread-safe, and the check, the stop and the status change must not interleave with a run ending)
+    @sessions.post("/{session_id}/cancel", responses=errors(404, 409, 410))
+    async def cancel_session(request: Request, session_id: str) -> Session:
+        """Stops loading the structure (also its download): the session fails. Only a queued or loading session can
+        be cancelled; jobs are cancelled on their own."""
+        found = find(request, session_id)
+        if isinstance(found, JSONResponse):
+            return found
+        state, _ = found.session_state()
+        if state not in (SessionState.queued, SessionState.loading) or not request.app.state.runner.kill(session_id):
+            return error(session_id, 409, f"The session is {state}, only a queued or loading session can be cancelled.")
+        found.change_status(Status.FailedInitialization, STOPPED_LOAD)
+        return session(found)
+
+    @sessions.delete("/{session_id}", status_code=204, response_class=Response, responses=errors(404, 410))
+    async def delete_session(request: Request, session_id: str):
+        """Stops what runs and deletes the session: 410 Gone from then on (its files are kept)"""
+        found = find(request, session_id)
+        if isinstance(found, JSONResponse):
+            return found
+        request.app.state.runner.kill(session_id)
+        found.change_status(Status.Deleted)
+        return Response(status_code=204)
 
     # on the event loop, as the runs: a stop and a run never interleave, nor two submissions
     submissions = APIRouter(prefix="/Submit", route_class=LoggedSubmission)
@@ -361,6 +426,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return None
         return submit(request, computation_id, parameters, write_input, finish)
 
+    app.include_router(sessions)
     app.include_router(submissions)
 
     # on the event loop, as the runs: a stop and a run never interleave
@@ -378,16 +444,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             found.change_status(Status.FailedInitialization, STOPPED_LOAD)
         else:
             found.change_status(Status.Aborted)
-        return found.report()
-
-    @app.delete("/Delete/{computation_id}", responses=errors(404, 410))
-    async def delete(request: Request, computation_id: str) -> Report:
-        """Stops the computation's run and marks it deleted (410 from then on); its files are kept"""
-        found = find(request, computation_id)
-        if isinstance(found, JSONResponse):
-            return found
-        request.app.state.runner.kill(computation_id)
-        found.change_status(Status.Deleted)
         return found.report()
 
     return app

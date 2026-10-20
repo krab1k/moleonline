@@ -344,11 +344,76 @@
         }
       }
     },
-    "/Init": {
+    "/sessions": {
       "post": {
-        "summary": "Init Upload",
-        "description": "A computation of an uploaded structure, loaded by MOLE in the background (Initializing, then Initialized\nor FailedInitialization, see Status). A gzipped file is stored unpacked.",
-        "operationId": "init_upload",
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Create Session",
+        "description": "A session of a PDB entry: downloaded from PDBe and loaded by MOLE in the background. Poll the session\n(Location) until it is ready or failed.",
+        "operationId": "create_session",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewSession"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/upload": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Upload Session",
+        "description": "A session of an uploaded structure, loaded by MOLE in the background; a gzipped file is stored unpacked.\nPoll the session (Location) until it is ready or failed.",
+        "operationId": "upload_session",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -370,12 +435,12 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Report"
+                  "$ref": "#/components/schemas/Session"
                 }
               }
             }
@@ -413,29 +478,22 @@
         }
       }
     },
-    "/Init/{pdb_id}": {
-      "post": {
-        "summary": "Init Pdb",
-        "description": "A computation of a PDB entry, downloaded from PDBe and loaded by MOLE in the background (see Status).\nassembly: preferred (default): PDBe's preferred assembly, the one OPM has; asymmetric: the asymmetric unit;\nor an assembly id of the entry.",
-        "operationId": "init_pdb",
+    "/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Get Session",
+        "description": "The session's state: queued, loading, then ready or failed (with the error)",
+        "operationId": "get_session",
         "parameters": [
           {
-            "name": "pdb_id",
+            "name": "session_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Pdb Id"
-            }
-          },
-          {
-            "name": "assembly",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "preferred",
-              "title": "Assembly"
+              "title": "Session Id"
             }
           }
         ],
@@ -445,12 +503,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Report"
+                  "$ref": "#/components/schemas/Session"
                 }
               }
             }
           },
-          "400": {
+          "404": {
             "content": {
               "application/json": {
                 "schema": {
@@ -458,7 +516,164 @@
                 }
               }
             },
-            "description": "Bad Request"
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Delete Session",
+        "description": "Stops what runs and deletes the session: 410 Gone from then on (its files are kept)",
+        "operationId": "delete_session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{session_id}/cancel": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Cancel Session",
+        "description": "Stops loading the structure (also its download): the session fails. Only a queued or loading session can\nbe cancelled; jobs are cancelled on their own.",
+        "operationId": "cancel_session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Gone"
           },
           "500": {
             "content": {
@@ -749,76 +964,6 @@
               }
             },
             "description": "Conflict"
-          },
-          "410": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Gone"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Internal Server Error"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/Delete/{computation_id}": {
-      "delete": {
-        "summary": "Delete",
-        "description": "Stops the computation's run and marks it deleted (410 from then on); its files are kept",
-        "operationId": "delete",
-        "parameters": [
-          {
-            "name": "computation_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Computation Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Report"
-                }
-              }
-            },
-            "description": "Not Found"
           },
           "410": {
             "content": {
@@ -1158,6 +1303,26 @@
         "type": "object",
         "title": "MoleTunnel"
       },
+      "NewSession": {
+        "properties": {
+          "pdb_id": {
+            "type": "string",
+            "title": "Pdb Id"
+          },
+          "assembly": {
+            "type": "string",
+            "title": "Assembly",
+            "default": "preferred"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pdb_id"
+        ],
+        "title": "NewSession",
+        "description": "A session of a PDB entry"
+      },
       "PoresRequest": {
         "properties": {
           "InMembrane": {
@@ -1228,6 +1393,90 @@
         ],
         "title": "Report",
         "description": "The state of a submission, the response of most requests; with an HTTP error status, ErrorMsg says why the\nrequest failed. A report of a computation that failed is not a failed request."
+      },
+      "Session": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SessionState"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "pdb_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pdb Id"
+          },
+          "assembly_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assembly Id"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "loaded": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loaded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "state",
+          "error",
+          "pdb_id",
+          "assembly_id",
+          "created",
+          "loaded"
+        ],
+        "title": "Session",
+        "description": "A structure loaded by MOLE, on which jobs run"
+      },
+      "SessionState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "loading",
+          "ready",
+          "failed"
+        ],
+        "title": "SessionState",
+        "description": "Of the loaded structure, see Computation.session_state"
       },
       "Status": {
         "type": "string",

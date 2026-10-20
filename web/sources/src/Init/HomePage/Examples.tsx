@@ -1,23 +1,26 @@
 import React from "react";
-import { ApiService, CompInfo, InitResponse, MoleConfig, PoresConfig } from "../../MoleAPIService";
+import { ApiService, CompInfo, MoleConfig, PoresConfig } from "../../MoleAPIService";
 import { describeError } from "../../Http";
 import { Events } from "../../Bridge";
-import { ComputationInfo, JobStatus } from "../../DataProxy";
+import { ComputationInfo, JobStatus, SessionStatus } from "../../DataProxy";
 
 export class Examples extends React.Component<{}, { activeButton: number }> {
-    private computationId!: string;
-    private submitId!: number;
-
     state = { activeButton: -1 }; // the example being started
 
-    private handleFormSubmit(pdbId: string) {
-        ApiService.initWithPdbId(pdbId, "preferred")
-            .then((response) => {
-                this.handleFormSubmitResponse(response);
-            })
-            .catch((reason) => this.showError(describeError(reason, "The MOLE API could not be reached, please try again later.")))
-
-        return false;
+    // Loads the example's structure, then submits its job
+    private async handleFormSubmit(pdbId: string) {
+        let session;
+        try {
+            session = await SessionStatus.waitUntilLoaded((await ApiService.createSession(pdbId, "preferred")).id);
+        } catch (reason) {
+            this.showError(describeError(reason, "The MOLE API could not be reached, please try again later."));
+            return;
+        }
+        if (session.state === "failed") {
+            this.showError(`The structure could not be loaded: ${session.error}`);
+            return;
+        }
+        await this.loadSumbission(session.id);
     }
 
     private async loadSumbission(computationId: string) {
@@ -59,36 +62,6 @@ export class Examples extends React.Component<{}, { activeButton: number }> {
             messageType: "Danger",
             message
         });
-    }
-
-    private async handleFormSubmitResponse(response: InitResponse) {
-        if (response.Status === "FailedInitialization") {
-            this.showError(`API was unable to initialize computation with specified parameters. API responded with message: ${response.ErrorMsg}`);
-            return;
-        }
-
-        this.computationId = response.ComputationId;
-        this.submitId = response.SubmitId;
-
-        if (response.Status === "Initialized") {
-            console.log("Initialized");
-            await this.loadSumbission(this.computationId);
-            return;
-        }
-
-        if (response.Status === "Initializing") {
-            console.log("Waiting for computation initialization...");
-            window.setTimeout(this.waitForComputationInitialization.bind(this), 500);
-            return;
-        }
-
-        this.showError(`Unexpected computation status received from API: ${response.Status}`);
-    }
-
-    private waitForComputationInitialization() {
-        ApiService.getStatus(this.computationId, this.submitId)
-            .then((response) => this.handleFormSubmitResponse(response))
-            .catch((reason) => this.showError(describeError(reason, "The MOLE API could not be reached, please try again later.")));
     }
 
     examples = [

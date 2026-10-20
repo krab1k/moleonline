@@ -14,7 +14,7 @@ MOLE = os.environ.get("MOLE2")
 @pytest.mark.skipif(MOLE is None, reason="set MOLE2 to the mole2 executable")
 def test_tunnels_of_an_uploaded_structure(api):
     client = api(mole=Path(MOLE))
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     assert wait(client, id, seconds=120)["Status"] == "Initialized"
 
     assert submit(client, id, (EXAMPLES / "1tqn_point_channels.json").read_text()).status_code == 200  # the example of the documentation

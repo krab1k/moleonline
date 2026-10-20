@@ -1,11 +1,15 @@
 import { DataSources } from "../config/common";
 import { MembranePoint } from "./DataInterface";
-import { deleteJson, getJson, getText, postEmpty, postForm, postJson } from "./Http";
+import { deleteEmpty, getJson, getText, postEmpty, postForm, postJson } from "./Http";
 import type { components } from "./MoleAPISchema";
 
 // What the API returns, from its OpenAPI description (MoleAPISchema.d.ts, generated: npm run api-types).
 // The parameter types below stay the web's own: the forms' data, which the API reads a part of.
 type Schemas = components["schemas"];
+
+// A loaded structure, on which jobs run: queued, loading, then ready or failed (error says why)
+export type Session = Schemas["Session"];
+export type SessionState = Schemas["SessionState"];
 
 export type ComputationStatus = Schemas["Status"];
 // A successful answer always has the computation; only a refused upload (an error, thrown by Http) has none
@@ -99,13 +103,21 @@ export class ApiService {
 
     // assembly: "preferred" = the entry's preferred (biological) assembly, which the API looks up;
     // "asymmetric" = the asymmetric unit; otherwise the ID of the assembly to load
-    public static initWithPdbId(pdbid: string, assembly: "preferred" | "asymmetric" | string): Promise<InitResponse> {
-        let url = `${this.baseUrl}/Init/${encodeURIComponent(pdbid)}?assembly=${encodeURIComponent(assembly)}`;
-        return postEmpty(url).then(r => checkReport(r, url));
+    public static createSession(pdbId: string, assembly: "preferred" | "asymmetric" | string): Promise<Session> {
+        const body: Schemas["NewSession"] = { pdb_id: pdbId, assembly };
+        return postJson(`${this.baseUrl}/sessions`, body);
     }
-    public static initWithFile(formData: FormData): Promise<InitResponse> {
-        let url = `${this.baseUrl}/Init/`;
-        return postForm(url, formData).then(r => checkReport(r, url));
+
+    public static uploadSession(formData: FormData): Promise<Session> {
+        return postForm(`${this.baseUrl}/sessions/upload`, formData);
+    }
+
+    public static getSession(sessionId: string): Promise<Session> {
+        return getJson(`${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}`);
+    }
+
+    public static deleteSession(sessionId: string): Promise<void> {
+        return deleteEmpty(`${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}`);
     }
 
     public static getStatus(computationId: string, submitId?: number): Promise<InitResponse> {
@@ -155,11 +167,6 @@ export class ApiService {
     public static killRunningJob(computationId: string) {
         let url = `${this.baseUrl}/Kill/${computationId}`;
         return postEmpty(url).then(r => checkReport(r, url));
-    }
-
-    public static deleteProject(computationId: string) {
-        let url = `${this.baseUrl}/Delete/${computationId}`;
-        return deleteJson(url).then(r => checkReport(r, url));
     }
 
     public static getCSAResidues(computationId: string): Promise<CSAResidues> {

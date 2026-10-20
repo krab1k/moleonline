@@ -77,8 +77,9 @@ export function postEmpty(url: string): Promise<any> {
     return request(url, { method: "POST" }, json);
 }
 
-export function deleteJson(url: string): Promise<any> {
-    return request(url, { method: "DELETE" }, json);
+// A DELETE answered 204 No Content
+export function deleteEmpty(url: string): Promise<void> {
+    return request(url, { method: "DELETE" }, async () => undefined);
 }
 
 export function postForm(url: string, body: FormData): Promise<any> {

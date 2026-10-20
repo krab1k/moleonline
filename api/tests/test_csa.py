@@ -47,15 +47,15 @@ def test_entries(csa):
 
 def test_sites_of_a_computation(client):
     FakePDBe(client, {FULL: STRUCTURE})
-    id = client.post("/Init/1TQN?assembly=asymmetric").json()["ComputationId"]
+    id = client.post("/sessions", json={"pdb_id": "1TQN", "assembly": "asymmetric"}).json()["id"]
     assert client.get(f"/CSA/{id}").json() == [[{"Name": "Thr", "Chain": "A", "SequenceNumber": 309}, {"Name": "Phe", "Chain": "A", "SequenceNumber": 435},
                                                  {"Name": "Cys", "Chain": "A", "SequenceNumber": 442}]]
     wait(client, id)
-    client.delete(f"/Delete/{id}")
+    client.delete(f"/sessions/{id}")
     assert client.get(f"/CSA/{id}").status_code == 410
 
 
 def test_none_for_uploads(client):
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]  # M-CSA knows PDB entries only
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]  # M-CSA knows PDB entries only
     assert client.get(f"/CSA/{id}").json() == []
     assert client.get("/CSA/nope").status_code == 404

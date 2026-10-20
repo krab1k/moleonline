@@ -22,7 +22,7 @@ def logged(settings) -> list[tuple[str, ...]]:
 
 
 def test_loads_are_logged(client, settings):
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     upload(client, "empty.pdb", b"")  # refused, no computation
     assert logged(settings) == [("Init", "testclient", "Upload", id), ("Init", "testclient", "Upload", "-")]
 
@@ -31,7 +31,7 @@ def test_client_address_from_the_proxy(tmp_path):
     settings = make_settings(tmp_path)
     for proxy, logged_address in [("172.18.0.5", "203.0.113.7"), ("198.51.100.1", "198.51.100.1")]:  # Docker network; public: not trusted
         with TestClient(create_app(settings), client=(proxy, 40000)) as client:
-            client.post("/Init", files={"file": ("1tqn.txt", b"x")}, headers={"X-Forwarded-For": "203.0.113.7"})
+            client.post("/sessions/upload", files={"file": ("1tqn.txt", b"x")}, headers={"X-Forwarded-For": "203.0.113.7"})
         assert logged(settings)[-1][1] == logged_address
 
 
@@ -41,7 +41,7 @@ def test_id_from_the_request_stays_one_line(tmp_path):
 
 
 def test_stats_read_the_log(client, settings):
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait(client, id)
     stats = Path(__file__).parent.parent / "tools" / "stats.py"
     output = subprocess.run([sys.executable, "-I", stats, settings.working_directory, "year"], capture_output=True, text=True, check=True).stdout

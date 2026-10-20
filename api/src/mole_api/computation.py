@@ -29,6 +29,14 @@ class Status(StrEnum):
     FailedInitialization = "FailedInitialization"
 
 
+class SessionState(StrEnum):
+    """Of the loaded structure, see Computation.session_state"""
+    queued = "queued"  # the structure is downloaded or stored, the load waits for a slot
+    loading = "loading"  # MOLE loads the structure
+    ready = "ready"  # jobs can run on it
+    failed = "failed"  # it could not be loaded (also stopped, or interrupted by a restart); nothing can run on it
+
+
 class Report(BaseModel):
     """The state of a submission, the response of most requests; with an HTTP error status, ErrorMsg says why the
     request failed. A report of a computation that failed is not a failed request."""
@@ -80,6 +88,18 @@ class Computation(BaseModel):
             return Report(ComputationId=self.ComputationId, SubmitId=submit_id, Status=Status.Error, ErrorMsg=f"SubmitId {submit_id} not found.")
         return Report(ComputationId=self.ComputationId, SubmitId=unit.SubmitId, Status=unit.Status, ErrorMsg=unit.ErrorMsg)
 
+    def session_state(self) -> tuple[SessionState, str]:
+        """The load's state and why it failed, from the first unit's status: the load's until the first job reuses
+        it, which only happens once the load succeeded. Not from Loaded, which status files of the C# API lack."""
+        load = self.ComputationUnits[0]
+        match load.Status:
+            case Status.Initializing:
+                return (SessionState.queued if load.Started is None else SessionState.loading), ""
+            case Status.FailedInitialization:
+                return SessionState.failed, load.ErrorMsg
+            case _:  # Initialized, or a job's status
+                return SessionState.ready, ""
+
     def is_interrupted(self) -> bool:
         """Running or loading in another API process, i.e. one before a restart"""
         return self.last.Status in (Status.Running, Status.Initializing) and self.ApiInstance != API_INSTANCE
@@ -87,7 +107,7 @@ class Computation(BaseModel):
     def has_results(self, submit_id: int) -> bool:
         """Its results are complete: the load (0) succeeded, the submission finished"""
         if submit_id == 0:
-            return self.Loaded is not None and self.ComputationUnits[0].Status != Status.FailedInitialization
+            return self.session_state()[0] == SessionState.ready
         return any(u.SubmitId == submit_id and u.Status == Status.Finished for u in self.ComputationUnits)
 
     def add_submission(self, mole_version: str) -> None:

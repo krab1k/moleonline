@@ -1,10 +1,10 @@
 import React from "react";
-import {ApiService, CompInfo, InitResponse} from "../../MoleAPIService";
+import {ApiService, CompInfo, Session} from "../../MoleAPIService";
 import { describeError } from "../../Http";
 import {Events} from "../../Bridge";
 import {TabbedContainer} from "../../Common/UI/Tabs/BootstrapTabs";
 import {getNthSession, LAST_N_SESSIONS_N} from "../../Common/Util/LastNSessions";
-import {ComputationInfo} from "../../DataProxy";
+import {ComputationInfo, SessionStatus} from "../../DataProxy";
 import AlertMessages from "../../Common/UI/AlertMessages/UI";
 
 // The API refuses larger uploads
@@ -16,10 +16,15 @@ interface State {
     progress: string | null, // the submit button's label while the computation is being started
 };
 
-export class InitForm extends React.Component<{}, State> {
-    private computationId!: string;
-    private submitId!: number;
+// The submit button's label while the structure is loaded
+const PROGRESS: Record<Session["state"], string> = {
+    queued: "Waiting in the queue...",
+    loading: "Loading the structure...",
+    ready: "Loaded!",
+    failed: "Failed",
+};
 
+export class InitForm extends React.Component<{}, State> {
     state: State = {
         useAsymmetricUnit: false,
         activeTabIdx: 0,
@@ -39,11 +44,7 @@ export class InitForm extends React.Component<{}, State> {
         const file = field('file').files?.[0];
 
         if (file === void 0) {
-            ApiService.initWithPdbId(pdbid, asymmetricUnit ? "asymmetric" : assemblyId === '' ? "preferred" : assemblyId)
-                .then((response) => {
-                    this.handleFormSubmitResponse(response);
-                })
-                .catch((reason) => this.showRequestError(reason))
+            this.waitUntilLoaded(ApiService.createSession(pdbid, asymmetricUnit ? "asymmetric" : assemblyId === '' ? "preferred" : assemblyId));
         }
         else {
             this.uploadFile(file);
@@ -77,11 +78,7 @@ export class InitForm extends React.Component<{}, State> {
 
         let data = new FormData();
         data.append("file", file)
-        ApiService.initWithFile(data)
-            .then((response) => {
-                this.handleFormSubmitResponse(response);
-            })
-            .catch((reason) => this.showRequestError(reason))
+        this.waitUntilLoaded(ApiService.uploadSession(data));
     }
 
     // Re-enables the form and tells the user why the computation did not start
@@ -97,40 +94,24 @@ export class InitForm extends React.Component<{}, State> {
         this.showError(describeError(reason, "The MOLE API could not be reached, please try again later."));
     }
 
-    private handleFormSubmitResponse(response: InitResponse) {
-        if (response.Status === "FailedInitialization") {
-            this.showError(`API was unable to initialize computation with specified parameters. API responded with message: ${response.ErrorMsg}`);
+    // Follows the new session until its structure is loaded, then opens it
+    private async waitUntilLoaded(created: Promise<Session>) {
+        let session: Session;
+        try {
+            session = await SessionStatus.waitUntilLoaded((await created).id, s => this.setState({ progress: PROGRESS[s.state] }));
+        } catch (reason) {
+            this.showRequestError(reason);
             return;
         }
-
-        this.computationId = response.ComputationId;
-        this.submitId = response.SubmitId;
-
-        if (response.Status === "Initialized") {
-            console.log("Initialized");
-            this.setState({ progress: 'Initialized!' });
-            Events.invokeNotifyMessage({
-                messageType: "Success",
-                message: "Computation was successfully initialized. You will be redirected to detail page."
-            });
-            location.replace(`/online/${this.computationId}`);
+        if (session.state === "failed") {
+            this.showError(`The structure could not be loaded: ${session.error}`);
             return;
         }
-
-        if (response.Status === "Initializing") {
-            console.log("Waiting for computation initialization...");
-            this.setState({ progress: 'Initializing computation...' });
-            window.setTimeout(this.waitForComputationInitialization.bind(this), 500);
-            return;
-        }
-
-        this.showError(`Unexpected computation status received from API: ${response.Status}`);
-    }
-
-    private waitForComputationInitialization() {
-        ApiService.getStatus(this.computationId, this.submitId)
-            .then((response) => this.handleFormSubmitResponse(response))
-            .catch((reason) => this.showRequestError(reason));
+        Events.invokeNotifyMessage({
+            messageType: "Success",
+            message: "The structure was loaded. You will be redirected to the detail page."
+        });
+        location.replace(`/online/${session.id}`);
     }
 
     render() {

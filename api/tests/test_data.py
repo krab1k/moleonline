@@ -20,7 +20,7 @@ echo vmd > "$d/vmd/complex"; echo a > "$d/pdb/profile/a.pdb"; echo b > "$d/pdb/p
 def finished(api):
     """A client and a computation with one finished submission"""
     client = api(load=RESULTS, run=RESULTS)
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait(client, id)
     submit(client, id)
     assert wait(client, id, 1)["Status"] == "Finished"
@@ -75,7 +75,7 @@ def test_refused(finished, query, status, message):
 @pytest.mark.parametrize("run", ["exit 1", RESULTS + "; echo 'MOLE failed' >&2"])  # also when MOLE wrote some
 def test_no_results_of_a_failed_submission(api, run):
     client = api(run=run)
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait(client, id)
     submit(client, id)
     wait(client, id, 1)
@@ -88,7 +88,7 @@ def test_no_results_of_a_failed_submission(api, run):
 
 def test_no_results_while_running(api):
     client = api(run=RESULTS + "; " + UNTIL_GO)
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait(client, id)
     submit(client, id)
     folder = client.app.state.settings.working_directory / id / "1"
@@ -103,7 +103,7 @@ def test_no_results_while_running(api):
 
 def test_results_of_the_load(api):
     client = api(load=RESULTS)
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     assert wait(client, id)["Status"] == "Initialized"
     assert client.get(f"/Data/{id}?submitId=0").json() == {"Channels": {}}
 
@@ -111,7 +111,7 @@ def test_results_of_the_load(api):
 def test_unknown_and_deleted_computation(finished):
     client, id = finished
     assert client.get("/Data/nope").status_code == 404
-    client.delete(f"/Delete/{id}")
+    client.delete(f"/sessions/{id}")
     assert client.get(f"/Data/{id}").status_code == 410
 
 

@@ -124,3 +124,25 @@ def test_status_file_is_readable_by_others(client, settings):
     id = written_by_csharp(settings.working_directory, last="Running")
     client.get(f"/Status/{id}")  # rewritten: interrupted by a restart
     assert (settings.working_directory / id / STATUS_FILE).stat().st_mode & 0o777 == 0o644
+
+
+def test_session_of_a_csharp_computation_is_ready(client, settings):
+    """Status files of the C# API have no Loaded time: the load's state comes from its status"""
+    id = written_by_csharp(settings.working_directory)
+    session = client.get(f"/sessions/{id}").json()
+    assert (session["state"], session["error"], session["loaded"]) == ("ready", "", None)
+    results = settings.working_directory / id / "0" / "json" / "data.json"  # what the load found
+    results.parent.mkdir(parents=True)
+    results.write_text('{"Channels": {}}')
+    response = client.get(f"/Data/{id}", params={"submitId": 0, "format": "json"})
+    assert response.status_code == 200 and response.json() == {"Channels": {}}
+
+
+def test_session_of_a_csharp_computation_that_failed_to_load(client, settings):
+    id = written_by_csharp(settings.working_directory)
+    path = settings.working_directory / id / STATUS_FILE
+    saved = json.loads(path.read_text())
+    saved["ComputationUnits"] = [{**saved["ComputationUnits"][0], "Status": "FailedInitialization", "ErrorMsg": "No atoms.\n"}]
+    path.write_text(json.dumps(saved))
+    session = client.get(f"/sessions/{id}").json()
+    assert (session["state"], session["error"]) == ("failed", "No atoms.\n")

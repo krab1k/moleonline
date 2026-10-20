@@ -1,4 +1,4 @@
-"""POST /Init/{pdbId}: the structure from PDBe, here a fake one; nothing is sent to PDBe"""
+"""POST /sessions: the structure from PDBe, here a fake one; nothing is sent to PDBe"""
 
 import asyncio
 import inspect
@@ -8,7 +8,7 @@ import time
 import httpx2
 import pytest
 
-from .conftest import STRUCTURE, wait
+from .conftest import STRUCTURE, wait_session
 from .test_iplog import logged
 
 ASSEMBLIES = b'<assemblies><assembly id="1" prefered="True"/><assembly id="2" prefered="False"/></assemblies>'
@@ -40,24 +40,30 @@ def assembly(name: str) -> str:
     return f"/model-server/v1/1tqn/assembly?name={name}"
 
 
+def create(client, pdb_id: str = "1tqn", **assembly):
+    return client.post("/sessions", json={"pdb_id": pdb_id, **assembly})
+
+
 def saved(client, id: str) -> dict:
     return json.loads((client.app.state.settings.working_directory / id / "_object.json").read_text())
 
 
-@pytest.mark.parametrize("query, routes, file, assembly_id, pores", [
-    ("", {XML: ASSEMBLIES, assembly("1"): STRUCTURE}, assembly("1"), "1", True),  # the preferred one
-    ("?assembly=preferred", {XML: 500, FULL: STRUCTURE}, FULL, None, False),  # not known: the asymmetric unit
-    ("?assembly=asymmetric", {FULL: STRUCTURE}, FULL, None, False),
-    ("?assembly=2", {XML: ASSEMBLIES, assembly("2"): STRUCTURE}, assembly("2"), "2", False),
-    ("?assembly=1", {XML: ASSEMBLIES, assembly("1"): STRUCTURE}, assembly("1"), "1", True),  # the preferred one by its id
+@pytest.mark.parametrize("requested, routes, file, assembly_id, pores", [
+    ({}, {XML: ASSEMBLIES, assembly("1"): STRUCTURE}, assembly("1"), "1", True),  # the preferred one
+    ({"assembly": "preferred"}, {XML: 500, FULL: STRUCTURE}, FULL, None, False),  # not known: the asymmetric unit
+    ({"assembly": "asymmetric"}, {FULL: STRUCTURE}, FULL, None, False),
+    ({"assembly": "2"}, {XML: ASSEMBLIES, assembly("2"): STRUCTURE}, assembly("2"), "2", False),
+    ({"assembly": "1"}, {XML: ASSEMBLIES, assembly("1"): STRUCTURE}, assembly("1"), "1", True),  # the preferred one by its id
 ])
-def test_structure_is_downloaded_and_loaded(client, query, routes, file, assembly_id, pores):
+def test_structure_is_downloaded_and_loaded(client, requested, routes, file, assembly_id, pores):
     pdbe = FakePDBe(client, routes)
-    response = client.post(f"/Init/1TQN{query}")
-    assert response.status_code == 200
-    id = response.json()["ComputationId"]
-    assert response.json() == {"ComputationId": id, "SubmitId": 1, "Status": "Initializing", "ErrorMsg": ""}
-    assert wait(client, id)["Status"] == "Initialized"
+    response = create(client, "1TQN", **requested)
+    assert response.status_code == 202
+    id = response.json()["id"]
+    assert response.headers["location"] == f"/sessions/{id}"
+    assert response.json()["state"] == "queued" and response.json()["pdb_id"] == "1tqn"
+    session = wait_session(client, id)
+    assert session["state"] == "ready" and session["assembly_id"] == assembly_id
 
     assert file in pdbe.requests
     status = saved(client, id)
@@ -81,10 +87,10 @@ ERROR_CIF = b"data_error\n_coordinate_server_error.message 'Entry not found.'\n"
 ], ids=["404", "503", "too large", "unavailable", "timeout", "server error"])
 def test_failed_download(client, answer, message):
     FakePDBe(client, {FULL: answer})
-    id = client.post("/Init/1tqn?assembly=asymmetric").json()["ComputationId"]
-    status = wait(client, id)
-    assert status["Status"] == "FailedInitialization"
-    assert status["ErrorMsg"] == message
+    id = create(client, assembly="asymmetric").json()["id"]
+    session = wait_session(client, id)
+    assert session["state"] == "failed"
+    assert session["error"] == message
     assert not (client.app.state.settings.working_directory / id / "0").exists()  # MOLE did not run
     assert not list((client.app.state.settings.working_directory / id).glob("*.download"))
 
@@ -97,27 +103,27 @@ def test_stopped_download(client):
         await asyncio.Event().wait()
 
     FakePDBe(client, {FULL: forever})
-    id = client.post("/Init/1tqn?assembly=asymmetric").json()["ComputationId"]
+    id = create(client, assembly="asymmetric").json()["id"]
     for _ in range(100):  # PDBe was asked
         if started.is_set():
             break
         time.sleep(0.01)
     assert started.is_set()
-    response = client.post(f"/Kill/{id}")
+    response = client.post(f"/sessions/{id}/cancel")
     assert response.status_code == 200
-    assert response.json()["Status"] == "FailedInitialization"
-    assert response.json()["ErrorMsg"] == "Loading of the structure was stopped."
-    assert client.post(f"/Kill/{id}").status_code == 409  # nothing runs now
+    assert response.json()["state"] == "failed"
+    assert response.json()["error"] == "Loading of the structure was stopped."
+    assert client.post(f"/sessions/{id}/cancel").status_code == 409  # nothing runs now
 
 
-@pytest.mark.parametrize("path, message", [
-    ("/Init/1tqn?assembly=a-b", "Invalid assembly [a-b]."),
-    ("/Init/1tqn?assembly=12345678901", "Invalid assembly [12345678901]."),
-    ("/Init/1tq.n", "Invalid PDB id [1tq.n]."),
+@pytest.mark.parametrize("requested, message", [
+    ({"pdb_id": "1tqn", "assembly": "a-b"}, "Invalid assembly [a-b]."),
+    ({"pdb_id": "1tqn", "assembly": "12345678901"}, "Invalid assembly [12345678901]."),
+    ({"pdb_id": "1tq.n"}, "Invalid PDB id [1tq.n]."),
 ])
-def test_refused_before_pdbe_is_asked(client, settings, path, message):
+def test_refused_before_pdbe_is_asked(client, settings, requested, message):
     pdbe = FakePDBe(client, {})
-    response = client.post(path)
+    response = client.post("/sessions", json=requested)
     assert response.status_code == 400
     assert response.json()["ComputationId"] is None
     assert response.json()["ErrorMsg"].startswith(message)
@@ -127,6 +133,6 @@ def test_refused_before_pdbe_is_asked(client, settings, path, message):
 
 def test_loads_are_logged(client, settings):
     FakePDBe(client, {FULL: STRUCTURE})
-    id = client.post("/Init/1tqn?assembly=asymmetric").json()["ComputationId"]
-    wait(client, id)
+    id = create(client, assembly="asymmetric").json()["id"]
+    wait_session(client, id)
     assert logged(settings) == [("Init", "testclient", "PDB", id)]

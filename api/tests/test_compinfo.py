@@ -8,7 +8,7 @@ from .test_submit import EXAMPLES, submit
 
 
 def test_submissions_with_their_parameters(client):
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait(client, id)
     assert client.get(f"/CompInfo/{id}").json() == {"ComputationId": id, "UserStructure": True, "PdbId": "", "AssemblyId": None, "Submissions": []}
 
@@ -44,8 +44,8 @@ def test_pores_json_of_an_earlier_version(client, settings):
 
 
 def test_case_of_the_web_and_errors(client):
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     assert client.get(f"/Compinfo/{id}/").status_code == 200  # as the web asks
     assert client.get("/CompInfo/nope").status_code == 404
-    client.delete(f"/Delete/{id}")
+    client.delete(f"/sessions/{id}")
     assert client.get(f"/CompInfo/{id}").status_code == 410

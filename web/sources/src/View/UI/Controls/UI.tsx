@@ -1050,15 +1050,7 @@ export class ControlButtons extends React.Component<ControlButtonsProps, Control
         if (info === void 0 || !window.confirm("Do you really want to delete the whole computation, with all its submissions?")) {
             return;
         }
-        ApiService.deleteProject(info.ComputationId).then((result) => {
-            if (result.Status !== "Deleted") {
-                BridgeEvents.invokeNotifyMessage({
-                    message: (result.ErrorMsg.length === 0) ? "Attempt to delete current computation was not successful." : result.ErrorMsg,
-                    messageType: "Warning"
-                });
-                return;
-            }
-
+        ApiService.deleteSession(info.ComputationId).then(() => {
             BridgeEvents.invokeNotifyMessage({
                 message: "Current computation was successfully deleted. You will be redirected to initial page.",
                 messageType: "Success"

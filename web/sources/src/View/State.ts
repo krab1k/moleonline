@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2016 - now David Sehnal, licensed under Apache 2.0, See LICENSE file for more info.
  */
-import { ComputationInfo, DataProxyCSAResidues, JobStatus } from "../DataProxy";
+import { ComputationInfo, DataProxyCSAResidues, JobStatus, SessionStatus } from "../DataProxy";
 import { ChannelsDBChannels, ChannelsDBData, firstNonEmptyCategory, Membrane, MoleData, Origins, Tunnel, TunnelMetaInfo } from "../DataInterface";
 import { ChannelsDBData as ChannelsDBDataCache, LastVisibleChannels } from "../Cache";
 import { getParameters } from "../Common/Util/Router";
@@ -293,6 +293,18 @@ export function loadData(channelsDB: boolean) {
 
         let computationId = parameters.computationId;
         let submitId = parameters.submitId;
+        if (submitId === 0) {
+            // the session itself: its structure, with what its load found, once loaded
+            SessionStatus.waitUntilLoaded(computationId).then(session => {
+                if (session.state === "failed") {
+                    rej(session.error.trim() || "The structure could not be loaded.");
+                    return;
+                }
+                const proteinLoaded = context.plugin.state.data.tree.children.has('protein-data');
+                acquireData(computationId, 0, res, rej, !proteinLoaded, true, channelsDB);
+            }, rej);
+            return;
+        }
         if (CommonOptions.DEBUG_MODE)
             console.log("Status watcher - BEFORE EXEC");
         JobStatus.Watcher.registerOnChangeHandler(computationId, submitId, (status => {

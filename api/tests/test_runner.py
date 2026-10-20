@@ -13,7 +13,7 @@ UNTIL_GO = STARTED + '; while [ ! -f "$(dirname "$1")/go" ]; do sleep 0.02; done
 
 
 def load(client) -> str:
-    return upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    return upload(client, "1tqn.cif", STRUCTURE).json()["id"]
 
 
 def test_waiting_for_a_slot(api):

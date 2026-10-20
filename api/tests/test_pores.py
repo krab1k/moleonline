@@ -16,7 +16,7 @@ NO_PORE = 'mkdir -p "$(dirname "$1")/json" && echo \'{"Channels": {"Paths": []}}
 
 
 def loaded(client) -> str:
-    id = upload(client, "1tqn.cif", STRUCTURE).json()["ComputationId"]
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     assert wait(client, id)["Status"] == "Initialized"
     return id
 
@@ -68,7 +68,7 @@ def test_warning_of_the_pores_tool_is_no_error(api, caplog):
 
 def test_opm_membrane_for_the_preferred_assembly(client, settings):
     FakePDBe(client, {XML: ASSEMBLIES, assembly("1"): STRUCTURE})
-    id = client.post("/Init/1tqn").json()["ComputationId"]
+    id = client.post("/sessions", json={"pdb_id": "1tqn"}).json()["id"]
     wait(client, id)
     submit(client, id, {"ProbeRadius": 10, "InteriorThreshold": 1})
     saved = json.loads((settings.working_directory / id / "1" / "pores.json").read_text())
@@ -118,5 +118,5 @@ def test_the_web_request(client):
 def test_unknown_and_deleted_computation(client):
     assert submit(client, "nope").status_code == 404
     id = loaded(client)
-    client.delete(f"/Delete/{id}")
+    client.delete(f"/sessions/{id}")
     assert submit(client, id).status_code == 410
