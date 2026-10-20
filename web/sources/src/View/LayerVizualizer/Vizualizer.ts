@@ -1297,12 +1297,16 @@ export class Vizualizer {
 
         let rgb: RGBColor;
 
-        // each half runs to the centre, which is not the midpoint for absolute bounds
+        // values outside the range (possible with absolute bounds) get the colours of its ends
+        value = Math.min(Math.max(value, minVal), maxVal);
+
+        // each half runs from its end colour to its own middle colour at the centre, which is not the midpoint for
+        // absolute bounds
         if (value < middle) {
-            rgb = interpolate(minVal, minColor, middle, maxColorMiddle, value);
+            rgb = interpolate(minVal, minColor, middle, minColorMiddle, value);
         }
         else {
-            rgb = interpolate(middle, minColorMiddle, maxVal, maxColor, value);
+            rgb = interpolate(middle, maxColorMiddle, maxVal, maxColor, value);
         }
 
         if (skipMiddle && settings.centerAbsolute) {

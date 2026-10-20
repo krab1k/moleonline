@@ -405,9 +405,12 @@ export class ColorMixer extends ContextAwareObject {
             bounds.x, bounds.y + (this.isHorizontal ? 0 : bounds.height)
         );
 
-        my_gradient.addColorStop(0, this.paletteFunction(Number(this.maxVal), this.paletteFunctionSettings));
-        my_gradient.addColorStop(0.5, this.paletteFunction(Number((this.minVal + this.maxVal) / 2), this.paletteFunctionSettings));
-        my_gradient.addColorStop(1, this.paletteFunction(Number(this.minVal), this.paletteFunctionSettings));
+        // sampled, as the palette changes at its centre, which need not be the midpoint, between two middle colours
+        const steps = 50;
+        for (let i = 0; i <= steps; i++) {
+            const value = this.maxVal - (this.maxVal - this.minVal) * i / steps;
+            my_gradient.addColorStop(i / steps, this.paletteFunction(value, this.paletteFunctionSettings));
+        }
 
         this.context.beginPath();
         this.context.moveTo(bounds.x, bounds.y);
