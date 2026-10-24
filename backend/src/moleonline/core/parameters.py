@@ -90,7 +90,7 @@ WEIGHT_FUNCTIONS = ["VoronoiScale", "LengthAndRadius", "Length", "Constant"]
 
 
 class PoresParameters(Defaults):
-    """pores.json: the input of the pores tool (moleonline.pores) and the record of what the user submitted. Files of
+    """pores.json: the input of the pores tool (moleonline.worker.pores) and the record of what the user submitted. Files of
     earlier versions miss fields (IsBetaBarrel was IsBetaBarel): their defaults."""
     Structure: str = ""  # the structure file of the computation
     PdbId: str | None = None  # OPM entry to use; None when the structure is not the PDB entry as OPM has it

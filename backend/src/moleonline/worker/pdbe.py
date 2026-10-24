@@ -9,11 +9,8 @@ from xml.etree import ElementTree as ET
 
 import httpx2
 
-from .upload import MAX_STRUCTURE_MB, MB
-
-PREFERRED, ASYMMETRIC = "preferred", "asymmetric"
-ASSEMBLY = re.compile(r"^[A-Za-z0-9]{1,10}$")  # goes into PDBe's URL
-PDB_ID = re.compile(r"^[A-Za-z0-9_]{1,12}$")  # also extended ids (pdb_00001abc); a file name and part of PDBe's URL
+from ..core.entries import ASYMMETRIC, PREFERRED
+from ..core.limits import MAX_STRUCTURE_MB, MB
 
 
 def client() -> httpx2.AsyncClient:

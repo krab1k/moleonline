@@ -7,8 +7,8 @@ import zlib
 from pathlib import Path
 from typing import BinaryIO
 
-MAX_STRUCTURE_MB = 30  # also of a structure downloaded from PDBe
-MB = 1024 * 1024
+from ..core.limits import MAX_STRUCTURE_MB, MB
+
 MAX_REQUEST_BYTES = (MAX_STRUCTURE_MB + 1) * MB  # the file and the form around it; the file is checked when stored
 STRUCTURE_NAME = re.compile(r"\.(pdb|cif)(\.gz)?$")  # MOLE and the web use the first model
 

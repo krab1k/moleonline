@@ -9,9 +9,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from moleonline import runner, storage, work
-from moleonline.config import Settings
-from moleonline.main import create_app
+from moleonline.api.main import create_app
+from moleonline.core import storage
+from moleonline.core.config import Settings
+from moleonline.worker import runner, work
 
 # a PostgreSQL database the tests empty before each test, postgresql+asyncpg://… (README.md#development)
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")

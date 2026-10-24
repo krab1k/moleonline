@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from moleonline import upload as uploads
+from moleonline.api import upload as uploads
 
 from .conftest import STRUCTURE, query, running, upload, wait, wait_for_file, wait_session
 from .test_runner import UNTIL_GO

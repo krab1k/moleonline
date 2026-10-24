@@ -7,7 +7,7 @@ usage: uv run python tools/openapi.py
 import json
 from pathlib import Path
 
-from moleonline.main import create_app
+from moleonline.api.main import create_app
 
 OPENAPI = Path(__file__).parent.parent / "openapi.json"
 

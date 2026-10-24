@@ -1,4 +1,4 @@
-"""The API: uvicorn moleonline.main:app. Documentation at /docs, the OpenAPI description at /openapi.json."""
+"""The API: uvicorn moleonline.api.main:app. Documentation at /docs, the OpenAPI description at /openapi.json."""
 
 import functools
 import json
@@ -22,13 +22,15 @@ from pydantic import BaseModel, ConfigDict
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import data, pdbe, storage, upload
-from .config import HttpSettings, Settings
+from ..core import entries, storage
+from ..core.config import HttpSettings, Settings
+from ..core.parameters import MoleParameters, PoresRequest
+from ..core.storage import Job, JobState, Refused, Session, SessionState, StoredSession
+from ..worker import pdbe
+from ..worker.runner import Runner
+from ..worker.versions import read_mole_version
+from . import data, upload
 from .csa import CSA, CSAResidue
-from .parameters import MoleParameters, PoresRequest
-from .runner import Runner
-from .storage import Job, JobState, Refused, Session, SessionState, StoredSession
-from .versions import read_mole_version
 
 log = logging.getLogger("uvicorn.error")  # the API's log, in uvicorn's format, one line per event
 
@@ -113,7 +115,7 @@ class NewSession(BaseModel):
     model_config = ConfigDict(extra="forbid")
     pdb_id: str
     # preferred: PDBe's preferred assembly, the one OPM has; asymmetric: the asymmetric unit; or an assembly id
-    assembly: str = pdbe.PREFERRED
+    assembly: str = entries.PREFERRED
 
 
 def created(request: Request, response: Response, s: StoredSession) -> Session:
@@ -250,11 +252,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         created_id = None
         settings: Settings = request.app.state.settings
         try:
-            if not pdbe.PDB_ID.match(new.pdb_id):
+            if not entries.PDB_ID.match(new.pdb_id):
                 return problem(422, f"Invalid PDB id [{new.pdb_id}].")
-            if not pdbe.ASSEMBLY.match(new.assembly):
+            if not entries.ASSEMBLY.match(new.assembly):
                 return problem(422, f"Invalid assembly [{new.assembly}]. "
-                                    f"Use {pdbe.PREFERRED}, {pdbe.ASYMMETRIC} or an assembly id of the entry.")
+                                    f"Use {entries.PREFERRED}, {entries.ASYMMETRIC} or an assembly id of the entry.")
             s = await storage.create(request.app.state.db, settings.working_directory, queue_limit(settings),
                                      request.app.state.mole_version, pdb_id=new.pdb_id.lower(), assembly=new.assembly)
             created_id = s.id

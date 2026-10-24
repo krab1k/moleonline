@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from moleonline.pores.membrane import read_structure
-from moleonline.pores.opm import membrane_from_opm
-from moleonline.pores.path import end_points, write_mole_input
+from moleonline.worker.pores.membrane import read_structure
+from moleonline.worker.pores.opm import membrane_from_opm
+from moleonline.worker.pores.path import end_points, write_mole_input
 
 REFERENCE = Path(__file__).parent / "data"
 MOLE = os.environ.get("MOLE2")

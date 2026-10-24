@@ -7,7 +7,7 @@ import re
 import signal
 from pathlib import Path
 
-from .config import Settings
+from ..core.config import Settings
 
 MOLE_LINE = re.compile(r"^WebChemistry Tunnels (\S+),")
 

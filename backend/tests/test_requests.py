@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 
-from moleonline import storage
+from moleonline.core import storage
 
 from .conftest import STRUCTURE, query, upload, wait_session
 
@@ -41,8 +41,8 @@ def test_id_from_the_request_is_letters_and_digits(database):
 def test_stats(client, settings):
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait_session(client, id)
-    output = subprocess.run([sys.executable, "-m", "moleonline.stats", "year"], env=os.environ | {"DATABASE_URL": settings.database_url},
-                            capture_output=True, text=True, check=True).stdout
+    output = subprocess.run([sys.executable, "-m", "moleonline.api.stats", "year"],
+                            env=os.environ | {"DATABASE_URL": settings.database_url}, capture_output=True, text=True, check=True).stdout
     header, row = [line.split("\t") for line in output.splitlines()]
     values = dict(zip(header, row, strict=True))
     assert values["sessions"] == "1" and values["uploads"] == "1" and values["users"] == "1"

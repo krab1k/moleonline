@@ -44,7 +44,7 @@ extend-select = ["E", "W", "B", "RUF"]
 
 [tool.alembic]
 # the one revision (until MOLEonline is deployed) is made anew: README.md#database
-script_location = "%(here)s/src/moleonline/migrations"
+script_location = "%(here)s/src/moleonline/core/migrations"
 
 [[tool.alembic.post_write_hooks]]
 name = "ruff"

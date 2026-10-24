@@ -10,9 +10,10 @@ from alembic.runtime.migration import MigrationContext
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from moleonline import runner, storage
-from moleonline.main import create_app
-from moleonline.storage import INTERRUPTED, STOPPED_LOAD, Database, JobState, Refused, SessionState
+from moleonline.api.main import create_app
+from moleonline.core import storage
+from moleonline.core.storage import INTERRUPTED, STOPPED_LOAD, Database, JobState, Refused, SessionState
+from moleonline.worker import runner
 
 from .conftest import wait_session
 

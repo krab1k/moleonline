@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from moleonline.config import Settings
-from moleonline.versions import ToolError, read_mole_version
+from moleonline.core.config import Settings
+from moleonline.worker.versions import ToolError, read_mole_version
 
 from .conftest import MOLE_VERSION, script
 
