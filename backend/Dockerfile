@@ -1,4 +1,4 @@
-# MOLEonline API (src/moleonline, with the pores tool) with MOLE 2 and MEMEMBED; MOLE needs the .NET runtime.
+# MOLEonline's API and workers (src/moleonline, with the pores tool) with MOLE 2 and MEMEMBED; MOLE needs the .NET runtime.
 # The sessions' files and downloaded OPM files are kept in /data, the rest in the database (DATABASE_URL).
 
 # MEMEMBED (GPL v2): https://github.com/psipred/MemEmbed, unmodified, built without -Werror (newer compilers warn);
@@ -31,6 +31,7 @@ EXPOSE 8080
 # the reverse proxies whose X-Forwarded-For gives the client address (the request log), uvicorn's setting: private
 # networks, where a proxy in front (nginx in compose, an ingress in Kubernetes) has an address not known in advance
 ENV FORWARDED_ALLOW_IPS=127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7
-# one process: the runs and their slots are kept in memory; requests are logged by the proxy in front. uvicorn reads
-# its other options from UVICORN_* variables, e.g. UVICORN_ROOT_PATH=/api behind a proxy serving the API under /api/
+# the API; a worker is the same image with the entrypoint python -m moleonline.worker (compose.yaml). Requests are
+# logged by the proxy in front. uvicorn reads its other options from UVICORN_* variables, e.g. UVICORN_ROOT_PATH=/api
+# behind a proxy serving the API under /api/
 ENTRYPOINT ["/app/.venv/bin/uvicorn", "moleonline.api.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]

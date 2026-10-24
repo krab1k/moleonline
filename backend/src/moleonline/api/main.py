@@ -1,5 +1,6 @@
 """The API: uvicorn moleonline.api.main:app. Documentation at /docs, the OpenAPI description at /openapi.json."""
 
+import asyncio
 import functools
 import json
 import logging
@@ -23,12 +24,9 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..core import entries, storage
-from ..core.config import HttpSettings, Settings
+from ..core.config import ApiSettings, HttpSettings
 from ..core.parameters import MoleParameters, PoresRequest
 from ..core.storage import Job, JobState, Refused, Session, SessionState, StoredSession
-from ..worker import pdbe
-from ..worker.runner import Runner
-from ..worker.versions import read_mole_version
 from . import data, upload
 from .csa import CSA, CSAResidue
 
@@ -72,9 +70,18 @@ STATIC_FILES = Path(__file__).parent / "static"  # served at /: the example inpu
 COFACTORS = STATIC_FILES / "inputs" / "cofactors.json"
 
 
-def queue_limit(settings: Settings) -> int:
-    """Runs queued or running at most: those in the slots and those waiting for one"""
-    return settings.max_concurrent_computations + settings.max_queued_computations
+CLEANUP_SECONDS = 10.0  # at most, how often runs whose lease expired are failed as interrupted
+
+
+async def clean_up(db: storage.Database, timeout: float) -> None:
+    """Fails the runs whose lease expired (their worker crashed, was killed, lost its node), until cancelled"""
+    while True:
+        await asyncio.sleep(min(CLEANUP_SECONDS, timeout / 3))
+        try:
+            if expired := await storage.expire(db, timeout):
+                log.warning("%d runs were interrupted, their workers stopped renewing their leases", expired)
+        except Exception as e:  # noqa: BLE001 (e.g. the database is not available for a moment; tried again)
+            log.warning("Runs whose lease expired could not be looked for: %s", e)
 
 
 # the job types as the request log names them (Mole, Pores), as the former API's endpoints
@@ -125,16 +132,16 @@ def created(request: Request, response: Response, s: StoredSession) -> Session:
 
 
 class Version(BaseModel):
-    api: str  # also of the pores tool, part of the API
-    mole: str
+    api: str  # of the backend: the API and the workers, with the pores tool
+    mole: str | None  # of the MOLE that took the latest run; None before the first one
 
 
 async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
     """A session of the uploaded structure, or why it is refused"""
     if int(request.headers.get("content-length") or 0) > upload.MAX_REQUEST_BYTES:  # not read at all
         return problem(413, upload.TOO_LARGE)
-    settings: Settings = request.app.state.settings
-    if await storage.queue_is_full(request.app.state.db, queue_limit(settings)):  # not read either
+    settings: ApiSettings = request.app.state.settings
+    if await storage.queue_is_full(request.app.state.db, settings.max_outstanding_computations):  # not read either
         raise storage.QUEUE_FULL
     async with request.form() as form:
         file = form.get("file")
@@ -148,31 +155,27 @@ async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
             if refused := await run_in_threadpool(upload.store, file.file, gzipped, temp):
                 return problem(*refused)
             # the queue is checked again, with the session added in one step: other uploads may have filled it
-            s = await storage.create(request.app.state.db, settings.working_directory, queue_limit(settings),
-                                     request.app.state.mole_version, structure=temp, structure_file=name)
+            s = await storage.create(request.app.state.db, settings.working_directory, settings.max_outstanding_computations,
+                                     structure=temp, structure_file=name)
         finally:
             temp.unlink(missing_ok=True)
     return s
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: ApiSettings | None = None) -> FastAPI:
     """settings: from the environment by default"""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        app.state.settings = settings or Settings()  # a wrong setting stops the start
-        app.state.mole_version = await read_mole_version(app.state.settings)
+        app.state.settings = settings or ApiSettings()  # a wrong setting stops the start
         app.state.db = storage.Database(app.state.settings.database_url)
         await app.state.db.migrate()
-        if interrupted := await storage.interrupt(app.state.db):  # one API process: they are the previous one's
-            log.warning("%d runs were interrupted by a restart", interrupted)
-        app.state.pdbe = pdbe.client()
-        app.state.runner = Runner(app.state.settings, app.state.db, lambda: app.state.pdbe, app.state.mole_version)
-        app.state.runner.start()
+        # the runs are run by the workers (python -m moleonline.worker); the API fails those whose lease expired
+        cleanup = asyncio.create_task(clean_up(app.state.db, app.state.settings.worker_timeout_seconds))
         app.mount("/", StaticFiles(directory=STATIC_FILES))  # after the endpoints, it would hide them
         yield
-        await app.state.runner.stop()
-        await app.state.pdbe.aclose()
+        cleanup.cancel()
+        await asyncio.gather(cleanup, return_exceptions=True)
         await app.state.db.close()
 
     # operation ids are the functions' names (get_job), readable in generated clients, not FastAPI's
@@ -234,9 +237,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return RedirectResponse("docs")  # relative: also behind a proxy's prefix (/api/)
 
     @app.get("/version")
-    def get_version(request: Request) -> Version:
-        """Versions of the API (with the pores tool) and of MOLE"""
-        return Version(api=app.version, mole=request.app.state.mole_version)
+    async def get_version(request: Request) -> Version:
+        """Versions of the backend (the API, the workers with the pores tool) and of the MOLE that took the latest run"""
+        return Version(api=app.version, mole=await storage.mole_version(request.app.state.db))
 
     @app.get("/cofactors")
     def get_cofactors() -> dict[str, str]:
@@ -250,15 +253,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """A session of a PDB entry: downloaded from PDBe and loaded by MOLE in the background. Poll the session
         (Location) until it is ready or failed."""
         created_id = None
-        settings: Settings = request.app.state.settings
+        settings: ApiSettings = request.app.state.settings
         try:
             if not entries.PDB_ID.match(new.pdb_id):
                 return problem(422, f"Invalid PDB id [{new.pdb_id}].")
             if not entries.ASSEMBLY.match(new.assembly):
                 return problem(422, f"Invalid assembly [{new.assembly}]. "
                                     f"Use {entries.PREFERRED}, {entries.ASYMMETRIC} or an assembly id of the entry.")
-            s = await storage.create(request.app.state.db, settings.working_directory, queue_limit(settings),
-                                     request.app.state.mole_version, pdb_id=new.pdb_id.lower(), assembly=new.assembly)
+            s = await storage.create(request.app.state.db, settings.working_directory, settings.max_outstanding_computations,
+                                     pdb_id=new.pdb_id.lower(), assembly=new.assembly)
             created_id = s.id
             return created(request, response, s)
         finally:
@@ -344,8 +347,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def create_job(request: Request, response: Response, session_id: str, new: NewJob) -> Job:
         """A job on the session's structure, run in the background: queued, running, then finished, failed or
         cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
-        running); it waits for a slot, queued, and 503 (Retry-After) when the queue is full."""
-        settings: Settings = request.app.state.settings
+        running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full."""
+        settings: ApiSettings = request.app.state.settings
         await storage.log_request(request.app.state.db, "Submit", request.client and request.client.host, LOGGED_TYPES[new.type],
                                   session_id)
         found = await find(request, session_id)
@@ -353,8 +356,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return found
         if problems := new.parameters.problems():
             return problem(422, problems)
-        job = await storage.add_job(request.app.state.db, found, new.type, new.parameters.model_dump(), request.app.state.mole_version,
-                                    queue_limit(settings))
+        job = await storage.add_job(request.app.state.db, found, new.type, new.parameters.model_dump(),
+                                    settings.max_outstanding_computations)
         response.headers["Location"] = request.url_for("get_job", session_id=session_id, number=job.number).path
         return job
 

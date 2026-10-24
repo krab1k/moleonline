@@ -51,7 +51,7 @@ def test_cancelled_load(api):
 
 
 def test_load_cancelled_while_waiting_for_a_slot(api):
-    client = api(load=UNTIL_GO, slots=1)
+    client = api(load=UNTIL_GO, workers=1)
     folder = client.app.state.settings.working_directory
     first = started_load(client)
     waiting = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
@@ -112,7 +112,7 @@ def test_unknown_session(client, method, path):
 
 
 def test_loads_are_refused_when_the_queue_is_full(api, settings):
-    client = api(load=UNTIL_GO, slots=1, queued=0)
+    client = api(load=UNTIL_GO, workers=1, queued=0)
     started_load(client)  # the only slot, no queue
     refused = upload(client, "1tqn.cif", STRUCTURE)
     assert refused.status_code == 503 and refused.headers["retry-after"] == "60"
@@ -123,7 +123,7 @@ def test_loads_are_refused_when_the_queue_is_full(api, settings):
 
 def test_overlapping_uploads_do_not_overfill_the_queue(api, monkeypatch):
     """Both pass the check before their files are read; the one stored second is refused when it would start"""
-    client = api(load=UNTIL_GO, slots=1, queued=0)
+    client = api(load=UNTIL_GO, workers=1, queued=0)
     store = uploads.store
 
     def slow(*args):  # in a worker thread: the other upload arrives meanwhile

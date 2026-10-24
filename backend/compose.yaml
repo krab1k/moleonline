@@ -1,5 +1,5 @@
-# The MOLE API on its own, on port API_PORT. Settings (backend/README.md#configuration) in .env next to this file, which
-# compose also reads for the variables below, e.g. CORS_ORIGINS='["https://moleonline.cz"]'.
+# The MOLE API on its own, on port API_PORT, with its workers and database. Settings (backend/README.md#configuration) in
+# .env next to this file, which compose also reads for the variables below, e.g. CORS_ORIGINS='["https://moleonline.cz"]'.
 name: moleonline-api
 
 services:
@@ -21,7 +21,6 @@ services:
     build: .
     image: moleonline-api
     restart: unless-stopped
-    init: true # reaps processes left by killed computations
     ports:
       - "${API_PORT:-8000}:8080"
     env_file:
@@ -32,10 +31,36 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # all computations together; above it the kernel kills the largest process, a computation, not the whole host
-    mem_limit: ${API_MEMORY_LIMIT:-24g}
+    mem_limit: 2g # answers requests and queues runs; the workers compute
+    volumes:
+      - data:/data # the sessions' files
+
+  # runs the queued computations, one at a time each; WORKERS of them, or: docker compose up -d --scale worker=N
+  worker:
+    image: moleonline-api # the API's image, with MOLE and MEMEMBED (built by the service api)
+    entrypoint: ["/app/.venv/bin/python", "-m", "moleonline.worker"]
+    restart: unless-stopped
+    init: true # reaps processes left by killed computations
+    stop_grace_period: 30s # SIGTERM: its run's processes are killed, the run fails as interrupted
+    scale: ${WORKERS:-4}
+    # of its one computation: near it MOLE (.NET) stops as out of memory, above it the kernel kills the computation
+    mem_limit: ${WORKER_MEMORY_LIMIT:-6g}
     # the same, so no swap: by default the container may swap as much again, slowing the host instead of the kill
-    memswap_limit: ${API_MEMORY_LIMIT:-24g}
+    memswap_limit: ${WORKER_MEMORY_LIMIT:-6g}
+    # unhealthy (shown, not restarted by compose) when its loop hangs: it touches /tmp/heartbeat at least every 2 s,
+    # also while it waits for the database; $$: the container's shell, not compose's variables
+    healthcheck:
+      test: ["CMD-SHELL", 'test $$(( $$(date +%s) - $$(stat -c %Y /tmp/heartbeat) )) -lt 60']
+      interval: 30s
+      start_period: 60s
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mole:${POSTGRES_PASSWORD:-mole}@db/mole
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - data:/data # the sessions' files, OPM files
 

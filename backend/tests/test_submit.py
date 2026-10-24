@@ -181,7 +181,7 @@ def test_finished_job_cannot_be_cancelled_and_unknown_jobs_are_404(api):
 
 
 def test_jobs_wait_in_the_queue_until_it_is_full(api):
-    client = api(run=UNTIL_GO, slots=1, queued=1)
+    client = api(run=UNTIL_GO, workers=1, queued=1)
     first, second, third = loaded(client), loaded(client), loaded(client)
     folder = client.app.state.settings.working_directory
     submit(client, first)
@@ -205,7 +205,7 @@ def test_jobs_wait_in_the_queue_until_it_is_full(api):
 
 
 def test_queued_job_is_cancelled_before_it_runs(api):
-    client = api(run=UNTIL_GO, slots=1)
+    client = api(run=UNTIL_GO, workers=1)
     first, second = loaded(client), loaded(client)
     folder = client.app.state.settings.working_directory
     submit(client, first)

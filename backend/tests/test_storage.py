@@ -1,7 +1,9 @@
 """Sessions, jobs and runs in the database: each change of state applies only from the state it expects, the queue's
-limit holds for concurrent requests, runs left running by a stopped API are interrupted"""
+limit holds for concurrent requests, a run whose lease expired fails as interrupted and is never written by its worker"""
 
 import asyncio
+import dataclasses
+import time
 from pathlib import Path
 
 import pytest
@@ -13,12 +15,10 @@ from sqlalchemy import text
 from moleonline.api.main import create_app
 from moleonline.core import storage
 from moleonline.core.storage import INTERRUPTED, STOPPED_LOAD, Database, JobState, Refused, SessionState
-from moleonline.worker import runner
-
-from .conftest import wait_session
 
 VERSION = "2.5.26.10.17"
 LIMIT = 100  # of the queue, unless a test says otherwise
+WORKER, TIMEOUT = "worker-1", 60  # holding the leases of the runs it takes; seconds until a lease not renewed expires
 
 
 def run(database: str, check) -> None:
@@ -44,8 +44,8 @@ async def ready_session(db: Database, folder: Path) -> storage.StoredSession:
     """A loaded session of an upload, its load's run done"""
     structure = folder.parent / "upload"
     structure.write_text("x")
-    s = await storage.create(db, folder, LIMIT, VERSION, structure=structure, structure_file="1tqn.cif")
-    assert await storage.end(db, await storage.claim(db, VERSION))
+    s = await storage.create(db, folder, LIMIT, structure=structure, structure_file="1tqn.cif")
+    assert await storage.end(db, await storage.claim(db, WORKER, VERSION, TIMEOUT))
     return await storage.get(db, folder, s.id)
 
 
@@ -60,9 +60,9 @@ def test_tables_are_those_of_the_revision(database):
 
 def test_runs_are_taken_oldest_first_and_once(database, folder):
     async def check(db: Database):
-        first = await storage.create(db, folder, LIMIT, VERSION, pdb_id="1tqn", assembly="preferred")
-        second = await storage.create(db, folder, LIMIT, VERSION, pdb_id="2bg9", assembly="preferred")
-        taken = await asyncio.gather(*[storage.claim(db, VERSION) for _ in range(4)])  # slots looking at once
+        first = await storage.create(db, folder, LIMIT, pdb_id="1tqn", assembly="preferred")
+        second = await storage.create(db, folder, LIMIT, pdb_id="2bg9", assembly="preferred")
+        taken = await asyncio.gather(*[storage.claim(db, WORKER, VERSION, TIMEOUT) for _ in range(4)])  # workers looking at once
         assert sorted(r.session_id for r in taken if r) == sorted([first.id, second.id])
         assert [(await storage.get(db, folder, s.id)).state for s in (first, second)] == [SessionState.loading] * 2
     run(database, check)
@@ -71,15 +71,15 @@ def test_runs_are_taken_oldest_first_and_once(database, folder):
 def test_late_outcome_never_overwrites_a_cancel_or_a_delete(database, folder):
     async def check(db: Database):
         s = await ready_session(db, folder)
-        await storage.add_job(db, s, "tunnels", {}, VERSION, LIMIT)
-        job_run = await storage.claim(db, VERSION)
+        await storage.add_job(db, s, "tunnels", {}, LIMIT)
+        job_run = await storage.claim(db, WORKER, VERSION, TIMEOUT)
         assert await storage.cancel_job(db, s.id, 1)
-        assert not await storage.is_running(db, job_run)  # its slot stops it
+        assert not await storage.renew(db, job_run)  # its worker stops it
         assert not await storage.end(db, job_run, None)  # the outcome comes too late
         assert (await storage.get(db, folder, s.id)).job(1).state == JobState.cancelled
 
-        loading = await storage.create(db, folder, LIMIT, VERSION, pdb_id="1tqn", assembly="preferred")
-        load_run = await storage.claim(db, VERSION)
+        loading = await storage.create(db, folder, LIMIT, pdb_id="1tqn", assembly="preferred")
+        load_run = await storage.claim(db, WORKER, VERSION, TIMEOUT)
         await storage.delete(db, loading.id)
         assert not await storage.store_structure(db, load_run, "1tqn.cif", "1", True)
         assert not await storage.end(db, load_run, None)
@@ -89,36 +89,36 @@ def test_late_outcome_never_overwrites_a_cancel_or_a_delete(database, folder):
 
 
 def test_a_run_records_the_mole_that_runs_it(database, folder):
-    """Queued with one MOLE, run by an API with another (queued runs wait over a restart, also an upgrade)"""
+    """Taken by a worker with its MOLE: queued runs wait over a restart, also an upgrade of the workers"""
     async def check(db: Database):
         s = await ready_session(db, folder)
-        await storage.add_job(db, s, "tunnels", {}, "2.5.1", LIMIT)
-        loading = await storage.create(db, folder, LIMIT, "2.5.1", pdb_id="1tqn", assembly="preferred")
-        await storage.claim(db, VERSION)
-        await storage.claim(db, VERSION)
+        await storage.add_job(db, s, "tunnels", {}, LIMIT)
+        loading = await storage.create(db, folder, LIMIT, pdb_id="1tqn", assembly="preferred")
+        await storage.claim(db, WORKER, VERSION, TIMEOUT)
+        await storage.claim(db, WORKER, VERSION, TIMEOUT)
         assert (await storage.get(db, folder, s.id)).job(1).mole_version == VERSION
         assert (await storage.get(db, folder, loading.id)).mole_version == VERSION
     run(database, check)
 
 
 def test_a_lost_candidate_keeps_no_lock(database, folder):
-    """A slot whose candidate run was cancelled while it waited for its session tries the next one without the first
+    """A worker whose candidate run was cancelled while it waited for its session tries the next one without the first
     session's lock: another transaction holding the next session's lock and wanting the first's never deadlocks"""
     async def check(db: Database):
-        first = await storage.create(db, folder, LIMIT, VERSION, pdb_id="1tqn", assembly="preferred")
-        second = await storage.create(db, folder, LIMIT, VERSION, pdb_id="2bg9", assembly="preferred")
+        first = await storage.create(db, folder, LIMIT, pdb_id="1tqn", assembly="preferred")
+        second = await storage.create(db, folder, LIMIT, pdb_id="2bg9", assembly="preferred")
         lock = "SELECT id FROM sessions WHERE id = :id FOR UPDATE"
         async with db.engine.connect() as one, db.engine.connect() as other:
             await one.begin()
             await one.execute(text(lock), {"id": first.id})
-            claiming = asyncio.create_task(storage.claim(db, VERSION))  # waits for the first session
+            claiming = asyncio.create_task(storage.claim(db, WORKER, VERSION, TIMEOUT))  # waits for the first session
             await asyncio.sleep(0.3)
             await other.begin()
             await other.execute(text("SET LOCAL lock_timeout = '3s'"))
             await other.execute(text(lock), {"id": second.id})
             await one.execute(text("UPDATE runs SET phase = 'done' WHERE session_id = :id"), {"id": first.id})  # cancelled
             await one.commit()
-            await asyncio.sleep(0.3)  # the slot tries the second, waits for its session
+            await asyncio.sleep(0.3)  # the worker tries the second, waits for its session
             await other.execute(text(lock), {"id": first.id})  # free: no deadlock, no timeout
             await other.commit()
         assert (await claiming).session_id == second.id
@@ -128,7 +128,7 @@ def test_a_lost_candidate_keeps_no_lock(database, folder):
 def test_one_of_two_jobs_submitted_at_once_is_refused(database, folder):
     async def check(db: Database):
         s = await ready_session(db, folder)
-        results = await asyncio.gather(*[storage.add_job(db, s, "tunnels", {}, VERSION, LIMIT) for _ in range(2)],
+        results = await asyncio.gather(*[storage.add_job(db, s, "tunnels", {}, LIMIT) for _ in range(2)],
                                        return_exceptions=True)
         assert sorted(type(r).__name__ for r in results) == ["Job", "Refused"]
         assert next(r for r in results if isinstance(r, Refused)).status == 409
@@ -137,7 +137,7 @@ def test_one_of_two_jobs_submitted_at_once_is_refused(database, folder):
 
 def test_the_queue_limit_holds_for_requests_at_once(database, folder):
     async def check(db: Database):
-        results = await asyncio.gather(*[storage.create(db, folder, 3, VERSION, pdb_id="1tqn", assembly="preferred") for _ in range(8)],
+        results = await asyncio.gather(*[storage.create(db, folder, 3, pdb_id="1tqn", assembly="preferred") for _ in range(8)],
                                        return_exceptions=True)
         assert sum(isinstance(r, storage.StoredSession) for r in results) == 3
         assert all(r is storage.QUEUE_FULL for r in results if not isinstance(r, storage.StoredSession))
@@ -145,28 +145,119 @@ def test_the_queue_limit_holds_for_requests_at_once(database, folder):
     run(database, check)
 
 
-def test_runs_of_a_stopped_api_are_interrupted_and_queued_ones_kept(settings, tmp_path, monkeypatch):
-    """The API marks the runs a previous API left running when it starts; a queued one runs then"""
+async def stale(db: Database, run: storage.Run) -> None:
+    """Its lease was last renewed long ago, as of a worker that stopped renewing it"""
+    async with db.engine.begin() as c:
+        await c.execute(text("UPDATE runs SET heartbeat = now() - interval '1 hour' WHERE id = :id"), {"id": run.id})
+
+
+def test_a_held_lease_is_renewed_and_does_not_expire(database, folder):
+    async def check(db: Database):
+        s = await storage.create(db, folder, LIMIT, pdb_id="1tqn", assembly="preferred")
+        taken = await storage.claim(db, WORKER, VERSION, TIMEOUT)
+        assert await storage.renew(db, taken)
+        assert await storage.expire(db, TIMEOUT) == 0
+        assert not await storage.renew(db, dataclasses.replace(taken, worker="worker-2"))  # only its worker holds it
+        assert await storage.store_structure(db, taken, "1tqn.cif", "1", True)
+        assert await storage.end(db, taken)
+        assert (await storage.get(db, folder, s.id)).state == SessionState.ready
+    run(database, check)
+
+
+def test_an_expired_lease_is_never_renewed_nor_written_with(database, folder):
+    """Its worker comes back (e.g. the database was away) before the cleanup marked the run: it can neither renew the
+    lease nor store anything; the cleanup then fails the run as interrupted"""
+    async def check(db: Database):
+        s = await ready_session(db, folder)
+        await storage.add_job(db, s, "tunnels", {}, LIMIT)
+        loading = await storage.create(db, folder, LIMIT, pdb_id="1tqn", assembly="preferred")
+        job_run, load_run = await storage.claim(db, WORKER, VERSION, TIMEOUT), await storage.claim(db, WORKER, VERSION, TIMEOUT)
+        for taken in (job_run, load_run):
+            await stale(db, taken)
+            assert not await storage.renew(db, taken)
+            assert not await storage.end(db, taken)
+        assert not await storage.store_structure(db, load_run, "1tqn.cif", "1", True)
+        assert await storage.expire(db, TIMEOUT) == 2
+        assert await storage.expire(db, TIMEOUT) == 0
+        job = (await storage.get(db, folder, s.id)).job(1)
+        assert (job.state, job.error) == (JobState.failed, INTERRUPTED) and job.finished is not None
+        failed = await storage.get(db, folder, loading.id)
+        assert (failed.state, failed.error, failed.structure_file) == (SessionState.failed, INTERRUPTED, None)
+        assert (await storage.get(db, folder, s.id)).state == SessionState.ready  # the structure is still loaded
+    run(database, check)
+
+
+async def locked_meanwhile(db: Database, session_id: str, seconds: float, waiting) -> object:
+    """waiting's result; it waits for the session's lock, held by another transaction for seconds"""
+    async with db.engine.connect() as other:
+        await other.begin()
+        await other.execute(text("SELECT id FROM sessions WHERE id = :id FOR UPDATE"), {"id": session_id})
+        task = asyncio.create_task(waiting)
+        await asyncio.sleep(seconds)
+        await other.commit()
+    return await task
+
+
+@pytest.mark.parametrize("write", ["end", "store_structure"])
+def test_a_lease_expiring_while_a_write_waits_for_the_lock_is_not_written_with(database, folder, write):
+    """The lease is checked when the write runs, not when its transaction began: it waited for the session's lock
+    meanwhile, past the lease's timeout"""
+    async def check(db: Database):
+        s = await storage.create(db, folder, LIMIT, pdb_id="1tqn", assembly="preferred")
+        taken = await storage.claim(db, WORKER, VERSION, 1)
+        writing = storage.end(db, taken) if write == "end" else storage.store_structure(db, taken, "1tqn.cif", "1", True)
+        assert not await locked_meanwhile(db, s.id, 1.5, writing)
+        stored = await storage.get(db, folder, s.id)
+        assert (stored.state, stored.structure_file) == (SessionState.loading, None)
+    run(database, check)
+
+
+def test_a_claim_waiting_for_the_lock_gets_a_whole_lease(database, folder):
+    """The lease starts when the claim takes the run, not when its transaction began, before it waited for the
+    session's lock longer than the lease's timeout"""
+    async def check(db: Database):
+        s = await storage.create(db, folder, LIMIT, pdb_id="1tqn", assembly="preferred")
+        taken = await locked_meanwhile(db, s.id, 1.5, storage.claim(db, WORKER, VERSION, 1))
+        assert await storage.renew(db, taken)
+    run(database, check)
+
+
+def test_the_api_fails_runs_whose_lease_expired(settings, monkeypatch):
+    """The API's cleanup (every third of the timeout): a worker stopped renewing the lease of its run"""
+    settings = settings.model_copy(update={"worker_timeout_seconds": 5})
     ids = {}
 
     async def left(db: Database):
-        s = await ready_session(db, settings.working_directory)
-        ids["job"] = s.id
-        await storage.add_job(db, s, "tunnels", {}, VERSION, LIMIT)
-        ids["load"] = (await storage.create(db, settings.working_directory, LIMIT, VERSION, pdb_id="1tqn", assembly="preferred")).id
-        assert (await storage.claim(db, VERSION)).session_id == ids["job"]
-        assert (await storage.claim(db, VERSION)).session_id == ids["load"]  # both running, as when the API stopped
-        (tmp_path / "x").write_text("x")
-        ids["queued"] = (await storage.create(db, settings.working_directory, LIMIT, VERSION, structure=tmp_path / "x",
-                                              structure_file="1tqn.cif")).id
+        ids["session"] = (await storage.create(db, settings.working_directory, LIMIT, pdb_id="1tqn", assembly="preferred")).id
+        await stale(db, await storage.claim(db, WORKER, VERSION, 5))
     run(settings.database_url, left)
-    monkeypatch.setattr(runner, "IDLE_SECONDS", 0.02)
     with TestClient(create_app(settings)) as client:
-        assert client.get(f"/sessions/{ids['load']}").json()["error"] == INTERRUPTED
-        job = client.get(f"/sessions/{ids['job']}/jobs/1").json()
-        assert (job["state"], job["error"]) == ("failed", INTERRUPTED)
-        assert client.get(f"/sessions/{ids['job']}").json()["state"] == "ready"  # the structure is still loaded
-        assert wait_session(client, ids["queued"])["state"] == "ready"
+        end = time.monotonic() + 10
+        while (session := client.get(f"/sessions/{ids['session']}").json())["state"] == "loading" and time.monotonic() < end:
+            time.sleep(0.1)
+        assert (session["state"], session["error"]) == ("failed", INTERRUPTED)
+
+
+@pytest.mark.parametrize("steps", range(0, 30, 3))
+def test_requests_cancelled_in_a_transaction_leave_no_trace(database, folder, steps):
+    """A request cancelled midway (the client gone, the API stopping) ends its transaction: all of it or nothing is
+    stored, its session stays usable, the connections are returned clean"""
+    async def check(db: Database):
+        s = await ready_session(db, folder)
+        adding = asyncio.create_task(storage.add_job(db, s, "tunnels", {}, LIMIT))
+        for _ in range(steps):  # cancelled at different points
+            await asyncio.sleep(0)
+        adding.cancel()
+        await asyncio.gather(adding, return_exceptions=True)
+        async with db.engine.connect() as c:
+            jobs = (await c.execute(text("SELECT count(*) FROM jobs"))).scalar()
+            runs = (await c.execute(text("SELECT count(*) FROM runs WHERE number IS NOT NULL"))).scalar()
+        assert jobs == runs <= 1  # a job always with its run
+        for _ in range(5):  # the pool's connections work, none holds the session's lock
+            assert (await storage.get(db, folder, s.id)).id == s.id
+        if jobs == 0:
+            assert (await storage.add_job(db, s, "tunnels", {}, LIMIT)).number == 1
+    run(database, check)
 
 
 @pytest.mark.parametrize("id", ["NoSuchSession", "..x", "a.b"])

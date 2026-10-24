@@ -1,17 +1,14 @@
 """Loads run by the process runner, with a fake MOLE: slots, the time limit, failures, stopping the API"""
 
-import threading
+import asyncio
 import time
 
 import pytest
-from fastapi.testclient import TestClient
 
-from moleonline.api.main import create_app
 from moleonline.core import storage
 from moleonline.core.storage import INTERRUPTED
-from moleonline.worker import runner
 
-from .conftest import STRUCTURE, gone, query, upload, wait_for_file, wait_session
+from .conftest import STRUCTURE, gone, upload, wait_for_file, wait_session
 
 # the fake MOLE marks that it started (next to its input), then waits until the test lets it go
 STARTED = 'touch "$(dirname "$1")/started"'
@@ -23,7 +20,7 @@ def load(client) -> str:
 
 
 def test_waiting_for_a_slot(api):
-    client = api(load=UNTIL_GO, slots=1)
+    client = api(load=UNTIL_GO, workers=1)
     folder = client.app.state.settings.working_directory
     first, second = load(client), load(client)
     wait_for_file(folder / first / "load" / "started")
@@ -62,7 +59,8 @@ def test_tool_that_cannot_start(api):
 def test_time_limit_kills_the_whole_process_tree(api):
     # the pores tool starts MEMEMBED as a child; the child must not keep running
     client = api(load='sleep 30 & echo $! > "$(dirname "$1")/child"; ' + UNTIL_GO)
-    client.app.state.runner.time_limit = 0.5
+    for worker in client.workers.workers:
+        worker.time_limit = 0.5
     id = load(client)
     session = wait_session(client, id)
     assert session["state"] == "failed"
@@ -71,34 +69,61 @@ def test_time_limit_kills_the_whole_process_tree(api):
     assert gone(child)
 
 
-def test_stopping_the_api_kills_runs(api, tmp_path):
-    client = api(load='sleep 30 & echo $! > "$(dirname "$1")/child"; ' + UNTIL_GO)
+def expire_all(settings) -> int:
+    """The API's cleanup, as if the leases' timeout had passed"""
+    async def expire() -> int:
+        db = storage.Database(settings.database_url)
+        try:
+            return await storage.expire(db, 0)
+        finally:
+            await db.close()
+    return asyncio.run(expire())
+
+
+def test_stopping_a_worker_kills_its_run(api):
+    """SIGTERM (a deploy): the run's processes are killed with their children; its lease expires and it fails as
+    interrupted"""
+    client = api(load='sleep 30 & echo $! > "$(dirname "$1")/child"; ' + UNTIL_GO, workers=1)
     folder = client.app.state.settings.working_directory
     id = load(client)
     wait_for_file(folder / id / "load" / "started")
     child = int((folder / id / "load" / "child").read_text())
-    client.__exit__(None, None, None)  # the API stops
+    client.workers.stop()
     assert gone(child)
-    assert query(f"SELECT state FROM sessions WHERE id = '{id}'") == [("loading",)]  # marked by the next API
+    assert client.workers.errors == []  # stopped, not failed
+    assert client.get(f"/sessions/{id}").json()["state"] == "loading"  # until its lease expires
+    assert expire_all(client.app.state.settings) == 1
+    session = client.get(f"/sessions/{id}").json()
+    assert (session["state"], session["error"]) == ("failed", INTERRUPTED)
 
 
-def test_a_run_whose_state_cannot_be_kept_stops_the_api(api, monkeypatch):
-    """The database fails while the run's outcome is stored: the API stops (and is restarted), never keeping a run it
-    no longer runs; the next API marks it interrupted"""
-    stopped = threading.Event()
-    monkeypatch.setattr(runner, "terminate", stopped.set)
-    end = storage.end
-
+def test_a_worker_that_cannot_store_an_outcome_stops(api, monkeypatch):
+    """The database fails while a run's outcome is stored: the worker kills the run and stops (and is restarted), never
+    keeping a run it no longer runs; the API goes on, the run's lease expires"""
     async def failing(*args, **kwargs):
         raise OSError("the database is not available")
     monkeypatch.setattr(storage, "end", failing)
-    client = api()
+    client = api(workers=1)
     id = load(client)
-    assert stopped.wait(10)
-    assert query(f"SELECT state FROM sessions WHERE id = '{id}'") == [("loading",)]
-    monkeypatch.setattr(storage, "end", end)  # the database is back
-    settings = client.app.state.settings
-    client.__exit__(None, None, None)
-    with TestClient(create_app(settings)) as again:
-        session = again.get(f"/sessions/{id}").json()
-        assert (session["state"], session["error"]) == ("failed", INTERRUPTED)
+    end = time.monotonic() + 10
+    while client.workers.alive() and time.monotonic() < end:
+        time.sleep(0.02)
+    assert client.workers.alive() == 0
+    assert [str(e) for e in client.workers.errors] == ["the database is not available"]
+    assert client.get(f"/sessions/{id}").json()["state"] == "loading"
+    assert expire_all(client.app.state.settings) == 1
+    assert client.get(f"/sessions/{id}").json()["error"] == INTERRUPTED
+
+
+def test_a_cancel_does_not_stop_the_worker(api):
+    """The worker kills the cancelled run, waits for its threads and takes the next run"""
+    client = api(load=UNTIL_GO, workers=1)
+    folder = client.app.state.settings.working_directory
+    first = load(client)
+    wait_for_file(folder / first / "load" / "started")
+    assert client.post(f"/sessions/{first}/cancel").status_code == 200
+    second = load(client)
+    wait_for_file(folder / second / "load" / "started")  # the same worker took it
+    (folder / second / "load" / "go").touch()
+    assert wait_session(client, second)["state"] == "ready"
+    assert client.workers.alive() == 1 and client.workers.errors == []
