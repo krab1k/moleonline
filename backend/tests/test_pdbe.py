@@ -2,14 +2,13 @@
 
 import asyncio
 import inspect
-import json
 import time
 
 import httpx2
 import pytest
 
-from .conftest import STRUCTURE, wait_session
-from .test_iplog import logged
+from .conftest import STRUCTURE, query, wait_session
+from .test_requests import logged
 
 ASSEMBLIES = b'<assemblies><assembly id="1" prefered="True"/><assembly id="2" prefered="False"/></assemblies>'
 
@@ -44,8 +43,9 @@ def create(client, pdb_id: str = "1tqn", **assembly):
     return client.post("/sessions", json={"pdb_id": pdb_id, **assembly})
 
 
-def saved(client, id: str) -> dict:
-    return json.loads((client.app.state.settings.working_directory / id / "session.json").read_text())
+def saved(id: str) -> tuple:
+    """pdb_id, structure_file, assembly_id, opm of the stored session"""
+    return tuple(query(f"SELECT pdb_id, structure_file, assembly_id, opm FROM sessions WHERE id = '{id}'")[0])
 
 
 @pytest.mark.parametrize("requested, routes, file, assembly_id, pores", [
@@ -66,8 +66,7 @@ def test_structure_is_downloaded_and_loaded(client, requested, routes, file, ass
     assert session["state"] == "ready" and session["assembly_id"] == assembly_id
 
     assert file in pdbe.requests
-    status = saved(client, id)
-    assert (status["pdb_id"], status["structure_file"], status["assembly_id"], status["opm"]) == ("1tqn", "1tqn.cif", assembly_id, pores)
+    assert saved(id) == ("1tqn", "1tqn.cif", assembly_id, pores)
     folder = client.app.state.settings.working_directory / id
     assert (folder / "1tqn.cif").read_bytes() == STRUCTURE
     assert (folder / "load" / "input.xml").exists()

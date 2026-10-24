@@ -12,8 +12,9 @@ Each directory has its own README with the details of running, configuring and d
 
 ## Running
 
-[`compose.yaml`](compose.yaml) runs both: the service `web`, nginx with the site, which forwards `/api/...` to
-the service `api`. The API has no port on the host.
+[`compose.yaml`](compose.yaml) runs them all: the service `web`, nginx with the site, which forwards `/api/...` to
+the service `api`, and `db`, PostgreSQL with the API's sessions, jobs and their queue. Only the site has a port on the
+host.
 
 ```bash
 git clone https://github.com/sb-ncbr/moleonline
@@ -28,8 +29,11 @@ Settings, in the environment or in `.env` next to `compose.yaml` (locally; on th
 |---|---|---|
 | `MOLEONLINE_PORT` | `8080` | the site's port on the host |
 | `API_MEMORY_LIMIT` | `24g` | memory of all computations together, see [`backend/README.md`](backend/README.md#configuration) |
+| `POSTGRES_PASSWORD` | `mole` | the database's, set when its volume is made |
 
-The API's data (sessions, the request log, OPM files) is in the volume `moleonline_data`.
+The API's data is in two volumes: `moleonline_db`, the database (sessions, jobs, the queue, the request log), and
+`moleonline_data`, the sessions' files and OPM files. Until MOLEonline is deployed, the database's tables are made anew
+when they change: `docker compose down -v` empties both (see [`backend/README.md`](backend/README.md#database)).
 
 ### Production and testing
 

@@ -1,4 +1,12 @@
-"""Runs MOLE and the pores tool for sessions (their loads) and jobs, in the background of the request that started them."""
+"""The API's slots: each takes the oldest queued run from the database and runs it, one at a time. A run is a session's
+load (its structure downloaded from PDBe first, unless it was uploaded) or one of its jobs: its processes (MOLE, the
+pores tool) one after another, then its finish (zipping the results). A run is stopped when it is no longer running in
+the database (cancelled, deleted): its processes are killed with their children, its state was set by whoever stopped
+it. Runs still running when the API stops are interrupted; the next API marks them so (storage.interrupt).
+
+A run whose state cannot be kept (the database failed while it ran) stops the API, which is restarted (compose,
+Kubernetes): a healthy API never keeps a run it no longer runs. Failing to take a run loses nothing, the slot tries
+again."""
 
 import asyncio
 import contextlib
@@ -6,95 +14,123 @@ import logging
 import os
 import signal
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from typing import Any
 
+import httpx2
+
+from . import pdbe, storage, work
 from .config import Settings
-from .storage import JobState, SessionState, StoredSession
+from .storage import Database, Run
+from .work import Step
 
 log = logging.getLogger("uvicorn.error")  # the API's log, in uvicorn's format, one line per event
 
+IDLE_SECONDS = 0.5  # a slot without a run looks for one this often; the tests shorten it
+CHECK_SECONDS = 0.5  # a run is checked this often: cancelled or deleted, it is stopped
+STOPPED = object()  # what a run's part returns when the run was stopped meanwhile
 
-@dataclass(frozen=True)
-class Step:
-    """A process of a run. errors_on_stderr: any output on stderr is an error (MOLE reports errors so, with exit code
-    0); otherwise the exit code decides and stderr says why it failed (the pores tool, whose warnings are no error)."""
-    command: list[str]
-    errors_on_stderr: bool = False
+
+def terminate() -> None:
+    """Stops the API as SIGTERM does (its runs' processes are killed); the tests replace it"""
+    os.kill(os.getpid(), signal.SIGTERM)
 
 
 class Runner:
-    """At most max_concurrent_computations runs at once, loads included; the others wait for a slot. A run is a
-    session's load or one of its jobs; one runs on a session at a time. Its processes run one after another and set
-    its state: loading (running) once it has a slot, then failed when a process fails (see Step), exceeds the time
-    limit or cannot be started, otherwise ready (finished).
+    """max_concurrent_computations slots"""
 
-    A run is a task: stopping it (the user, the API stopping) cancels it wherever it is, before its slot, waiting for
-    it or in a process, which is then killed with its children. A stopped run never changes the state."""
-
-    def __init__(self, settings: Settings):
-        self.slots = asyncio.Semaphore(settings.max_concurrent_computations)
+    def __init__(self, settings: Settings, db: Database, http: Callable[[], httpx2.AsyncClient], mole_version: str):
+        """http: PDBe's client, when it is needed (the tests replace it); mole_version: recorded with the runs"""
+        self.settings, self.db, self.http, self.mole_version = settings, db, http, mole_version
         self.minutes = settings.max_computation_minutes
-        self.time_limit = self.minutes * 60.0  # seconds of one run, the queue not included
-        self.runs: dict[str, asyncio.Task] = {}  # session id -> its run, until its last process exits
-        self.tasks: set[asyncio.Task] = set()  # all runs, until done
+        self.time_limit = self.minutes * 60.0  # seconds of a run's processes, the download not included
+        self.tasks: list[asyncio.Task] = []
 
-    def start(self, s: StoredSession, number: int | None, steps: Callable[[], list[Step]],
-              prepare: Callable[[], Awaitable[bool]] | None = None, finish: Callable[[], str | None] | None = None) -> None:
-        """number: the job's, None for the load. steps: the processes, made when the run gets its slot. prepare: before
-        the slot is awaited (a download), False when it failed and set the state. finish: after the last process, in a
-        thread (zipping the results), returns why the run failed. The run is registered before the request is answered:
-        a stop right after it finds the run."""
-        task = asyncio.create_task(self._run(s, number, steps, prepare, finish))
-        self.runs[s.id] = task
-        self.tasks.add(task)
-        task.add_done_callback(self.tasks.discard)
-        task.add_done_callback(lambda _: self._forget(s.id, task))
-
-    def kill(self, session_id: str) -> bool:
-        """Stops the session's run; False when it has none. Its state is the caller's."""
-        task = self.runs.pop(session_id, None)
-        if task is None:
-            return False
-        task.cancel()
-        return True
-
-    def _forget(self, session_id: str, task: asyncio.Task | None) -> None:
-        if self.runs.get(session_id) is task:  # not a later job's run
-            del self.runs[session_id]
+    def start(self) -> None:
+        self.tasks = [asyncio.create_task(self._slot()) for _ in range(self.settings.max_concurrent_computations)]
 
     async def stop(self) -> None:
-        """The API is stopping: the statuses stay (the next API marks them interrupted)"""
+        """Kills the runs' processes; the runs stay running, the next API marks them interrupted"""
         for task in self.tasks:
             task.cancel()
         await asyncio.gather(*self.tasks, return_exceptions=True)
 
-    async def _run(self, s: StoredSession, number: int | None, steps: Callable[[], list[Step]],
-                   prepare: Callable[[], Awaitable[bool]] | None, finish: Callable[[], str | None] | None) -> None:
-        running, failed, done = ((SessionState.loading, SessionState.failed, SessionState.ready) if number is None
-                                 else (JobState.running, JobState.failed, JobState.finished))
-        try:
-            if prepare and not await prepare():
+    async def _slot(self) -> None:
+        while True:
+            try:
+                run = await storage.claim(self.db, self.mole_version)
+            except Exception as e:  # noqa: BLE001 (e.g. the database is not available for a moment; nothing is lost)
+                log.warning("A slot could not take a run: %s", e)
+                await asyncio.sleep(storage.CONNECT_PAUSE)
+                continue
+            if run is None:
+                await asyncio.sleep(IDLE_SECONDS)
+                continue
+            try:
+                await self._run(run)
+            except Exception:
+                log.exception("The state of a run could not be kept, the API stops; it is marked interrupted when it starts again")
+                terminate()
                 return
-            async with self.slots:
-                s.update(number, running)
-                try:
-                    async with asyncio.timeout(self.time_limit):
-                        for step in steps():
-                            if error := await run_process(step):
-                                s.update(number, failed, error)
-                                return
-                except TimeoutError:
-                    minutes = f"{self.minutes} minute{'s' if self.minutes != 1 else ''}"
-                    s.update(number, failed, f"The computation exceeded the time limit of {minutes}.")
-                    return
-                self._forget(s.id, asyncio.current_task())  # as soon as the last process exits: no stop now
-                if finish and (error := await asyncio.to_thread(finish)):
-                    s.update(number, failed, error)
-                    return
-                s.update(number, done)
+
+    async def _run(self, run: Run) -> None:
+        s = await storage.get(self.db, self.settings.working_directory, run.session_id)
+        if run.number is None and s.structure_file is None:  # a PDB entry's
+            got = await self._while_running(run, pdbe.download(self.http(), s.folder(), s.pdb_id, s.assembly))
+            if got is STOPPED:
+                return
+            if isinstance(got, pdbe.NotDownloaded):
+                await storage.end(self.db, run, got.error, got.assembly_id)
+                return
+            if not await storage.store_structure(self.db, run, got.structure_file, got.assembly_id, got.opm):
+                return
+            s = await storage.get(self.db, self.settings.working_directory, run.session_id)
+        failure = await self._while_running(run, self._compute(run, s))
+        if failure is not STOPPED:
+            await storage.end(self.db, run, failure)
+
+    async def _while_running(self, run: Run, part: Awaitable[Any]) -> Any:
+        """The part's result, or STOPPED when the run stopped meanwhile: the part is then cancelled, its processes
+        killed; it ends before the slot takes another run"""
+        task = asyncio.ensure_future(part)
+        try:
+            while not (await asyncio.wait({task}, timeout=CHECK_SECONDS))[0]:
+                if not await storage.is_running(self.db, run):
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+                    return STOPPED
+        except BaseException:  # the API stops, or the database failed: the processes are killed
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            raise
+        return task.result()
+
+    async def _compute(self, run: Run, s: storage.StoredSession) -> str | None:
+        """Why the run failed, None when it did not"""
+        try:
+            planned = await in_thread(work.load if run.number is None else work.job, self.settings, s,
+                                      *([] if run.number is None else [run.number]))
+            try:
+                async with asyncio.timeout(self.time_limit):
+                    for step in planned.steps:
+                        if error := await run_process(step):
+                            return error
+            except TimeoutError:
+                minutes = f"{self.minutes} minute{'s' if self.minutes != 1 else ''}"
+                return f"The computation exceeded the time limit of {minutes}."
+            return await in_thread(planned.finish) if planned.finish else None
         except Exception as e:  # noqa: BLE001 (e.g. a process cannot be started; never leave the run in progress)
-            with contextlib.suppress(Exception):
-                s.update(number, failed, str(e))
+            return str(e)
+
+
+async def in_thread(f: Callable[..., Any], *args) -> Any:
+    """f(*args) in a thread; cancelled, it still waits for the thread to end (a thread cannot be stopped), so that its
+    files are not written while the next run of the slot starts"""
+    future = asyncio.ensure_future(asyncio.to_thread(f, *args))
+    try:
+        return await asyncio.shield(future)
+    except asyncio.CancelledError:
+        await asyncio.wait({future})
+        raise
 
 
 async def run_process(step: Step) -> str | None:

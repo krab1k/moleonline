@@ -1,12 +1,11 @@
 """POST /sessions/upload: one PDB or mmCIF structure, optionally gzipped, at most 30 MB also when unpacked"""
 
 import gzip
-import json
 from xml.etree import ElementTree as ET
 
 import pytest
 
-from .conftest import MOLE_VERSION, STRUCTURE, upload, wait_session
+from .conftest import MOLE_VERSION, STRUCTURE, query, upload, wait_session
 
 MB = 1024 * 1024
 
@@ -31,10 +30,8 @@ def test_upload_is_loaded(client, settings):
     assert xml.find("Params/Cavity").attrib == {"ProbeRadius": "5", "InteriorThreshold": "1.1", "IgnoreHETAtoms": "0",
                                                 "IgnoreHydrogens": "0"}
 
-    saved = json.loads((folder / "session.json").read_text())
-    assert saved["pdb_id"] is None and saved["structure_file"] == "1tqn.cif" and saved["state"] == "ready"
-    assert saved["created"] <= saved["loaded"] and saved["created"].endswith("Z")
-    assert saved["mole_version"] == MOLE_VERSION  # read from MOLE when the API started
+    [saved] = query(f"SELECT pdb_id, structure_file, state, mole_version FROM sessions WHERE id = '{id}'")
+    assert tuple(saved) == (None, "1tqn.cif", "ready", MOLE_VERSION)  # the version read from MOLE when the API started
 
 
 @pytest.mark.parametrize("content", [gzip.compress(STRUCTURE), gzip.compress(STRUCTURE[:1000]) + gzip.compress(STRUCTURE[1000:])],
@@ -68,7 +65,7 @@ def test_name_is_stored_with_safe_characters(client, settings, name, stored):
     """Other characters broke the structure's download (Content-Disposition) and would go into MOLE's viewer scripts."""
     id = upload(client, name, gzip.compress(STRUCTURE) if name.endswith("GZ") else STRUCTURE).json()["id"]
     assert wait_session(client, id)["state"] == "ready"
-    assert json.loads((settings.working_directory / id / "session.json").read_text())["structure_file"] == stored
+    assert query(f"SELECT structure_file FROM sessions WHERE id = '{id}'") == [(stored,)]
     response = client.get(f"/sessions/{id}/structure")
     assert response.status_code == 200
     assert response.headers["content-disposition"] == f'attachment; filename="{stored}"'
@@ -96,7 +93,8 @@ def test_refused_upload_creates_no_computation(client, settings, name, content, 
     assert response.status_code == expected
     assert response.json()["status"] == expected
     assert message in response.json()["detail"]
-    assert [p.name for p in settings.working_directory.iterdir()] == ["Mole_api_IP_log.csv"]  # no computation, no temporary file
+    assert list(settings.working_directory.iterdir()) == []  # no computation, no temporary file
+    assert query("SELECT count(*) FROM sessions") == [(0,)]
 
 
 def test_upload_without_a_file_is_refused(client):

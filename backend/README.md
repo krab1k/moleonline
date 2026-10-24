@@ -5,7 +5,8 @@ cavities, tunnels and pores with [MOLE 2](https://github.com/sb-ncbr/webchemistr
 
 The container contains:
 
-- the API (Python, FastAPI, `src/moleonline`), with the .NET runtime for MOLE,
+- the API (Python, FastAPI, `src/moleonline`), with the .NET runtime for MOLE; it keeps the sessions, their jobs
+  and the queue of their runs in PostgreSQL,
 - the pores tool (`src/moleonline/pores`, part of the API, run as a process of its own): the membrane position for
   pore computations, from [OPM](https://opm.phar.umich.edu/) or predicted by MEMEMBED,
 - MOLE 2, from the image `sbncbr/mole2`,
@@ -15,7 +16,8 @@ The container contains:
 ## Running
 
 The API deploys on its own, the web calls it from its own site (CORS). [`compose.yaml`](compose.yaml) runs it
-on port `API_PORT` (default 8000). In this directory:
+on port `API_PORT` (default 8000), with its database (`db`, PostgreSQL, the password `POSTGRES_PASSWORD`). In this
+directory:
 
 ```sh
 docker compose up -d --build
@@ -50,23 +52,29 @@ with its data on a persistent volume.
 
 ### Data
 
-Everything is in the volume `data`, mounted at `/data`:
+The sessions, their jobs and the queue of their runs are in the database (`DATABASE_URL`), with the request log
+(table `requests`): every request creating a session or a job, also refused ones (except those invalid in form, refused
+before the endpoint), best-effort, with its time, `Init` (a session) or `Submit` (a job), the client's address, `PDB`,
+`Upload`, `Mole` (tunnels) or `Pores`, and the session's id (none when none was created). Every change of a state is one
+transaction that applies only from the state it expects, so a cancel or a delete is never overwritten by a run's late
+outcome. The files are in the volume `data`, mounted at `/data`:
 
 | Path | Content |
 |---|---|
-| `/data/computations/<id>/` | one session: `session.json` (the session and its jobs, as the API answers them), the structure, `load/` (the load's files), `jobs/<n>/` (a job's files) |
-| `/data/computations/Mole_api_IP_log.csv` | every request creating a session or a job, also refused ones (except those invalid in form, refused before the endpoint), best-effort: time (UTC), `Init` (a session) or `Submit` (a job), client address, `PDB`, `Upload`, `Mole` (tunnels) or `Pores`, session id (`-` when none was created) |
+| `/data/computations/<id>/` | one session's files: the structure, `load/` (the load's files), `jobs/<n>/` (a job's files) |
 | `/data/opm-cache/` | membrane files downloaded from OPM, reused for 30 days |
 
-Usage per month or year (sessions of PDB entries and uploads, jobs and their outcome, distinct client
-addresses), from the status files and the IP log:
+Usage per month or year (sessions of PDB entries and uploads, jobs and their outcome, distinct client addresses), from
+the database:
 
 ```sh
-docker compose exec -T api /app/.venv/bin/python -I - /data/computations month < tools/stats.py
+docker compose exec api /app/.venv/bin/python -m moleonline.stats month
 ```
 
-Computations running during a restart are reported as failed ("interrupted by a restart"); the user
-can submit them again.
+The API runs the queued runs in its slots, one API process for now. Queued runs wait over a restart; runs running
+during a restart are reported as failed ("interrupted by a restart"), the user can submit them again. When the
+database fails while a run runs, the API stops, to be restarted (compose, Kubernetes) and report it so; a run records
+the MOLE that ran it.
 
 ## Configuration
 
@@ -74,7 +82,8 @@ Settings are environment variables, the defaults are the container's (`src/moleo
 
 | Setting | Default | |
 |---|---|---|
-| `WORKING_DIRECTORY` | `/data/computations` | computations, must be writable |
+| `WORKING_DIRECTORY` | `/data/computations` | the sessions' files, must be writable |
+| `DATABASE_URL` | none, required | `postgresql+asyncpg://user:password@host/database`; the API waits for it when it starts, then brings its tables to its code's (see [Database](#database)) |
 | `MAX_CONCURRENT_COMPUTATIONS` | `4` | MOLE and pore runs at once (loads included), others wait in a queue |
 | `MAX_QUEUED_COMPUTATIONS` | `20` | runs waiting for a slot; a new session or job beyond them is refused (503 with `Retry-After`), `0`: none waits |
 | `MAX_COMPUTATION_MINUTES` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
@@ -132,8 +141,16 @@ fails to load.
 
 ```sh
 uv sync
-WORKING_DIRECTORY=/tmp/mole OPM_CACHE=/tmp/opm-cache MOLE=/path/to/mole2 MEMEMBED=/path/to/memembed \
-uv run uvicorn moleonline.main:app
+DATABASE_URL=postgresql+asyncpg://user:password@localhost/mole WORKING_DIRECTORY=/tmp/mole OPM_CACHE=/tmp/opm-cache \
+MOLE=/path/to/mole2 MEMEMBED=/path/to/memembed uv run uvicorn moleonline.main:app
+```
+
+The tests need a PostgreSQL database they may empty, e.g. a throwaway container (in memory, without fsync):
+
+```sh
+docker run -d --name moleonline-test-db -p 127.0.0.1:55432:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test \
+  -e POSTGRES_DB=test --tmpfs /var/lib/postgresql/data docker.io/library/postgres:17-alpine -c fsync=off
+export TEST_DATABASE_URL=postgresql+asyncpg://test:test@127.0.0.1:55432/test
 uv run pytest    # with a fake MOLE and pores tool in the API's tests, and a fake PDBe
 MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # also the tests needing them, skipped without
 ```
@@ -143,6 +160,22 @@ The code is checked with [ruff](https://docs.astral.sh/ruff/), configured in `py
 ```sh
 uv run ruff check
 ```
+
+### Database
+
+The tables are described in `src/moleonline/storage.py`; the [Alembic](https://alembic.sqlalchemy.org/) revision in
+`src/moleonline/migrations/versions` makes them. The API upgrades the database to it when it starts, in one transaction.
+
+Until MOLEonline is deployed, there is one revision, made anew when the tables change (a test fails while it differs
+from them), and databases are made anew too (`docker compose down -v`). The revision is made from an empty database:
+
+```sh
+docker exec moleonline-test-db psql -U test -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public'    # empty
+rm src/moleonline/migrations/versions/*.py
+DATABASE_URL=$TEST_DATABASE_URL uv run alembic revision --autogenerate --rev-id initial -m tables
+```
+
+### OpenAPI and the pores tool
 
 `openapi.json` is the API's OpenAPI description, from which the web generates its types. After changing the API,
 update it with `uv run python tools/openapi.py` (a test fails while it is out of date), then `npm run api-types` in

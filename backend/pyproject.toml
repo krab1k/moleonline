@@ -7,12 +7,15 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.20.0",
+    "asyncpg>=0.32.0",
     "fastapi>=0.143.3",
     "gemmi>=0.7.5",
     "httpx2>=2.13.1",
     "numpy>=2.5.4",
     "pydantic-settings>=2.16.0",
     "python-multipart>=0.0.32",
+    "sqlalchemy[asyncio]>=2.1.5",
     "uvicorn>=0.54.0",
 ]
 
@@ -38,3 +41,13 @@ src = ["src"]
 
 [tool.ruff.lint]
 extend-select = ["E", "W", "B", "RUF"]
+
+[tool.alembic]
+# the one revision (until MOLEonline is deployed) is made anew: README.md#database
+script_location = "%(here)s/src/moleonline/migrations"
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff"
+type = "module"
+module = "ruff"
+options = "check --fix --quiet REVISION_SCRIPT_FILENAME"
