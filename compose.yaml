@@ -4,7 +4,7 @@ name: moleonline
 
 services:
   api:
-    build: api
+    build: backend
     image: moleonline-api
     restart: unless-stopped
     init: true # reaps processes left by killed computations

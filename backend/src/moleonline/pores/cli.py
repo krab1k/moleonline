@@ -1,0 +1,77 @@
+"""Command line entry point, replacing Pores.exe: `python -m moleonline.pores <pores.json>`.
+
+The MOLE API writes pores.json (PoresParameters) into the submit directory and runs this program with its path,
+in a process of its own, so that a stop or the time limit kills it with MEMEMBED.
+
+The membrane comes from OPM for PDB entries it has, otherwise from MEMEMBED. The API then runs MOLE
+with input.xml, MOLE is never run from here.
+The API's settings MEMEMBED and OPM_CACHE come in pores.json too.
+Errors are reported on stderr (the API shows them to the user) with a non-zero exit code.
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+from ..parameters import PoresParameters
+from .membrane import MembraneError, membrane_json, read_structure
+from .memembed import membrane_from_memembed
+from .opm import download_opm, membrane_from_opm
+from .path import PathError, end_points, write_mole_input
+
+
+class PoresError(Exception):
+    pass
+
+
+def run(parameters_path: Path) -> None:
+    parameters = PoresParameters.model_validate_json(parameters_path.read_bytes())
+    structure_path = Path(parameters.Structure)
+    working_directory = Path(parameters.WorkingDirectory)
+    chains = parameters.Chains
+
+    structure = read_structure(structure_path)
+    available = list(dict.fromkeys(chain.name for chain in structure[0]))
+    unknown = [name for name in chains if name not in available]
+    if unknown:
+        several = len(unknown) > 1
+        raise PoresError(f"Chain{'s' if several else ''} {', '.join(unknown)} {'are' if several else 'is'} not in the structure. "
+                         f"Available chains: {', '.join(available)}.")
+
+    cache = Path(parameters.OpmCache) if parameters.OpmCache else None
+    opm = download_opm(parameters.PdbId, cache) if parameters.PdbId else None
+    if opm is not None:
+        membrane = membrane_from_opm(structure, opm)
+    else:
+        if not parameters.Memembed:
+            raise PoresError("MEMEMBED is not configured, the membrane position cannot be predicted.")
+        membrane = membrane_from_memembed(structure, parameters.Memembed, parameters.IsBetaBarrel, chains)
+    # numpy computes with NaN after a problem it only warns about; nothing invalid is written for the web or MOLE
+    if not membrane.is_finite():
+        raise MembraneError("The membrane position could not be computed, it contains invalid numbers.")
+    Path(parameters.Membrane).write_text(json.dumps(membrane_json(membrane), separators=(",", ":")))
+
+    start, end = end_points(structure, membrane, parameters.InMembrane, chains)
+    if not np.isfinite([start, end]).all():
+        raise PathError("The ends of the pore could not be computed, they contain invalid numbers.")
+    write_mole_input(structure_path, working_directory, start, end, parameters.ProbeRadius, parameters.InteriorThreshold, chains)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="python -m moleonline.pores", description="Pore computation for MOLEonline, run by the MOLE API.")
+    parser.add_argument("parameters", type=Path, help="pores.json written by the MOLE API")
+    arguments = parser.parse_args()
+    try:
+        run(arguments.parameters)
+    except (PoresError, MembraneError, PathError) as e:
+        print(e, file=sys.stderr)
+        sys.exit(1)
+    except OSError as e:  # network (OPM), file errors, MEMEMBED not found
+        print(f"The pore computation failed: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:  # noqa: BLE001 (a bug or a structure gemmi or numpy cannot handle: one line for the user, not a traceback
+        print(f"The pore computation failed unexpectedly ({': '.join(filter(None, [type(e).__name__, str(e)]))}).", file=sys.stderr)
+        sys.exit(1)

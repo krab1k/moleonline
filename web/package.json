@@ -9,7 +9,7 @@
     "preview": "vite preview --mode development",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --skipLibCheck --incremental --tsBuildInfoFile node_modules/.cache/tsbuildinfo",
-    "api-types": "openapi-typescript ../api/openapi.json -o sources/src/MoleAPISchema.d.ts"
+    "api-types": "openapi-typescript ../backend/openapi.json -o sources/src/MoleAPISchema.d.ts"
   },
   "main": "index.js",
   "typings": "index.d.ts",
