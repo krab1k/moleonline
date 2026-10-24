@@ -30,8 +30,7 @@ def test_preflight_of_a_json_request(client):
     assert "content-type" in preflight.headers["access-control-allow-headers"].lower()
 
 
-def test_unexpected_errors_allow_other_sites(settings, monkeypatch):
-    # answered by Starlette's outermost middleware, outside of the others
+def test_unexpected_errors_allow_other_sites(settings, monkeypatch, caplog):
     def broken(request):
         raise RuntimeError("broken")
     monkeypatch.setattr(main, "queue_full", broken)
@@ -39,6 +38,8 @@ def test_unexpected_errors_allow_other_sites(settings, monkeypatch):
         response = client.post("/sessions", json={"pdb_id": "1tqn"}, headers=ORIGIN)
     assert response.status_code == 500
     assert response.headers["access-control-allow-origin"] == "*"
+    assert response.json()["detail"] == "An unexpected error occurred on the server. Please, try again later."
+    assert any(r.exc_info and "broken" in str(r.exc_info[1]) for r in caplog.records)  # logged with its traceback
 
 
 @pytest.mark.parametrize("origin, allowed", [("https://moleonline.cz", True), ("https://example.org", False)])

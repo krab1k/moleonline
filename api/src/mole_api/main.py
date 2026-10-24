@@ -2,6 +2,7 @@
 
 import functools
 import json
+import logging
 import sys
 import uuid
 from collections.abc import Callable
@@ -32,6 +33,8 @@ from .parameters import MoleParameters, PoresParameters, PoresRequest
 from .runner import Runner, Step
 from .storage import IN_PROGRESS, Job, JobState, Session, SessionState, StoredSession
 from .versions import read_mole_version
+
+log = logging.getLogger("uvicorn.error")  # the API's log, in uvicorn's format, one line per event
 
 
 class FieldError(BaseModel):
@@ -278,11 +281,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.openapi = openapi
     http = settings or HttpSettings()
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=http.trusted_proxies)  # the client address, also for the log
-    app.add_middleware(GZipMiddleware)  # for clients that accept it; not zips, data.json often has megabytes
 
-    @app.exception_handler(Exception)
-    async def unexpected(request: Request, e: Exception) -> JSONResponse:  # logged by uvicorn
-        return problem(500, "An unexpected error occurred on the server. Please, try again later.")
+    @app.middleware("http")
+    async def unexpected(request: Request, call_next) -> Response:
+        """A middleware, not an exception handler: those of Exception answer outside of all middleware, without CORS"""
+        try:
+            return await call_next(request)
+        except Exception:
+            log.exception("Unexpected error of %s %s", request.method, request.url.path)
+            return problem(500, "An unexpected error occurred on the server. Please, try again later.")
+
+    app.add_middleware(GZipMiddleware)  # for clients that accept it; not zips, data.json often has megabytes
+    # the exposed headers are those the web reads
+    app.add_middleware(CORSMiddleware, allow_origins=http.cors_origins, allow_methods=["GET", "POST", "DELETE"],
+                       allow_headers=["Content-Type"], expose_headers=["Location", "Retry-After", "Content-Disposition"])
 
     @app.exception_handler(RequestValidationError)
     async def invalid(request: Request, e: RequestValidationError) -> JSONResponse:
@@ -501,13 +513,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sessions)
     app.include_router(new_jobs)
     app.include_router(job_routes)
-
-    # CORS around the whole stack, so that also the 500 of an unexpected error (answered by Starlette's outermost
-    # middleware, outside of those added) has its headers; the exposed headers are those the web reads
-    build = app.build_middleware_stack
-    app.build_middleware_stack = lambda: CORSMiddleware(build(), allow_origins=http.cors_origins, allow_methods=["GET", "POST", "DELETE"],
-                                                        allow_headers=["Content-Type"],
-                                                        expose_headers=["Location", "Retry-After", "Content-Disposition"])
     return app
 
 
