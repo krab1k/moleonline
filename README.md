@@ -5,7 +5,7 @@ MOLEonline is a web service for the location and characterisation of channels, t
 
 | Directory | |
 |---|---|
-| [`api/`](api) | the MOLE API (Python, FastAPI): loads structures, runs MOLE and the pores tool, serves the results |
+| [`backend/`](backend) | the MOLE API (Python, FastAPI): loads structures, runs MOLE and the pores tool, serves the results |
 | [`web/`](web) | the web interface (TypeScript, React, Mol*) and its nginx container, which serves the API under `/api` |
 
 Each directory has its own README with the details of running, configuring and developing it.
@@ -27,7 +27,7 @@ Settings, in the environment or in `.env` next to `compose.yaml` (locally; on th
 | Setting | Default | |
 |---|---|---|
 | `MOLEONLINE_PORT` | `8080` | the site's port on the host |
-| `API_MEMORY_LIMIT` | `24g` | memory of all computations together, see [`api/README.md`](api/README.md#configuration) |
+| `API_MEMORY_LIMIT` | `24g` | memory of all computations together, see [`backend/README.md`](backend/README.md#configuration) |
 
 The API's data (sessions, the request log, OPM files) is in the volume `moleonline_data`.
 
