@@ -354,13 +354,11 @@ wheels = [
 name = "moleonline-backend"
 version = "0.7.0"
 source = { editable = "." }
+default-groups = ["dev", "worker"]
 dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "fastapi" },
-    { name = "gemmi" },
-    { name = "httpx2" },
-    { name = "numpy" },
     { name = "pydantic-settings" },
     { name = "python-multipart" },
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -372,15 +370,17 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
+worker = [
+    { name = "gemmi" },
+    { name = "httpx2" },
+    { name = "numpy" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.20.0" },
     { name = "asyncpg", specifier = ">=0.32.0" },
     { name = "fastapi", specifier = ">=0.143.3" },
-    { name = "gemmi", specifier = ">=0.7.5" },
-    { name = "httpx2", specifier = ">=2.13.1" },
-    { name = "numpy", specifier = ">=2.5.4" },
     { name = "pydantic-settings", specifier = ">=2.16.0" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.5" },
@@ -391,6 +391,11 @@ requires-dist = [
 dev = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.17.1" },
+]
+worker = [
+    { name = "gemmi", specifier = ">=0.7.5" },
+    { name = "httpx2", specifier = ">=2.13.1" },
+    { name = "numpy", specifier = ">=2.5.4" },
 ]
 
 [[package]]

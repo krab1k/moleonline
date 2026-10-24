@@ -19,7 +19,9 @@ services:
       retries: 20
 
   api:
-    build: backend
+    build:
+      context: backend
+      target: api
     image: moleonline-api
     restart: unless-stopped
     mem_limit: 2g # answers requests and queues runs; the workers compute
@@ -34,8 +36,10 @@ services:
 
   # runs the queued computations, one at a time each; WORKERS of them, or: docker compose up -d --scale worker=N
   worker:
-    image: moleonline-api # the API's image, with MOLE and MEMEMBED (built by the service api)
-    entrypoint: ["/app/.venv/bin/python", "-m", "moleonline.worker"]
+    build:
+      context: backend
+      target: worker # with MOLE and MEMEMBED
+    image: moleonline-worker
     restart: unless-stopped
     init: true # reaps processes left by killed computations
     stop_grace_period: 30s # SIGTERM: its run's processes are killed, the run fails as interrupted

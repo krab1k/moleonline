@@ -3,15 +3,17 @@
 Backend of [MOLEonline](../web): loads protein structures, computes
 cavities, tunnels and pores with [MOLE 2](https://github.com/sb-ncbr/webchemistry) and serves the results.
 
-The container contains:
+The Python code (`src/moleonline`) is the API (`api`, FastAPI), the workers, which run the computations (`worker`), and
+what both share (`core`); they keep the sessions, their jobs and the queue of their runs in PostgreSQL. The
+[`Dockerfile`](Dockerfile) builds two images of it:
 
-- the API and the workers (Python, `src/moleonline`: `api`, FastAPI; `worker`, which runs the computations; `core`, of
-  both), with the .NET runtime for MOLE; they keep the sessions, their jobs and the queue of their runs in PostgreSQL,
-- the pores tool (`src/moleonline/worker/pores`, run by the workers as a process of its own): the membrane position for
-  pore computations, from [OPM](https://opm.phar.umich.edu/) or predicted by MEMEMBED,
-- MOLE 2, from the image `sbncbr/mole2`,
-- [MEMEMBED](https://github.com/psipred/MemEmbed), built from source (GPL v2, its source and licence
-  are in `/opt/memembed` in the image).
+- `--target api`, the API: Python only;
+- `--target worker`, a worker, with
+  - the pores tool (`src/moleonline/worker/pores`, run as a process of its own): the membrane position for pore
+    computations, from [OPM](https://opm.phar.umich.edu/) or predicted by MEMEMBED,
+  - MOLE 2, from the image `sbncbr/mole2` (the build argument `MOLE_VERSION` picks it), on the .NET runtime,
+  - [MEMEMBED](https://github.com/psipred/MemEmbed), built from source (GPL v2, its source and licence are in
+    `/opt/memembed` in the image).
 
 ## Running
 
@@ -28,8 +30,8 @@ The settings (see [Configuration](#configuration)) go into `.env` next to `compo
 reads for `API_PORT`, `WORKERS` and `WORKER_MEMORY_LIMIT`. Startup checks them: if a path is wrong, the container stops
 and its log says what is wrong.
 
-The API (`uvicorn moleonline.api.main:app`, the image's entrypoint) answers the requests and queues the runs: a
-session's load, a job. The workers (`python -m moleonline.worker`, the same image) run them, one at a time each, the
+The API (`uvicorn moleonline.api.main:app`, its image's entrypoint) answers the requests and queues the runs: a
+session's load, a job. The workers (`python -m moleonline.worker`, theirs) run them, one at a time each, the
 oldest first; more of them, `docker compose up -d --scale worker=N`. Both keep nothing in memory: the API may run as
 several replicas too. They share the database and the volume `data` (in Kubernetes ReadWriteMany, e.g. NFS).
 
@@ -207,4 +209,4 @@ The pores tool (`src/moleonline/worker/pores`) runs as `python -m moleonline.wor
 
 ## Licence
 
-MIT, see [`LICENSE`](../LICENSE). MEMEMBED in the container image is GPL v2.
+MIT, see [`LICENSE`](../LICENSE). MEMEMBED in the worker's image is GPL v2.
