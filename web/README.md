@@ -15,7 +15,7 @@ Our latest version of MOLEonline brings many notable improvements, including:
 
 ## Deployment
 
-The site's nginx (`docker/`) serves the [MOLE API](../api) under `/api`: it forwards `/api/...` to the compose
+The site's nginx (`docker/`) serves the [MOLE API](../backend) under `/api`: it forwards `/api/...` to the compose
 service `api` (port 8080). Both run from the repository's [`compose.yaml`](../compose.yaml), see the
 [README](../README.md#running) for running them in Docker and in production.
 
@@ -23,9 +23,9 @@ service `api` (port 8080). Both run from the repository's [`compose.yaml`](../co
 
 The development server (`npm run dev`, and `npm run preview` for a build) serves the API under `/api` as well and
 forwards it to a local API, `API_PROXY` in `.env.development` (`http://localhost:8000`, where `uv run uvicorn` serves
-it, see `../api/README.md`).
+it, see `../backend/README.md`).
 
 `npm test` runs the unit tests (Vitest, `sources/src/**/*.test.ts`) of the code that needs no browser.
 
-The types of the API's answers are generated from its OpenAPI description, `../api/openapi.json`, into
+The types of the API's answers are generated from its OpenAPI description, `../backend/openapi.json`, into
 `sources/src/MoleAPISchema.d.ts`: `npm run api-types` after the API changed (a test fails while they differ).

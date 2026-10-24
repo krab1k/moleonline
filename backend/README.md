@@ -17,18 +17,16 @@ what both share (`core`); they keep the sessions, their jobs and the queue of th
 
 ## Running
 
-The API deploys on its own, the web calls it from its own site (CORS). [`compose.yaml`](compose.yaml) runs it
-on port `API_PORT` (default 8000), with its workers (`worker`, `WORKERS` of them) and database (`db`, PostgreSQL, the
-password `POSTGRES_PASSWORD`). In this directory:
+MOLEonline runs as a whole, the web with the backend: all of it with the repository's [`compose.yaml`](../compose.yaml)
+(see the [README](../README.md#running)), or all of it in Kubernetes. Either way the web's nginx, or the gateway in
+front of it, serves the API under `/api` on the site's own address. The settings (see [Configuration](#configuration))
+are checked when the API and the workers start: if a path is wrong, the container stops and its log says what is wrong.
+In compose they go into `.env` next to `compose.yaml`; the logs, one line per event (requests are not logged, errors
+with the request path):
 
 ```sh
-docker compose up -d --build
-docker compose logs -f    # one line per event; requests are not logged, errors with the request path
+docker compose logs -f api worker
 ```
-
-The settings (see [Configuration](#configuration)) go into `.env` next to `compose.yaml`, which compose also
-reads for `API_PORT`, `WORKERS` and `WORKER_MEMORY_LIMIT`. Startup checks them: if a path is wrong, the container stops
-and its log says what is wrong.
 
 The API (`uvicorn moleonline.api.main:app`, its image's entrypoint) answers the requests and queues the runs: a
 session's load, a job. The workers (`python -m moleonline.worker`, theirs) run them, one at a time each, the
@@ -37,22 +35,11 @@ several replicas too. They share the database and the volume `data` (in Kubernet
 
 ### Behind a proxy
 
-In production a reverse proxy (nginx, a Kubernetes ingress) serves the API over HTTPS. The API takes the client
-address (the request log, see below) from `X-Forwarded-For` of the proxies in `FORWARDED_ALLOW_IPS` (uvicorn's), by
-default any on loopback or a private network; with clients connecting to the API directly, set
-`FORWARDED_ALLOW_IPS=127.0.0.1`. A proxy
-serving the API under a path, e.g. `https://example.org/api/`, strips it and the API runs with
-`UVICORN_ROOT_PATH=/api`, so that its documentation (`/api/docs`) and "Try it out" use the proxy's URLs. For nginx:
-
-```nginx
-location /api/ {
-    proxy_pass http://127.0.0.1:8000/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    client_max_body_size 31m;    # uploaded structures, the API accepts files up to 30 MB, also when unpacked
-}
-```
+The API takes the client address (the request log, see below) from `X-Forwarded-For` of the proxies in
+`FORWARDED_ALLOW_IPS` (uvicorn's), by default any on loopback or a private network, where the web's nginx or the
+gateway has an address not known in advance. The proxy serves the API under `/api/`, strips it, and the API runs with
+`UVICORN_ROOT_PATH=/api`, so that its documentation (`/api/docs`) and "Try it out" use the site's URLs (the web's
+nginx: `web/docker/site.conf`).
 
 ### Data
 
