@@ -3,6 +3,20 @@
 name: moleonline-api
 
 services:
+  db:
+    image: docker.io/library/postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mole
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mole}
+      POSTGRES_DB: mole
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "mole"]
+      interval: 5s
+      retries: 20
+
   api:
     build: .
     image: moleonline-api
@@ -13,12 +27,18 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mole:${POSTGRES_PASSWORD:-mole}@db/mole # the sessions, jobs, the queue
+    depends_on:
+      db:
+        condition: service_healthy
     # all computations together; above it the kernel kills the largest process, a computation, not the whole host
     mem_limit: ${API_MEMORY_LIMIT:-24g}
     # the same, so no swap: by default the container may swap as much again, slowing the host instead of the kill
     memswap_limit: ${API_MEMORY_LIMIT:-24g}
     volumes:
-      - data:/data # computations, the submission log, OPM files
+      - data:/data # the sessions' files, OPM files
 
 volumes:
   data:
+  db:

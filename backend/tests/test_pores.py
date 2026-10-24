@@ -6,8 +6,8 @@ import zipfile
 import pytest
 
 from .conftest import STRUCTURE, upload, wait, wait_session
-from .test_iplog import logged
 from .test_pdbe import ASSEMBLIES, XML, FakePDBe, assembly
+from .test_requests import logged
 from .test_runner import STARTED
 from .test_submit import submit as submit_job
 
@@ -74,6 +74,7 @@ def test_opm_membrane_for_the_preferred_assembly(client, settings):
     id = client.post("/sessions", json={"pdb_id": "1tqn"}).json()["id"]
     wait_session(client, id)
     submit(client, id, {"ProbeRadius": 10, "InteriorThreshold": 1})
+    wait(client, id, 1)  # written when it starts
     saved = json.loads((settings.working_directory / id / "jobs" / "1" / "pores.json").read_text())
     assert (saved["PdbId"], saved["ProbeRadius"], saved["InteriorThreshold"]) == ("1tqn", 10.0, 1.0)
 

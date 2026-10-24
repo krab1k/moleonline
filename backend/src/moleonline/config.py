@@ -16,7 +16,9 @@ class HttpSettings(BaseSettings):
 
 
 class Settings(HttpSettings):
-    working_directory: Path = Path("/data/computations")  # computations and the submission log
+    working_directory: Path = Path("/data/computations")  # the sessions' files
+    # the sessions, their jobs, the queue of their runs, the request log: postgresql+asyncpg://user:password@host/database
+    database_url: str
     max_concurrent_computations: int = Field(4, ge=1)
     # runs (loads, jobs) waiting for a slot beyond those running; more are refused (503). 0: none waits
     max_queued_computations: int = Field(20, ge=0)

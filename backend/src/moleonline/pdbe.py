@@ -3,11 +3,12 @@ unit or an assembly; the preferred assembly is the one OPM has (pores of a PDB e
 
 import asyncio
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import httpx2
 
-from .storage import SessionState, StoredSession
 from .upload import MAX_STRUCTURE_MB, MB
 
 PREFERRED, ASYMMETRIC = "preferred", "asymmetric"
@@ -44,17 +45,29 @@ def no_assembly(pdb_id: str, assembly: str, known: Assemblies | None) -> str:
     return f"Structure [{pdb_id}] has no assembly [{assembly}].{listed}"
 
 
-async def download(http: httpx2.AsyncClient, s: StoredSession, assembly: str) -> bool:
-    """Downloads the structure into the session; False when it failed, the session then says why.
-    assembly: PREFERRED (the asymmetric unit when it cannot be looked up), ASYMMETRIC or an assembly id."""
-    pdb_id = s.pdb_id
+@dataclass(frozen=True)
+class Downloaded:
+    """A structure downloaded into a session's folder"""
+    structure_file: str
+    assembly_id: str | None  # None: the asymmetric unit
+    opm: bool  # the preferred assembly, the one OPM has
+
+
+@dataclass(frozen=True)
+class NotDownloaded:
+    error: str
+    assembly_id: str | None  # the assembly that was looked for
+
+
+async def download(http: httpx2.AsyncClient, folder: Path, pdb_id: str, assembly: str) -> Downloaded | NotDownloaded:
+    """Downloads the structure into the folder, or says why it failed. assembly: PREFERRED (the asymmetric unit when
+    it cannot be looked up), ASYMMETRIC or an assembly id."""
     known = None if assembly == ASYMMETRIC else await assemblies(http, pdb_id)
-    s.assembly_id = None if assembly == ASYMMETRIC else (known and known.preferred) if assembly == PREFERRED else assembly
-    if known is not None and s.assembly_id is not None and s.assembly_id not in known.ids:
-        s.update(None, SessionState.failed, no_assembly(pdb_id, s.assembly_id, known))
-        return False
-    url = f"/model-server/v1/{pdb_id}/assembly?name={s.assembly_id}" if s.assembly_id else f"/model-server/v1/{pdb_id}/full"
-    file = s.folder() / f"{pdb_id}.cif"
+    assembly_id = None if assembly == ASYMMETRIC else (known and known.preferred) if assembly == PREFERRED else assembly
+    if known is not None and assembly_id is not None and assembly_id not in known.ids:
+        return NotDownloaded(no_assembly(pdb_id, assembly_id, known), assembly_id)
+    url = f"/model-server/v1/{pdb_id}/assembly?name={assembly_id}" if assembly_id else f"/model-server/v1/{pdb_id}/full"
+    file = folder / f"{pdb_id}.cif"
     temp = file.with_name(file.name + ".download")  # the structure file appears only when complete
     failed = None
     try:
@@ -67,14 +80,13 @@ async def download(http: httpx2.AsyncClient, s: StoredSession, assembly: str) ->
             failed = f"PDBe returned an error ({status}) when downloading structure [{pdb_id}]. Please, try again later."
         else:
             temp.rename(file)
-            s.structure_file = file.name
             error = await asyncio.to_thread(server_error, file)
             if error is not None:
                 # the assemblies could not be looked up before
                 undefined = UNDEFINED_ASSEMBLY.search(error)
                 failed = no_assembly(pdb_id, undefined[1], known) if undefined else f"PDBe could not provide structure [{pdb_id}]: {error}"
             # the preferred assembly, the one OPM has; unknown when the lookup failed, then the full structure was downloaded
-            s.opm = s.assembly_id is not None and known is not None and s.assembly_id == known.preferred
+            opm = assembly_id is not None and known is not None and assembly_id == known.preferred
     except httpx2.HTTPError:
         failed = "The structure could not be downloaded, PDBe (www.ebi.ac.uk) is not available at the moment. Please, try again later."
     except Exception as e:  # noqa: BLE001 (the session must not stay loading)
@@ -82,10 +94,8 @@ async def download(http: httpx2.AsyncClient, s: StoredSession, assembly: str) ->
     finally:
         temp.unlink(missing_ok=True)
     if failed:
-        s.update(None, SessionState.failed, failed)
-        return False
-    s.save()
-    return True
+        return NotDownloaded(failed, assembly_id)
+    return Downloaded(file.name, assembly_id, opm)
 
 
 async def fetch(http: httpx2.AsyncClient, url: str, target) -> int:

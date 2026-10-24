@@ -1,5 +1,5 @@
 # MOLEonline API (src/moleonline, with the pores tool) with MOLE 2 and MEMEMBED; MOLE needs the .NET runtime.
-# Computations, the submission log and downloaded OPM files are kept in /data.
+# The sessions' files and downloaded OPM files are kept in /data, the rest in the database (DATABASE_URL).
 
 # MEMEMBED (GPL v2): https://github.com/psipred/MemEmbed, unmodified, built without -Werror (newer compilers warn);
 # its licence and source are in /opt/memembed

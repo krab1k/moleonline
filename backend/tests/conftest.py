@@ -1,14 +1,20 @@
+import asyncio
 import contextlib
+import os
 import time
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
-from moleonline import main
+from moleonline import runner, storage, work
 from moleonline.config import Settings
 from moleonline.main import create_app
 
+# a PostgreSQL database the tests empty before each test, postgresql+asyncpg://… (README.md#development)
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 MOLE_VERSION = "9.8.7.6"  # what the fake MOLE reports when started without arguments, as MOLE does
 STRUCTURE = (Path(__file__).parent / "data" / "1tqn.cif").read_bytes()
 
@@ -20,7 +26,32 @@ def script(directory: Path, name: str, body: str) -> Path:
     return path
 
 
-def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", slots: int = 4, queued: int = 20,
+async def execute(*statements: str) -> list:
+    """Runs the statements in one transaction of the test database; the rows of the last one"""
+    engine = create_async_engine(TEST_DATABASE_URL)
+    try:
+        async with engine.begin() as c:
+            for statement in statements:
+                result = await c.execute(text(statement))
+            return result.all() if result.returns_rows else []
+    finally:
+        await engine.dispose()
+
+
+def query(*statements: str) -> list:
+    return asyncio.run(execute(*statements))
+
+
+@pytest.fixture
+def database() -> str:
+    """The test database, emptied: without the tables and Alembic's record of them, which the API makes when it starts"""
+    if not TEST_DATABASE_URL:
+        pytest.fail("Set TEST_DATABASE_URL to a PostgreSQL database the tests may empty, see README.md#development")
+    query(*[f"DROP TABLE IF EXISTS {table} CASCADE" for table in [*storage.metadata.tables, "alembic_version"]])
+    return TEST_DATABASE_URL
+
+
+def make_settings(directory: Path, database: str, load: str = "exit 0", run: str = "exit 0", slots: int = 4, queued: int = 20,
                   mole: Path | None = None) -> Settings:
     """The API's own working directory. The fake MOLE runs load for a load (input in folder load/), run for a
     computation, and reports its version without arguments. mole: a real MOLE instead."""
@@ -28,6 +59,7 @@ def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", sl
             f"  */load/input.xml) {load} ;;\n  *) {run} ;;\nesac")
     return Settings(
         working_directory=directory / "computations",
+        database_url=database,
         max_concurrent_computations=slots,
         max_queued_computations=queued,
         mole=mole or script(directory, "mole", fake),
@@ -37,17 +69,20 @@ def make_settings(directory: Path, load: str = "exit 0", run: str = "exit 0", sl
 
 
 @pytest.fixture
-def settings(tmp_path: Path) -> Settings:
-    return make_settings(tmp_path)
+def settings(tmp_path: Path, database: str) -> Settings:
+    return make_settings(tmp_path, database)
 
 
 @pytest.fixture
-def api(tmp_path: Path, monkeypatch):
+def api(tmp_path: Path, database: str, monkeypatch):
     """api(load=..., run=..., pores=..., slots=...): a started API (MOLE's version is read) with these fake MOLE
     scripts and a fake pores tool running pores (input: pores.json); its runs are killed when the test ends"""
+    monkeypatch.setattr(runner, "IDLE_SECONDS", 0.02)  # the slots look for runs, the tests do not wait for them
+    monkeypatch.setattr(runner, "CHECK_SECONDS", 0.02)
+
     def start(pores: str = "exit 0", **fake) -> TestClient:
-        monkeypatch.setattr(main, "PORES_TOOL", [str(script(tmp_path, "pores", pores))])
-        return started.enter_context(TestClient(create_app(make_settings(tmp_path, **fake))))
+        monkeypatch.setattr(work, "PORES_TOOL", [str(script(tmp_path, "pores", pores))])
+        return started.enter_context(TestClient(create_app(make_settings(tmp_path, database, **fake))))
 
     with contextlib.ExitStack() as started:
         yield start

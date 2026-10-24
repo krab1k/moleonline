@@ -1,11 +1,16 @@
 """Loads run by the process runner, with a fake MOLE: slots, the time limit, failures, stopping the API"""
 
-import json
+import threading
 import time
 
 import pytest
+from fastapi.testclient import TestClient
 
-from .conftest import STRUCTURE, gone, upload, wait_for_file, wait_session
+from moleonline import runner, storage
+from moleonline.main import create_app
+from moleonline.storage import INTERRUPTED
+
+from .conftest import STRUCTURE, gone, query, upload, wait_for_file, wait_session
 
 # the fake MOLE marks that it started (next to its input), then waits until the test lets it go
 STARTED = 'touch "$(dirname "$1")/started"'
@@ -73,4 +78,26 @@ def test_stopping_the_api_kills_runs(api, tmp_path):
     child = int((folder / id / "load" / "child").read_text())
     client.__exit__(None, None, None)  # the API stops
     assert gone(child)
-    assert json.loads((folder / id / "session.json").read_text())["state"] == "loading"  # marked by the next API
+    assert query(f"SELECT state FROM sessions WHERE id = '{id}'") == [("loading",)]  # marked by the next API
+
+
+def test_a_run_whose_state_cannot_be_kept_stops_the_api(api, monkeypatch):
+    """The database fails while the run's outcome is stored: the API stops (and is restarted), never keeping a run it
+    no longer runs; the next API marks it interrupted"""
+    stopped = threading.Event()
+    monkeypatch.setattr(runner, "terminate", stopped.set)
+    end = storage.end
+
+    async def failing(*args, **kwargs):
+        raise OSError("the database is not available")
+    monkeypatch.setattr(storage, "end", failing)
+    client = api()
+    id = load(client)
+    assert stopped.wait(10)
+    assert query(f"SELECT state FROM sessions WHERE id = '{id}'") == [("loading",)]
+    monkeypatch.setattr(storage, "end", end)  # the database is back
+    settings = client.app.state.settings
+    client.__exit__(None, None, None)
+    with TestClient(create_app(settings)) as again:
+        session = again.get(f"/sessions/{id}").json()
+        assert (session["state"], session["error"]) == ("failed", INTERRUPTED)

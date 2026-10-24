@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from moleonline import main
+from moleonline import storage
 from moleonline.main import create_app
 
 from .conftest import STRUCTURE
@@ -31,9 +31,9 @@ def test_preflight_of_a_json_request(client):
 
 
 def test_unexpected_errors_allow_other_sites(settings, monkeypatch, caplog):
-    def broken(request):
+    async def broken(*args, **kwargs):
         raise RuntimeError("broken")
-    monkeypatch.setattr(main, "queue_full", broken)
+    monkeypatch.setattr(storage, "create", broken)
     with TestClient(create_app(settings), raise_server_exceptions=False) as client:
         response = client.post("/sessions", json={"pdb_id": "1tqn"}, headers=ORIGIN)
     assert response.status_code == 500

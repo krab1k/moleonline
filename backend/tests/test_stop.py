@@ -7,7 +7,7 @@ import pytest
 
 from moleonline import upload as uploads
 
-from .conftest import STRUCTURE, running, upload, wait, wait_for_file, wait_session
+from .conftest import STRUCTURE, query, running, upload, wait, wait_for_file, wait_session
 from .test_runner import UNTIL_GO
 from .test_submit import submit
 
@@ -133,7 +133,7 @@ def test_overlapping_uploads_do_not_overfill_the_queue(api, monkeypatch):
     with ThreadPoolExecutor(2) as pool:
         responses = list(pool.map(lambda _: upload(client, "1tqn.cif", STRUCTURE), range(2)))
     assert sorted(r.status_code for r in responses) == [202, 503]
-    assert len(client.app.state.runner.runs) == 1
+    assert query("SELECT count(*) FROM runs") == [(1,)]
     sessions = [p for p in client.app.state.settings.working_directory.iterdir() if p.is_dir()]
     assert len(sessions) == 1  # the refused one stored nothing
     assert not list(client.app.state.settings.working_directory.glob(".upload-*"))
