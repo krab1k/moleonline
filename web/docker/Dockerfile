@@ -9,7 +9,7 @@ RUN npm ci
 COPY . ./
 
 # Path of the MOLE API baked into the site, served by this site's nginx (/api by default, see
-# compose.yaml); the API sends no CORS headers, so it cannot be another site's URL
+# compose.yaml), or by the gateway in front of it in Kubernetes
 ARG VITE_API_URL
 
 RUN npm run build
