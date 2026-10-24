@@ -17,7 +17,7 @@ Our latest version of MOLEonline brings many notable improvements, including:
 
 The site's nginx (`docker/`) serves the [MOLE API](../backend) under `/api`: it forwards `/api/...` to the compose
 service `api` (port 8080). Both run from the repository's [`compose.yaml`](../compose.yaml), see the
-[README](../README.md#running) for running them in Docker and in production.
+[README](../README.md#running).
 
 ### Devel
 

@@ -1,6 +1,6 @@
 # MOLEonline: the web's nginx serves the site and proxies /api/ to the API (web/docker/site.conf), which has no port on
-# the host; the API queues the computations, the workers run them, PostgreSQL keeps them. Production: also
-# compose.production.yaml.
+# the host; the API queues the computations, the workers run them, PostgreSQL keeps them. For local use, over HTTP;
+# deployments are in Kubernetes.
 name: moleonline
 
 services:
@@ -80,7 +80,7 @@ services:
     volumes:
       - ./web/docker/nginx.conf:/etc/nginx/nginx.conf:ro,z
       - ./web/docker/site.conf:/etc/nginx/site.conf:ro,z
-      - ./web/docker/conf.d/devel.conf.template:/etc/nginx/templates/server.conf.template:ro,z
+      - ./web/docker/conf.d/server.conf.template:/etc/nginx/templates/server.conf.template:ro,z
       - ./web/docker/conf.d/api.conf.template:/etc/nginx/templates/api.conf.template:ro,z
     logging:
       driver: journald

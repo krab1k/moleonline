@@ -23,7 +23,7 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-Settings, in the environment or in `.env` next to `compose.yaml` (locally; on the servers `.env` is the instance's, see below):
+Settings, in the environment or in `.env` next to `compose.yaml`:
 
 | Setting | Default | |
 |---|---|---|
@@ -35,51 +35,6 @@ Settings, in the environment or in `.env` next to `compose.yaml` (locally; on th
 The API's data is in two volumes: `moleonline_db`, the database (sessions, jobs, the queue, the request log), and
 `moleonline_data`, the sessions' files and OPM files. Until MOLEonline is deployed, the database's tables are made anew
 when they change: `docker compose down -v` empties both (see [`backend/README.md`](backend/README.md#database)).
-
-### Production and testing
-
-There are two instances, on separate machines, which differ only in their domains:
-
-| Instance | Domains | Settings |
-|---|---|---|
-| production | `moleonline.biodata.ceitec.cz`, `moleonline.cz` | [`deploy/production.env`](deploy/production.env) |
-| testing | `moleonline-dev.biodata.ceitec.cz` | [`deploy/dev.env`](deploy/dev.env) |
-
-On each machine, `.env` in the repository's root links to the instance's settings. They add
-[`compose.production.yaml`](compose.production.yaml), which serves the site on ports 80 and 443, so plain
-`docker compose` commands run the instance.
-
-The certificate is Let's Encrypt's, from [certbot](https://certbot.eff.org/instructions?ws=other&os=snap), renewed
-with `--webroot`: nginx serves the challenges from `/var/www/certbot`, so the site keeps running. After each
-renewal, [`deploy/certbot-deploy-hook.sh`](deploy/certbot-deploy-hook.sh) copies the certificate to
-`/var/lib/moleonline/certs`, where nginx (running as the user `nginx`) can read it, and reloads nginx. Assuming
-running Ubuntu 24.04 LTS:
-
-```bash
-# 0. Clone the repository into /home/ubuntu/moleonline and select the instance (dev.env on the testing machine)
-git clone https://github.com/sb-ncbr/moleonline /home/ubuntu/moleonline
-cd /home/ubuntu/moleonline
-ln -s deploy/production.env .env
-
-# 1. Install certbot (it renews the certificates by its own timer) and the deploy hook
-sudo snap install --classic certbot
-sudo mkdir -p /var/www/certbot /etc/letsencrypt/renewal-hooks/deploy
-sudo ln -s /home/ubuntu/moleonline/deploy/certbot-deploy-hook.sh /etc/letsencrypt/renewal-hooks/deploy/moleonline.sh
-
-# 2. Issue the certificate for the instance's domains (SERVER_NAMES in .env). nginx needs it to start, so this once
-#    certbot answers the challenge itself on port 80; the hook only runs on renewals, so run it now
-DOMAIN=moleonline.biodata.ceitec.cz    # testing: moleonline-dev.biodata.ceitec.cz
-sudo certbot certonly --standalone -d $DOMAIN -d moleonline.cz    # testing: only -d $DOMAIN
-sudo RENEWED_LINEAGE=/etc/letsencrypt/live/$DOMAIN /etc/letsencrypt/renewal-hooks/deploy/moleonline.sh
-
-# 3. Build and run the application
-docker compose up -d --build
-
-# 4. Renew through the running site from now on (certbot tests it with a dry run)
-sudo certbot reconfigure --cert-name $DOMAIN --webroot -w /var/www/certbot
-```
-
-To deploy a new version: `git pull && docker compose up -d --build`, first on the testing machine.
 
 ## History
 
