@@ -55,7 +55,7 @@ Everything is in the volume `data`, mounted at `/data`:
 | Path | Content |
 |---|---|
 | `/data/computations/<id>/` | one session: `session.json` (the session and its jobs, as the API answers them), the structure, `load/` (the load's files), `jobs/<n>/` (a job's files) |
-| `/data/computations/Mole_api_IP_log.csv` | every request creating a session or a job, also refused ones: time (UTC), `Init` (a session) or `Submit` (a job), client address, `PDB`, `Upload`, `Mole` (tunnels) or `Pores` (`-`: a job request without a type), session id (`-` when none was created) |
+| `/data/computations/Mole_api_IP_log.csv` | every request creating a session or a job, also refused ones (except those invalid in form, refused before the endpoint), best-effort: time (UTC), `Init` (a session) or `Submit` (a job), client address, `PDB`, `Upload`, `Mole` (tunnels) or `Pores`, session id (`-` when none was created) |
 | `/data/opm-cache/` | membrane files downloaded from OPM, reused for 30 days |
 
 Usage per month or year (sessions of PDB entries and uploads, jobs and their outcome, distinct client

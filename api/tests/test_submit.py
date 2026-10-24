@@ -120,9 +120,9 @@ def test_invalid_parameters_are_422(client, settings, parameters, message):
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["detail"].startswith(message)
     assert client.get(f"/sessions/{id}").json()["jobs"] == []
-    # refused ones too; the type from a body that is JSON
-    kind = "-" if parameters in ("not json", "") else "Mole"
-    assert logged(settings)[-1] == ("Submit", "testclient", kind, id)
+    # refused ones too, unless the framework refused them before the endpoint
+    submitted = ("Submit", "testclient", "Mole", id) in logged(settings)
+    assert submitted == message.startswith("Invalid parameters")
 
 
 @pytest.mark.parametrize("body", [
@@ -138,8 +138,7 @@ def test_invalid_job_is_422(client, settings, body):
     response = client.post(f"/sessions/{id}/jobs", content=body, headers={"Content-Type": "application/json"})
     assert response.status_code == 422
     assert response.json()["detail"].startswith("Invalid request")
-    kind = "Mole" if '"tunnels"' in body else "-"
-    assert logged(settings)[-1] == ("Submit", "testclient", kind, id)
+    assert [line for line in logged(settings) if line[0] == "Submit"] == []  # refused before the endpoint
 
 
 def test_extra_fields_of_the_web_are_ignored(client):

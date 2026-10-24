@@ -107,7 +107,8 @@ def test_invalid_parameters_are_422(client, settings, parameters, message):
     response = submit(client, id, parameters)
     assert response.status_code == 422
     assert response.json()["detail"].startswith(message)
-    assert logged(settings)[-1] == ("Submit", "testclient", "-" if parameters == "not json" else "Pores", id)
+    submitted = ("Submit", "testclient", "Pores", id) in logged(settings)
+    assert submitted == message.startswith("Invalid parameters")  # not one refused before the endpoint
 
 
 def test_the_web_request(client):
