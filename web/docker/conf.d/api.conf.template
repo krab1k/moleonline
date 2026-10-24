@@ -1,6 +1,7 @@
-# The MOLE API: the service "api" of the repository's compose.yaml, on the compose project's network.
-# The image's entrypoint writes this file to conf.d/api.conf when the container starts, filling in
-# the container's DNS servers (127.0.0.11 on Docker, the network gateway on podman).
+# The MOLE API at API_ADDRESS: the service "api" of the repository's compose.yaml, on the compose
+# project's network, or the API's service in Kubernetes. The image's entrypoint writes this file to
+# conf.d/api.conf when the container starts, filling in API_ADDRESS and the container's DNS servers
+# (127.0.0.11 on Docker, the network gateway on podman, the cluster's DNS in Kubernetes).
 
 # The API gets a new address when its container restarts, so nginx looks the name up again;
 # nginx also starts while the API is down
@@ -8,5 +9,5 @@ resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
 
 upstream mole_api {
     zone mole_api 64k;
-    server api:8080 resolve;
+    server ${API_ADDRESS} resolve;
 }

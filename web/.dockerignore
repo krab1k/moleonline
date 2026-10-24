@@ -3,5 +3,5 @@
 .vscode
 build
 dist
-docker
+docker/Dockerfile
 node_modules
