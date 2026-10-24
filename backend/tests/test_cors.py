@@ -3,8 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from moleonline import storage
-from moleonline.main import create_app
+from moleonline.api.main import create_app
+from moleonline.core import storage
 
 from .conftest import STRUCTURE
 

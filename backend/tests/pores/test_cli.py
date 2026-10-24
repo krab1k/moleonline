@@ -7,10 +7,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from moleonline.pores import cli
-from moleonline.pores.cli import PoresError, main, run
-from moleonline.pores.membrane import MembraneError
-from moleonline.pores.path import PathError
+from moleonline.worker.pores import cli
+from moleonline.worker.pores.cli import PoresError, main, run
+from moleonline.worker.pores.membrane import MembraneError
+from moleonline.worker.pores.path import PathError
 
 REFERENCE = Path(__file__).parent / "data"
 

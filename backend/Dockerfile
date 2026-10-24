@@ -33,4 +33,4 @@ EXPOSE 8080
 ENV FORWARDED_ALLOW_IPS=127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7
 # one process: the runs and their slots are kept in memory; requests are logged by the proxy in front. uvicorn reads
 # its other options from UVICORN_* variables, e.g. UVICORN_ROOT_PATH=/api behind a proxy serving the API under /api/
-ENTRYPOINT ["/app/.venv/bin/uvicorn", "moleonline.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+ENTRYPOINT ["/app/.venv/bin/uvicorn", "moleonline.api.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]

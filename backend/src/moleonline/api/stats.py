@@ -1,7 +1,7 @@
-"""Usage of MOLEonline per month or year: python -m moleonline.stats [month|year], with the API's DATABASE_URL. In the
+"""Usage of MOLEonline per month or year: python -m moleonline.api.stats [month|year], with the API's DATABASE_URL. In the
 container:
 
-    docker compose exec api /app/.venv/bin/python -m moleonline.stats year
+    docker compose exec api /app/.venv/bin/python -m moleonline.api.stats year
 
 All times are UTC, so the sessions, the jobs and the request log are grouped by the same calendar.
 - sessions: by created, split into PDB entries and uploads, and those deleted since
@@ -18,7 +18,7 @@ import sys
 
 from sqlalchemy import select
 
-from . import storage
+from ..core import storage
 
 COLUMNS = ["sessions", "PDB entries", "uploads", "deleted", "jobs", "tunnels", "pores",
            "finished", "failed", "cancelled", "in progress", "users", "submitters"]

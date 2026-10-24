@@ -4,8 +4,8 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from .parameters import MoleOrigin, MoleParameters, MoleResidue
-from .storage import StoredSession
+from ..core.parameters import MoleOrigin, MoleParameters, MoleResidue
+from ..core.storage import StoredSession
 
 INPUT = "input.xml"
 REPORT = "report.zip"

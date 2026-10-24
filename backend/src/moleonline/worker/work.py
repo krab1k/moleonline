@@ -7,14 +7,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..core.config import Settings
+from ..core.parameters import MoleParameters, PoresParameters, PoresRequest
+from ..core.storage import StoredSession
 from . import mole
-from .config import Settings
-from .parameters import MoleParameters, PoresParameters, PoresRequest
-from .storage import StoredSession
 
 PORES_PARAMETERS = "pores.json"  # the input of the pores tool
 # a process of its own, as MOLE: a stop or the time limit kills it with MEMEMBED; the tests replace it
-PORES_TOOL = [sys.executable, "-m", "moleonline.pores"]
+PORES_TOOL = [sys.executable, "-m", "moleonline.worker.pores"]
 
 
 @dataclass(frozen=True)

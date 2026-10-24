@@ -9,9 +9,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from moleonline.pores.membrane import read_structure
-from moleonline.pores.opm import membrane_from_opm
-from moleonline.pores.path import PathError, end_points
+from moleonline.worker.pores.membrane import read_structure
+from moleonline.worker.pores.opm import membrane_from_opm
+from moleonline.worker.pores.path import PathError, end_points
 
 REFERENCE = Path(__file__).parent / "data"
 

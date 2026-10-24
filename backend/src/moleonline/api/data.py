@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi.responses import FileResponse, Response
 
-from .storage import StoredSession
+from ..core.storage import StoredSession
 
 JSON, ZIP, TEXT = "application/json", "application/zip", "text/plain"
 

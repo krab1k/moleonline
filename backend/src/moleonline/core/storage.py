@@ -196,7 +196,7 @@ LOGIN_SECONDS, COMMAND_SECONDS = 10, 15
 def upgrade(connection: Connection) -> None:
     """Alembic's upgrade to the latest revision, on the connection"""
     config = Config()
-    config.set_main_option("script_location", "moleonline:migrations")
+    config.set_main_option("script_location", "moleonline.core:migrations")
     config.attributes["connection"] = connection
     command.upgrade(config, "head")
 

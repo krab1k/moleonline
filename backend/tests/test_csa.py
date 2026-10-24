@@ -2,7 +2,7 @@
 
 import pytest
 
-from moleonline.csa import CSA
+from moleonline.api.csa import CSA
 
 from .conftest import STRUCTURE, upload, wait_session
 from .test_pdbe import FULL, FakePDBe

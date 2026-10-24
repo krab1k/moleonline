@@ -8,7 +8,7 @@ from alembic import context
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from moleonline.storage import metadata
+from moleonline.core.storage import metadata
 
 
 def migrate(connection: Connection) -> None:

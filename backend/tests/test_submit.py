@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from moleonline.main import STATIC_FILES
+from moleonline.api.main import STATIC_FILES
 
 from .conftest import MOLE_VERSION, STRUCTURE, query, upload, wait, wait_for_file, wait_session
 from .test_requests import logged

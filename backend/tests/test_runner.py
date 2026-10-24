@@ -6,9 +6,10 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from moleonline import runner, storage
-from moleonline.main import create_app
-from moleonline.storage import INTERRUPTED
+from moleonline.api.main import create_app
+from moleonline.core import storage
+from moleonline.core.storage import INTERRUPTED
+from moleonline.worker import runner
 
 from .conftest import STRUCTURE, gone, query, upload, wait_for_file, wait_session
 

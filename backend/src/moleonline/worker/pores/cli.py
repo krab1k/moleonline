@@ -1,4 +1,4 @@
-"""Command line entry point, replacing Pores.exe: `python -m moleonline.pores <pores.json>`.
+"""Command line entry point, replacing Pores.exe: `python -m moleonline.worker.pores <pores.json>`.
 
 The MOLE API writes pores.json (PoresParameters) into the submit directory and runs this program with its path,
 in a process of its own, so that a stop or the time limit kills it with MEMEMBED.
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ..parameters import PoresParameters
+from ...core.parameters import PoresParameters
 from .membrane import MembraneError, membrane_json, read_structure
 from .memembed import membrane_from_memembed
 from .opm import download_opm, membrane_from_opm
@@ -61,7 +61,8 @@ def run(parameters_path: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m moleonline.pores", description="Pore computation for MOLEonline, run by the MOLE API.")
+    parser = argparse.ArgumentParser(prog="python -m moleonline.worker.pores",
+                                     description="Pore computation for MOLEonline, run by the MOLE API.")
     parser.add_argument("parameters", type=Path, help="pores.json written by the MOLE API")
     arguments = parser.parse_args()
     try:

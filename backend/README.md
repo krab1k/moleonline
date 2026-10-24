@@ -5,9 +5,9 @@ cavities, tunnels and pores with [MOLE 2](https://github.com/sb-ncbr/webchemistr
 
 The container contains:
 
-- the API (Python, FastAPI, `src/moleonline`), with the .NET runtime for MOLE; it keeps the sessions, their jobs
-  and the queue of their runs in PostgreSQL,
-- the pores tool (`src/moleonline/pores`, part of the API, run as a process of its own): the membrane position for
+- the API (Python, FastAPI, `src/moleonline`: `api`, `worker` for the computations, `core` of both), with the .NET
+  runtime for MOLE; it keeps the sessions, their jobs and the queue of their runs in PostgreSQL,
+- the pores tool (`src/moleonline/worker/pores`, part of the API, run as a process of its own): the membrane position for
   pore computations, from [OPM](https://opm.phar.umich.edu/) or predicted by MEMEMBED,
 - MOLE 2, from the image `sbncbr/mole2`,
 - [MEMEMBED](https://github.com/psipred/MemEmbed), built from source (GPL v2, its source and licence
@@ -68,7 +68,7 @@ Usage per month or year (sessions of PDB entries and uploads, jobs and their out
 the database:
 
 ```sh
-docker compose exec api /app/.venv/bin/python -m moleonline.stats month
+docker compose exec api /app/.venv/bin/python -m moleonline.api.stats month
 ```
 
 The API runs the queued runs in its slots, one API process for now. Queued runs wait over a restart; runs running
@@ -78,7 +78,7 @@ the MOLE that ran it.
 
 ## Configuration
 
-Settings are environment variables, the defaults are the container's (`src/moleonline/config.py`):
+Settings are environment variables, the defaults are the container's (`src/moleonline/core/config.py`):
 
 | Setting | Default | |
 |---|---|---|
@@ -128,8 +128,8 @@ request, 200, with its `state` and `error`.
 | `GET /version` | versions of the API (also of the pores tool) and MOLE |
 
 The active sites come from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (Ribeiro et al., Nucleic
-Acids Research 2018, CC BY 4.0), converted by `tools/mcsa/convert.py` into `src/moleonline/resources/mcsa_sites.csv.gz`.
-The example inputs (`/inputs/`) are in `src/moleonline/static/`; `/` redirects to the documentation, `/docs`.
+Acids Research 2018, CC BY 4.0), converted by `tools/mcsa/convert.py` into `src/moleonline/api/resources/mcsa_sites.csv.gz`.
+The example inputs (`/inputs/`) are in `src/moleonline/api/static/`; `/` redirects to the documentation, `/docs`.
 
 A structure has at most 30 MB, uploaded (also when unpacked) or downloaded from PDBe: a single ribosome fits
 (4V6X, 238,000 atoms, 23 MB), larger complexes do not. A larger upload is refused with 413, a larger PDBe entry
@@ -142,7 +142,7 @@ fails to load.
 ```sh
 uv sync
 DATABASE_URL=postgresql+asyncpg://user:password@localhost/mole WORKING_DIRECTORY=/tmp/mole OPM_CACHE=/tmp/opm-cache \
-MOLE=/path/to/mole2 MEMEMBED=/path/to/memembed uv run uvicorn moleonline.main:app
+MOLE=/path/to/mole2 MEMEMBED=/path/to/memembed uv run uvicorn moleonline.api.main:app
 ```
 
 The tests need a PostgreSQL database they may empty, e.g. a throwaway container (in memory, without fsync):
@@ -163,15 +163,15 @@ uv run ruff check
 
 ### Database
 
-The tables are described in `src/moleonline/storage.py`; the [Alembic](https://alembic.sqlalchemy.org/) revision in
-`src/moleonline/migrations/versions` makes them. The API upgrades the database to it when it starts, in one transaction.
+The tables are described in `src/moleonline/core/storage.py`; the [Alembic](https://alembic.sqlalchemy.org/) revision in
+`src/moleonline/core/migrations/versions` makes them. The API upgrades the database to it when it starts, in one transaction.
 
 Until MOLEonline is deployed, there is one revision, made anew when the tables change (a test fails while it differs
 from them), and databases are made anew too (`docker compose down -v`). The revision is made from an empty database:
 
 ```sh
 docker exec moleonline-test-db psql -U test -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public'    # empty
-rm src/moleonline/migrations/versions/*.py
+rm src/moleonline/core/migrations/versions/*.py
 DATABASE_URL=$TEST_DATABASE_URL uv run alembic revision --autogenerate --rev-id initial -m tables
 ```
 
@@ -181,7 +181,7 @@ DATABASE_URL=$TEST_DATABASE_URL uv run alembic revision --autogenerate --rev-id 
 update it with `uv run python tools/openapi.py` (a test fails while it is out of date), then `npm run api-types` in
 `web/`.
 
-The pores tool (`src/moleonline/pores`) runs as `python -m moleonline.pores <pores.json>`, its input is described in
+The pores tool (`src/moleonline/worker/pores`) runs as `python -m moleonline.worker.pores <pores.json>`, its input is described in
 `cli.py`. Its tests (`tests/pores`) compare with production results of the original Pores, in `tests/pores/data/`
 (see its README).
 

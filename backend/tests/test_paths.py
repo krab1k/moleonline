@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from moleonline.main import create_app
+from moleonline.api.main import create_app
 
 
 def test_static_files(client):
