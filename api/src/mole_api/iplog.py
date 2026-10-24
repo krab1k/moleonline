@@ -8,7 +8,7 @@ from pathlib import Path
 
 FILE_NAME = "Mole_api_IP_log.csv"
 
-# the client address is the reverse proxy's X-Forwarded-For, from the proxies of the setting TRUSTED_PROXIES (config.py)
+# the client address is the reverse proxy's X-Forwarded-For, from the proxies of uvicorn's FORWARDED_ALLOW_IPS (Dockerfile)
 
 
 def write(working_directory: Path, request: str, address: str | None, kind: str, computation_id: str | None) -> None:

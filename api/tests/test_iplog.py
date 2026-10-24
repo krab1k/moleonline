@@ -5,12 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
 from mole_api import iplog
-from mole_api.main import create_app
 
-from .conftest import STRUCTURE, make_settings, upload, wait_session
+from .conftest import STRUCTURE, upload, wait_session
 
 LINE = re.compile(r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d (Init|Submit) - (\S+) (\S+) (\S+)$")
 
@@ -25,22 +22,6 @@ def test_loads_are_logged(client, settings):
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     upload(client, "empty.pdb", b"")  # refused, no computation
     assert logged(settings) == [("Init", "testclient", "Upload", id), ("Init", "testclient", "Upload", "-")]
-
-
-def test_client_address_from_the_proxy(tmp_path):
-    settings = make_settings(tmp_path)
-    for proxy, logged_address in [("172.18.0.5", "203.0.113.7"), ("198.51.100.1", "198.51.100.1")]:  # Docker network; public: not trusted
-        with TestClient(create_app(settings), client=(proxy, 40000)) as client:
-            client.post("/sessions/upload", files={"file": ("1tqn.txt", b"x")}, headers={"X-Forwarded-For": "203.0.113.7"})
-        assert logged(settings)[-1][1] == logged_address
-
-
-def test_no_trusted_proxies(tmp_path):
-    # the API without a proxy in front (TRUSTED_PROXIES=[]): no client chooses its address
-    settings = make_settings(tmp_path).model_copy(update={"trusted_proxies": []})
-    with TestClient(create_app(settings), client=("172.18.0.5", 40000)) as client:
-        client.post("/sessions/upload", files={"file": ("1tqn.txt", b"x")}, headers={"X-Forwarded-For": "203.0.113.7"})
-    assert logged(settings)[-1][1] == "172.18.0.5"
 
 
 def test_id_from_the_request_stays_one_line(tmp_path):
