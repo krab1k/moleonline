@@ -8,19 +8,26 @@ RUN npm ci
 
 COPY . ./
 
-# Path of the MOLE API baked into the site, served by this site's nginx (/api by default, see
-# compose.yaml), or by the gateway in front of it in Kubernetes
-ARG VITE_API_URL
+# Path of the MOLE API baked into the site, served by this site's nginx (site.conf)
+ARG VITE_API_URL=/api
 
 RUN npm run build
 
 FROM nginx:1.30-alpine-slim
 
 COPY --from=build /build/dist/ /var/www
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/site.conf /etc/nginx/site.conf
+COPY docker/conf.d/ /etc/nginx/templates/
 
-# nginx runs as the user nginx: the entrypoint writes conf.d/api.conf, nginx keeps its temp files
-# in /var/cache/nginx; the stock server on port 80 is not used
+# nginx runs as the user nginx: the entrypoint writes the templates to conf.d, filling in the variables
+# below and the container's DNS servers; nginx keeps its temp files in /var/cache/nginx; the stock
+# server on port 80 is not used
 RUN rm /etc/nginx/conf.d/default.conf && chown nginx /etc/nginx/conf.d /var/cache/nginx
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
+# where nginx forwards /api/ (conf.d/api.conf.template): compose's service; in Kubernetes the API's
+# service by its full name, which nginx's resolver needs (it does not search the cluster's domains)
+ENV API_ADDRESS=api:8080
 
 USER nginx
 
