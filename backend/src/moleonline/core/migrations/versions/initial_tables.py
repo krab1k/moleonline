@@ -31,7 +31,7 @@ def upgrade() -> None:
     sa.Column('assembly_id', sa.String(length=16), nullable=True),
     sa.Column('created', sa.DateTime(timezone=True), nullable=False),
     sa.Column('loaded', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('mole_version', sa.String(length=32), nullable=False),
+    sa.Column('mole_version', sa.String(length=32), nullable=True),
     sa.Column('structure_file', sa.String(length=255), nullable=True),
     sa.Column('opm', sa.Boolean(), nullable=False),
     sa.Column('deleted', sa.Boolean(), nullable=False),
@@ -47,7 +47,7 @@ def upgrade() -> None:
     sa.Column('submitted', sa.DateTime(timezone=True), nullable=False),
     sa.Column('started', sa.DateTime(timezone=True), nullable=True),
     sa.Column('finished', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('mole_version', sa.String(length=32), nullable=False),
+    sa.Column('mole_version', sa.String(length=32), nullable=True),
     sa.ForeignKeyConstraint(['session_id'], ['sessions.id'], ),
     sa.PrimaryKeyConstraint('session_id', 'number')
     )
@@ -56,6 +56,9 @@ def upgrade() -> None:
     sa.Column('session_id', sa.String(length=32), nullable=False),
     sa.Column('number', sa.Integer(), nullable=True),
     sa.Column('phase', sa.String(length=8), nullable=False),
+    sa.Column('worker', sa.String(length=128), nullable=True),
+    sa.Column('heartbeat', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('mole_version', sa.String(length=32), nullable=True),
     sa.Column('queued', sa.DateTime(timezone=True), nullable=False),
     sa.Column('started', sa.DateTime(timezone=True), nullable=True),
     sa.Column('ended', sa.DateTime(timezone=True), nullable=True),

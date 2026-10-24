@@ -8,7 +8,7 @@ export interface paths {
   "/version": {
     /**
      * Get Version
-     * @description Versions of the API (with the pores tool) and of MOLE
+     * @description Versions of the backend (the API, the workers with the pores tool) and of the MOLE that took the latest run
      */
     get: operations["get_version"];
   };
@@ -82,7 +82,7 @@ export interface paths {
      * Create Job
      * @description A job on the session's structure, run in the background: queued, running, then finished, failed or
      * cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
-     * running); it waits for a slot, queued, and 503 (Retry-After) when the queue is full.
+     * running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full.
      */
     post: operations["create_job"];
   };
@@ -164,7 +164,7 @@ export interface components {
       /** Finished */
       finished: string | null;
       /** Mole Version */
-      mole_version: string;
+      mole_version: string | null;
     };
     /**
      * JobState
@@ -454,7 +454,7 @@ export interface components {
       /** Loaded */
       loaded: string | null;
       /** Mole Version */
-      mole_version: string;
+      mole_version: string | null;
       /**
        * Jobs
        * @default []
@@ -471,7 +471,7 @@ export interface components {
       /** Api */
       api: string;
       /** Mole */
-      mole: string;
+      mole: string | null;
     };
   };
   responses: never;
@@ -489,7 +489,7 @@ export interface operations {
 
   /**
    * Get Version
-   * @description Versions of the API (with the pores tool) and of MOLE
+   * @description Versions of the backend (the API, the workers with the pores tool) and of the MOLE that took the latest run
    */
   get_version: {
     responses: {
@@ -869,7 +869,7 @@ export interface operations {
    * Create Job
    * @description A job on the session's structure, run in the background: queued, running, then finished, failed or
    * cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
-   * running); it waits for a slot, queued, and 503 (Retry-After) when the queue is full.
+   * running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full.
    */
   create_job: {
     parameters: {

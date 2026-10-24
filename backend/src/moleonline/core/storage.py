@@ -1,7 +1,10 @@
 """Sessions, their jobs and the queue of their runs, in PostgreSQL. A session's files are in its folder in the working
 directory: the structure, the load's folder (load/) and a folder per job (jobs/<number>/).
 
-A run is a session's load or one of its jobs: queued, running, then done. Every change of a state is one transaction
+A run is a session's load or one of its jobs: queued, running, then done. A worker running it holds its lease, which
+it renews; a lease not renewed for the timeout expires (the worker crashed, was killed, lost its node), and the API's
+cleanup fails the run as interrupted. A worker writes about a run only while it holds its lease, which it cannot
+renew once expired. Every change of a state is one transaction
 that applies only from the state it expects, so that a cancel or a delete is never overwritten by a run's late
 outcome; a run is not done exactly while its load or job is in progress. Every transaction changing a session, its
 jobs or its runs locks the session's row first, so that two of them never wait for each other."""
@@ -12,7 +15,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal
@@ -34,14 +37,14 @@ STOPPED_LOAD = "Loading of the structure was stopped."
 
 
 class SessionState(StrEnum):
-    queued = "queued"  # waits for a slot: to download or store the structure, then load it
+    queued = "queued"  # waits for a worker: to download or store the structure, then load it
     loading = "loading"  # the structure is downloaded and MOLE loads it
     ready = "ready"  # jobs can run on it
     failed = "failed"  # it could not be loaded (also cancelled, or interrupted by a restart); nothing can run on it
 
 
 class JobState(StrEnum):
-    queued = "queued"  # waits for a slot
+    queued = "queued"  # waits for a worker
     running = "running"
     finished = "finished"  # its results are available
     failed = "failed"  # the error says why: MOLE's error, the time limit, out of memory, a restart
@@ -68,9 +71,10 @@ class Job(BaseModel):
     # InteriorThreshold); as submitted, with the defaults filled in
     parameters: dict
     submitted: datetime  # UTC
-    started: datetime | None = None  # got a slot
+    started: datetime | None = None  # a worker took it
     finished: datetime | None = None
-    mole_version: str  # of the MOLE that ran it, once it started: the results, and which parameters were defaults, depend on it
+    # of the MOLE that runs it, None until a worker took it: the results, and which parameters were defaults, depend on it
+    mole_version: str | None = None
 
 
 class Session(BaseModel):
@@ -83,7 +87,7 @@ class Session(BaseModel):
     assembly_id: str | None = None  # the PDB entry's assembly that was loaded; None: the asymmetric unit, or an upload
     created: datetime  # UTC
     loaded: datetime | None = None  # the load ended (ready or failed)
-    mole_version: str  # of the MOLE that loaded it, once the load started
+    mole_version: str | None = None  # of the MOLE that loads it, None until a worker took its load
     jobs: list[Job] = []
 
 
@@ -142,7 +146,7 @@ sessions = Table(
     Column("assembly_id", String(16)),
     Column("created", DateTime(timezone=True), nullable=False),
     Column("loaded", DateTime(timezone=True)),
-    Column("mole_version", String(32), nullable=False),
+    Column("mole_version", String(32)),
     Column("structure_file", String(255)),
     Column("opm", Boolean, nullable=False),
     Column("deleted", Boolean, nullable=False),
@@ -159,7 +163,7 @@ jobs = Table(
     Column("submitted", DateTime(timezone=True), nullable=False),
     Column("started", DateTime(timezone=True)),
     Column("finished", DateTime(timezone=True)),
-    Column("mole_version", String(32), nullable=False),
+    Column("mole_version", String(32)),
 )
 
 runs = Table(
@@ -168,6 +172,9 @@ runs = Table(
     Column("session_id", String(32), ForeignKey("sessions.id"), nullable=False),
     Column("number", Integer),  # the job's; None: the session's load
     Column("phase", String(8), nullable=False),  # queued, running, done
+    Column("worker", String(128)),  # running: the worker holding its lease
+    Column("heartbeat", DateTime(timezone=True)),  # running: when its lease was last renewed, by the database's clock (clock_timestamp)
+    Column("mole_version", String(32)),  # of the worker that took it
     Column("queued", DateTime(timezone=True), nullable=False),
     Column("started", DateTime(timezone=True)),
     Column("ended", DateTime(timezone=True)),
@@ -256,13 +263,12 @@ async def _queue_has_room(c: AsyncConnection, limit: int) -> None:
         raise QUEUE_FULL
 
 
-async def create(db: Database, working_directory: Path, limit: int, mole_version: str, pdb_id: str | None = None,
+async def create(db: Database, working_directory: Path, limit: int, pdb_id: str | None = None,
                  assembly: str | None = None, structure: Path | None = None, structure_file: str | None = None) -> StoredSession:
     """A new session, queued with its load: of a PDB entry (downloaded by the load), or of an uploaded structure
     (moved into its folder as structure_file). The folder is made first: a session never lacks its files, at most a
     folder lacks a session. Refused (QUEUE_FULL) when limit runs are queued or running."""
-    session = StoredSession(id=new_id(), pdb_id=pdb_id, assembly=assembly, created=now(), mole_version=mole_version,
-                            structure_file=structure_file)
+    session = StoredSession(id=new_id(), pdb_id=pdb_id, assembly=assembly, created=now(), structure_file=structure_file)
     session._directory = working_directory
     async with db.engine.begin() as c:
         await _queue_has_room(c, limit)
@@ -270,8 +276,7 @@ async def create(db: Database, working_directory: Path, limit: int, mole_version
         if structure is not None:
             structure.rename(session.structure_path())
         await c.execute(sessions.insert().values(id=session.id, state=session.state, error="", pdb_id=pdb_id, assembly=assembly,
-                                                 created=session.created, mole_version=mole_version,
-                                                 structure_file=structure_file, opm=False, deleted=False))
+                                                 created=session.created, structure_file=structure_file, opm=False, deleted=False))
         await c.execute(runs.insert().values(session_id=session.id, number=None, phase=QUEUED, queued=session.created))
     return session
 
@@ -303,8 +308,7 @@ def _refusal(row, last_job) -> Refused | None:
     return None
 
 
-async def add_job(db: Database, s: StoredSession, type: Literal["tunnels", "pores"], parameters: dict, mole_version: str,
-                  limit: int) -> Job:
+async def add_job(db: Database, s: StoredSession, type: Literal["tunnels", "pores"], parameters: dict, limit: int) -> Job:
     """A new job of the session, queued with its run, and its folder. Refused (409, 410, QUEUE_FULL) with the session
     locked, so that two requests never start two jobs on it."""
     async with db.engine.begin() as c:
@@ -313,8 +317,7 @@ async def add_job(db: Database, s: StoredSession, type: Literal["tunnels", "pore
         if refused := _refusal(row, last):
             raise refused
         await _queue_has_room(c, limit)
-        job = Job(number=(last["number"] if last else 0) + 1, type=type, parameters=parameters, submitted=now(),
-                  mole_version=mole_version)
+        job = Job(number=(last["number"] if last else 0) + 1, type=type, parameters=parameters, submitted=now())
         # may be there already, empty: left by a job whose transaction failed after it
         s.job_directory(job.number).mkdir(parents=True, exist_ok=True)
         await c.execute(jobs.insert().values(session_id=s.id, **job.model_dump()))
@@ -323,7 +326,7 @@ async def add_job(db: Database, s: StoredSession, type: Literal["tunnels", "pore
 
 
 async def _end_runs(c: AsyncConnection, session_id: str, number: int | None, all_of_session: bool = False) -> None:
-    """The runs of the load (number None) or of a job end: a slot running one stops it once it sees it done"""
+    """The runs of the load (number None) or of a job end: a worker running one stops it once it sees it done"""
     where = [runs.c.session_id == session_id, runs.c.phase != DONE]
     if not all_of_session:
         where.append(runs.c.number.is_(None) if number is None else runs.c.number == number)
@@ -380,14 +383,23 @@ class Run:
     id: int
     session_id: str
     number: int | None  # the job's; None: the load
+    worker: str  # holding its lease
+    timeout: float  # seconds after which a lease not renewed expires
 
 
-async def claim(db: Database, mole_version: str) -> Run | None:
-    """The oldest queued run, now running: its load loading or its job running, with the MOLE that runs it (queued
-    runs wait over a restart, also one with another MOLE); None when none waits"""
+def _held(run: Run):
+    """The run is running, and its worker holds its lease: renewed within the timeout, by the database's clock when the
+    statement runs (clock_timestamp; now() is when the transaction began, before it waited for the session's lock)"""
+    return [runs.c.id == run.id, runs.c.phase == RUNNING, runs.c.worker == run.worker,
+            runs.c.heartbeat > func.clock_timestamp() - timedelta(seconds=run.timeout)]
+
+
+async def claim(db: Database, worker: str, mole_version: str, timeout: float) -> Run | None:
+    """The oldest queued run, now running with the worker's lease: its load loading or its job running, with the MOLE
+    that runs it (queued runs wait over a restart, also one with another MOLE); None when none waits"""
     while True:
-        # each candidate in a transaction of its own: one lost to another slot or a cancel keeps no lock while the
-        # next is tried, so that two slots never wait for each other's sessions
+        # each candidate in a transaction of its own: one lost to another worker or a cancel keeps no lock while the
+        # next is tried, so that two workers never wait for each other's sessions
         async with db.engine.begin() as c:
             row = (await c.execute(select(runs.c.id, runs.c.session_id, runs.c.number).where(runs.c.phase == QUEUED)
                                    .order_by(runs.c.id).limit(1))).first()
@@ -395,8 +407,11 @@ async def claim(db: Database, mole_version: str) -> Run | None:
                 return None
             await _lock_session(c, row.session_id)
             started = now()
-            taken = await c.execute(update(runs).where(runs.c.id == row.id, runs.c.phase == QUEUED).values(phase=RUNNING, started=started))
-            if taken.rowcount != 1:  # another slot took it, or it was cancelled, while the session was locked
+            # the lease from now, not from when the transaction began: it may have waited for the session's lock
+            taken = await c.execute(update(runs).where(runs.c.id == row.id, runs.c.phase == QUEUED)
+                                    .values(phase=RUNNING, worker=worker, heartbeat=func.clock_timestamp(), mole_version=mole_version,
+                                            started=started))
+            if taken.rowcount != 1:  # another worker took it, or it was cancelled, while the session was locked
                 continue
             if row.number is None:
                 await c.execute(update(sessions).where(sessions.c.id == row.session_id)
@@ -404,20 +419,21 @@ async def claim(db: Database, mole_version: str) -> Run | None:
             else:
                 await c.execute(update(jobs).where(jobs.c.session_id == row.session_id, jobs.c.number == row.number)
                                 .values(state=JobState.running, started=started, mole_version=mole_version))
-            return Run(row.id, row.session_id, row.number)
+            return Run(row.id, row.session_id, row.number, worker, timeout)
 
 
-async def is_running(db: Database, run: Run) -> bool:
-    """Not cancelled, deleted or interrupted"""
-    async with db.engine.connect() as c:
-        return await c.scalar(select(func.count()).select_from(runs).where(runs.c.id == run.id, runs.c.phase == RUNNING)) == 1
+async def renew(db: Database, run: Run) -> bool:
+    """Renews the run's lease; False when the worker no longer holds it: the run was cancelled, deleted, or its lease
+    expired (it cannot be renewed then, even before the cleanup marked the run)"""
+    async with db.engine.begin() as c:
+        return (await c.execute(update(runs).where(*_held(run)).values(heartbeat=func.clock_timestamp()))).rowcount == 1
 
 
 async def store_structure(db: Database, run: Run, structure_file: str, assembly_id: str | None, opm: bool) -> bool:
-    """The downloaded structure of the run's session, while the run is running; False otherwise"""
+    """The downloaded structure of the run's session, while the worker holds the run's lease; False otherwise"""
     async with db.engine.begin() as c:
         await _lock_session(c, run.session_id)
-        if not await c.scalar(select(func.count()).select_from(runs).where(runs.c.id == run.id, runs.c.phase == RUNNING)):
+        if not await c.scalar(select(func.count()).select_from(runs).where(*_held(run))):
             return False
         await c.execute(update(sessions).where(sessions.c.id == run.session_id)
                         .values(structure_file=structure_file, assembly_id=assembly_id, opm=opm))
@@ -425,12 +441,12 @@ async def store_structure(db: Database, run: Run, structure_file: str, assembly_
 
 
 async def end(db: Database, run: Run, failure: str | None = None, assembly_id: str | None = None) -> bool:
-    """The run's outcome: ready or finished, or failed with why; stored only while the run is running (False otherwise,
-    it changes nothing). assembly_id: of a failed download, the assembly that was looked for."""
+    """The run's outcome: ready or finished, or failed with why; stored only while the worker holds the run's lease
+    (False otherwise, it changes nothing). assembly_id: of a failed download, the assembly that was looked for."""
     async with db.engine.begin() as c:
         await _lock_session(c, run.session_id)
         ended = now()
-        changed = await c.execute(update(runs).where(runs.c.id == run.id, runs.c.phase == RUNNING).values(phase=DONE, ended=ended))
+        changed = await c.execute(update(runs).where(*_held(run)).values(phase=DONE, ended=ended))
         if changed.rowcount != 1:
             return False
         if run.number is None:
@@ -444,19 +460,34 @@ async def end(db: Database, run: Run, failure: str | None = None, assembly_id: s
     return True
 
 
-async def interrupt(db: Database) -> int:
-    """All running runs fail as INTERRUPTED, how many: those of the API process before this one, which runs none yet"""
-    async with db.engine.begin() as c:
-        stopped = (await c.execute(update(runs).where(runs.c.phase == RUNNING).values(phase=DONE, ended=now())
-                                   .returning(runs.c.session_id, runs.c.number))).all()
-        for session_id, number in stopped:
+async def expire(db: Database, timeout: float) -> int:
+    """Runs whose lease was not renewed for timeout seconds fail as INTERRUPTED, how many; each in a transaction of its
+    own, its session locked first"""
+    stale = runs.c.heartbeat <= func.clock_timestamp() - timedelta(seconds=timeout)
+    async with db.engine.connect() as c:
+        found = (await c.execute(select(runs.c.id, runs.c.session_id, runs.c.number).where(runs.c.phase == RUNNING, stale))).all()
+    expired = 0
+    for id, session_id, number in found:
+        async with db.engine.begin() as c:
+            await _lock_session(c, session_id)
+            ended = now()
+            if (await c.execute(update(runs).where(runs.c.id == id, runs.c.phase == RUNNING, stale)
+                                .values(phase=DONE, ended=ended))).rowcount != 1:
+                continue  # its worker ended it meanwhile, or it was cancelled
             if number is None:
                 await c.execute(update(sessions).where(sessions.c.id == session_id)
-                                .values(state=SessionState.failed, error=INTERRUPTED, loaded=now()))
+                                .values(state=SessionState.failed, error=INTERRUPTED, loaded=ended))
             else:
                 await c.execute(update(jobs).where(jobs.c.session_id == session_id, jobs.c.number == number)
-                                .values(state=JobState.failed, error=INTERRUPTED, finished=now()))
-    return len(stopped)
+                                .values(state=JobState.failed, error=INTERRUPTED, finished=ended))
+            expired += 1
+    return expired
+
+
+async def mole_version(db: Database) -> str | None:
+    """Of the MOLE that took the latest run; None before the first one"""
+    async with db.engine.connect() as c:
+        return await c.scalar(select(runs.c.mole_version).where(runs.c.started.is_not(None)).order_by(runs.c.started.desc()).limit(1))
 
 
 # ----------------------------------------------------------------------------------------------------- requests

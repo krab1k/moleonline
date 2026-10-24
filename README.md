@@ -13,8 +13,8 @@ Each directory has its own README with the details of running, configuring and d
 ## Running
 
 [`compose.yaml`](compose.yaml) runs them all: the service `web`, nginx with the site, which forwards `/api/...` to
-the service `api`, and `db`, PostgreSQL with the API's sessions, jobs and their queue. Only the site has a port on the
-host.
+the service `api`, which queues the computations; `worker`, which runs them, one at a time each; and `db`, PostgreSQL
+with the sessions, jobs and their queue. Only the site has a port on the host.
 
 ```bash
 git clone https://github.com/sb-ncbr/moleonline
@@ -28,7 +28,8 @@ Settings, in the environment or in `.env` next to `compose.yaml` (locally; on th
 | Setting | Default | |
 |---|---|---|
 | `MOLEONLINE_PORT` | `8080` | the site's port on the host |
-| `API_MEMORY_LIMIT` | `24g` | memory of all computations together, see [`backend/README.md`](backend/README.md#configuration) |
+| `WORKERS` | `4` | computations at once, a worker each; also `docker compose up -d --scale worker=N` |
+| `WORKER_MEMORY_LIMIT` | `6g` | memory of one worker, its computation, see [`backend/README.md`](backend/README.md#configuration) |
 | `POSTGRES_PASSWORD` | `mole` | the database's, set when its volume is made |
 
 The API's data is in two volumes: `moleonline_db`, the database (sessions, jobs, the queue, the request log), and

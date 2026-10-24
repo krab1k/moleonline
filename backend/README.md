@@ -5,9 +5,9 @@ cavities, tunnels and pores with [MOLE 2](https://github.com/sb-ncbr/webchemistr
 
 The container contains:
 
-- the API (Python, FastAPI, `src/moleonline`: `api`, `worker` for the computations, `core` of both), with the .NET
-  runtime for MOLE; it keeps the sessions, their jobs and the queue of their runs in PostgreSQL,
-- the pores tool (`src/moleonline/worker/pores`, part of the API, run as a process of its own): the membrane position for
+- the API and the workers (Python, `src/moleonline`: `api`, FastAPI; `worker`, which runs the computations; `core`, of
+  both), with the .NET runtime for MOLE; they keep the sessions, their jobs and the queue of their runs in PostgreSQL,
+- the pores tool (`src/moleonline/worker/pores`, run by the workers as a process of its own): the membrane position for
   pore computations, from [OPM](https://opm.phar.umich.edu/) or predicted by MEMEMBED,
 - MOLE 2, from the image `sbncbr/mole2`,
 - [MEMEMBED](https://github.com/psipred/MemEmbed), built from source (GPL v2, its source and licence
@@ -16,8 +16,8 @@ The container contains:
 ## Running
 
 The API deploys on its own, the web calls it from its own site (CORS). [`compose.yaml`](compose.yaml) runs it
-on port `API_PORT` (default 8000), with its database (`db`, PostgreSQL, the password `POSTGRES_PASSWORD`). In this
-directory:
+on port `API_PORT` (default 8000), with its workers (`worker`, `WORKERS` of them) and database (`db`, PostgreSQL, the
+password `POSTGRES_PASSWORD`). In this directory:
 
 ```sh
 docker compose up -d --build
@@ -25,8 +25,13 @@ docker compose logs -f    # one line per event; requests are not logged, errors 
 ```
 
 The settings (see [Configuration](#configuration)) go into `.env` next to `compose.yaml`, which compose also
-reads for `API_PORT` and `API_MEMORY_LIMIT`. Startup checks them: if a path is wrong, the container stops and its
-log says what is wrong.
+reads for `API_PORT`, `WORKERS` and `WORKER_MEMORY_LIMIT`. Startup checks them: if a path is wrong, the container stops
+and its log says what is wrong.
+
+The API (`uvicorn moleonline.api.main:app`, the image's entrypoint) answers the requests and queues the runs: a
+session's load, a job. The workers (`python -m moleonline.worker`, the same image) run them, one at a time each, the
+oldest first; more of them, `docker compose up -d --scale worker=N`. Both keep nothing in memory: the API may run as
+several replicas too. They share the database and the volume `data` (in Kubernetes ReadWriteMany, e.g. NFS).
 
 ### Behind a proxy
 
@@ -46,9 +51,6 @@ location /api/ {
     client_max_body_size 31m;    # uploaded structures, the API accepts files up to 30 MB, also when unpacked
 }
 ```
-
-The API runs as one process: the runs and their slots are kept in memory, so it runs as one container (one replica),
-with its data on a persistent volume.
 
 ### Data
 
@@ -71,34 +73,50 @@ the database:
 docker compose exec api /app/.venv/bin/python -m moleonline.api.stats month
 ```
 
-The API runs the queued runs in its slots, one API process for now. Queued runs wait over a restart; runs running
-during a restart are reported as failed ("interrupted by a restart"), the user can submit them again. When the
-database fails while a run runs, the API stops, to be restarted (compose, Kubernetes) and report it so; a run records
-the MOLE that ran it.
+A worker running a run renews its lease twice a second, and stops the run when it no longer holds it: cancelled,
+deleted, or expired. A lease not renewed for `WORKER_TIMEOUT_SECONDS` expires: its worker was stopped (a deploy, SIGTERM
+kills its run's processes), crashed or lost its node, or the database failed while it ran (the worker then kills the
+run and exits, to be restarted). The API fails such a run as interrupted ("interrupted by a restart"), the user can
+submit it again; it is never run again by itself. Queued runs wait over restarts of the API and the workers. Restarting
+either is always possible (`docker compose restart`, `kubectl rollout restart`): queued work is kept, running work is
+interrupted. A run records the MOLE of the worker that ran it, `/version` the latest one's.
 
 ## Configuration
 
-Settings are environment variables, the defaults are the container's (`src/moleonline/core/config.py`):
+Settings are environment variables, the defaults are the container's (`src/moleonline/core/config.py`). Of the API
+and the workers:
 
 | Setting | Default | |
 |---|---|---|
 | `WORKING_DIRECTORY` | `/data/computations` | the sessions' files, must be writable |
-| `DATABASE_URL` | none, required | `postgresql+asyncpg://user:password@host/database`; the API waits for it when it starts, then brings its tables to its code's (see [Database](#database)) |
-| `MAX_CONCURRENT_COMPUTATIONS` | `4` | MOLE and pore runs at once (loads included), others wait in a queue |
-| `MAX_QUEUED_COMPUTATIONS` | `20` | runs waiting for a slot; a new session or job beyond them is refused (503 with `Retry-After`), `0`: none waits |
+| `DATABASE_URL` | none, required | `postgresql+asyncpg://user:password@host/database`; the API and the workers wait for it when they start, then bring its tables to their code's (see [Database](#database)) |
+| `WORKER_TIMEOUT_SECONDS` | `60` | a run whose worker did not renew its lease this long fails as interrupted |
+
+Of the workers:
+
+| Setting | Default | |
+|---|---|---|
 | `MAX_COMPUTATION_MINUTES` | `30` | a run taking longer is stopped and reported as an error (a ribosome takes about 2 minutes) |
-| `MOLE` | `/opt/mole2/mole2` | full path |
+| `MOLE` | `/opt/mole2/mole2` | full path; its version is read when the worker starts |
 | `MEMEMBED` | `/opt/memembed/memembed` | full path, the membrane of pore computations without OPM's |
 | `OPM_CACHE` | `/data/opm-cache` | membrane files downloaded from OPM, must be writable |
+| `HEARTBEAT_FILE` | `/tmp/heartbeat` | touched by the worker's loop at least every 2 s, also while it waits for the database; older, the worker hangs (compose's healthcheck, a liveness probe) |
+
+Of the API:
+
+| Setting | Default | |
+|---|---|---|
+| `MAX_OUTSTANDING_COMPUTATIONS` | `24` | runs (loads, jobs) queued or running together; a new session or job beyond them is refused (503 with `Retry-After`) |
 | `CORS_ORIGINS` | `["*"]` | sites whose pages may call the API, a JSON list, e.g. `["https://moleonline.cz"]` |
 | `FORWARDED_ALLOW_IPS` | private networks | reverse proxies whose `X-Forwarded-For` gives the client's address (the request log), uvicorn's setting: addresses and networks separated by commas; `127.0.0.1` when clients connect directly, so that none can choose its address |
 | `UVICORN_ROOT_PATH` | none | the path prefix of a proxy serving the API under it, e.g. `/api` (uvicorn's `--root-path`) |
 
 All times the API stores are in UTC.
 
-The container's memory, all computations together, is limited to `API_MEMORY_LIMIT` (compose, default `24g`, in
-`.env` next to `compose.yaml`). Above it the kernel stops the largest process, a computation, which is reported as
-having run out of memory; the API keeps running.
+A worker's memory, its one computation's, is limited to `WORKER_MEMORY_LIMIT` (compose, default `6g`, in `.env` next to
+`compose.yaml`; in Kubernetes the pod's limit); the API's container has 2 GB. Near the limit MOLE (.NET) stops with an
+out of memory error; above it the kernel kills the computation, reported as having run out of memory, or the whole
+worker, whose run then fails as interrupted. A computation shares its limit with no other.
 
 ## Endpoints
 
@@ -137,12 +155,13 @@ fails to load.
 
 ## Development
 
-### Python API
+### Python
 
 ```sh
 uv sync
-DATABASE_URL=postgresql+asyncpg://user:password@localhost/mole WORKING_DIRECTORY=/tmp/mole OPM_CACHE=/tmp/opm-cache \
-MOLE=/path/to/mole2 MEMEMBED=/path/to/memembed uv run uvicorn moleonline.api.main:app
+export DATABASE_URL=postgresql+asyncpg://user:password@localhost/mole WORKING_DIRECTORY=/tmp/mole
+uv run uvicorn moleonline.api.main:app
+OPM_CACHE=/tmp/opm-cache MOLE=/path/to/mole2 MEMEMBED=/path/to/memembed uv run python -m moleonline.worker
 ```
 
 The tests need a PostgreSQL database they may empty, e.g. a throwaway container (in memory, without fsync):
@@ -151,7 +170,7 @@ The tests need a PostgreSQL database they may empty, e.g. a throwaway container 
 docker run -d --name moleonline-test-db -p 127.0.0.1:55432:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test \
   -e POSTGRES_DB=test --tmpfs /var/lib/postgresql/data docker.io/library/postgres:17-alpine -c fsync=off
 export TEST_DATABASE_URL=postgresql+asyncpg://test:test@127.0.0.1:55432/test
-uv run pytest    # with a fake MOLE and pores tool in the API's tests, and a fake PDBe
+uv run pytest    # the API with workers in threads, a fake MOLE and pores tool, and a fake PDBe
 MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # also the tests needing them, skipped without
 ```
 
@@ -164,7 +183,8 @@ uv run ruff check
 ### Database
 
 The tables are described in `src/moleonline/core/storage.py`; the [Alembic](https://alembic.sqlalchemy.org/) revision in
-`src/moleonline/core/migrations/versions` makes them. The API upgrades the database to it when it starts, in one transaction.
+`src/moleonline/core/migrations/versions` makes them. The API and the workers upgrade the database to it when they start,
+in one transaction, one process at a time.
 
 Until MOLEonline is deployed, there is one revision, made anew when the tables change (a test fails while it differs
 from them), and databases are made anew too (`docker compose down -v`). The revision is made from an empty database:

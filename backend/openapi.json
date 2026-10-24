@@ -8,7 +8,7 @@
     "/version": {
       "get": {
         "summary": "Get Version",
-        "description": "Versions of the API (with the pores tool) and of MOLE",
+        "description": "Versions of the backend (the API, the workers with the pores tool) and of the MOLE that took the latest run",
         "operationId": "get_version",
         "responses": {
           "200": {
@@ -629,7 +629,7 @@
           "jobs"
         ],
         "summary": "Create Job",
-        "description": "A job on the session's structure, run in the background: queued, running, then finished, failed or\ncancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or\nrunning); it waits for a slot, queued, and 503 (Retry-After) when the queue is full.",
+        "description": "A job on the session's structure, run in the background: queued, running, then finished, failed or\ncancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or\nrunning); it waits for a worker, queued, and 503 (Retry-After) when the queue is full.",
         "operationId": "create_job",
         "parameters": [
           {
@@ -1100,7 +1100,14 @@
             "title": "Finished"
           },
           "mole_version": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Mole Version"
           }
         },
@@ -1561,7 +1568,14 @@
             "title": "Loaded"
           },
           "mole_version": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Mole Version"
           },
           "jobs": {
@@ -1605,7 +1619,14 @@
             "title": "Api"
           },
           "mole": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Mole"
           }
         },

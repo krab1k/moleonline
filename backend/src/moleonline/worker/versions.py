@@ -1,5 +1,5 @@
-"""The version of the configured MOLE, read when the API starts, so it is always the MOLE that runs. MOLE without
-arguments prints "WebChemistry Tunnels 2.5.26.10.17, (c) ..." first. Without a version the API does not start."""
+"""The version of the configured MOLE, read when a worker starts, so it is always the MOLE that runs. MOLE without
+arguments prints "WebChemistry Tunnels 2.5.26.10.17, (c) ..." first. Without a version the worker does not start."""
 
 import asyncio
 import os
@@ -7,7 +7,7 @@ import re
 import signal
 from pathlib import Path
 
-from ..core.config import Settings
+from ..core.config import WorkerSettings
 
 MOLE_LINE = re.compile(r"^WebChemistry Tunnels (\S+),")
 
@@ -16,14 +16,14 @@ class ToolError(Exception):
     """A tool did not report its version"""
 
 
-async def read_mole_version(settings: Settings, timeout: float = 30) -> str:
+async def read_mole_version(settings: WorkerSettings, timeout: float = 30) -> str:
     """timeout: how long MOLE may take to report its version"""
     return await read_version("MOLE", settings.mole, [], MOLE_LINE, timeout)
 
 
 async def read_version(setting: str, path: Path, arguments: list[str], version: re.Pattern, timeout: float) -> str:
     """The version from the tool's first line, if it exits with code 0 in time"""
-    # stderr goes to the API's log; a session of its own, so that its children are killed with it
+    # stderr goes to the worker's log; a session of its own, so that its children are killed with it
     process = await asyncio.create_subprocess_exec(path, *arguments, stdout=asyncio.subprocess.PIPE, start_new_session=True)
     problem = None
     try:
@@ -34,7 +34,7 @@ async def read_version(setting: str, path: Path, arguments: list[str], version: 
     except TimeoutError:
         problem = f"it did not finish within {timeout:g} s"
         output = b""
-    finally:  # also when the API is stopping (cancelled)
+    finally:  # also when the worker is stopping (cancelled)
         if process.returncode is None:
             os.killpg(process.pid, signal.SIGKILL)
             await process.wait()

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..core.config import Settings
+from ..core.config import WorkerSettings
 from ..core.parameters import MoleParameters, PoresParameters, PoresRequest
 from ..core.storage import StoredSession
 from . import mole
@@ -31,7 +31,7 @@ class Work:
     finish: Callable[[], str | None] | None = None
 
 
-def run_mole(settings: Settings, input: Path) -> Step:
+def run_mole(settings: WorkerSettings, input: Path) -> Step:
     return Step([str(settings.mole), str(input)], errors_on_stderr=True)  # MOLE reports errors on stderr, with exit code 0
 
 
@@ -45,12 +45,12 @@ def pore_found(directory: Path) -> str | None:
     return None
 
 
-def load(settings: Settings, s: StoredSession) -> Work:
+def load(settings: WorkerSettings, s: StoredSession) -> Work:
     """MOLE reads the structure (load/): its residues and chains, no tunnels"""
     return Work([run_mole(settings, mole.load_input(s))])
 
 
-def job(settings: Settings, s: StoredSession, number: int) -> Work:
+def job(settings: WorkerSettings, s: StoredSession, number: int) -> Work:
     """The job's input in its folder, and its processes; raises when the input cannot be written"""
     found = s.job(number)
     directory = s.job_directory(number)

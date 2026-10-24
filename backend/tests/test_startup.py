@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from moleonline.core.config import Settings
+from moleonline.core.config import ApiSettings, WorkerSettings
 from moleonline.worker.versions import ToolError, read_mole_version
 
-from .conftest import MOLE_VERSION, script
+from .conftest import MOLE_VERSION, STRUCTURE, script, upload, wait_session
 
 MOLE = "echo 'WebChemistry Tunnels 2.5.1, (c) test'"
 
@@ -20,28 +20,33 @@ def test_documentation_version_and_cofactors(client):
     response = client.get("/version")
     assert response.status_code == 200
     assert response.json()["api"]
-    assert response.json()["mole"] == MOLE_VERSION
+    assert response.json()["mole"] is None  # no worker took a run yet
+    wait_session(client, upload(client, "1tqn.cif", STRUCTURE).json()["id"])
+    assert client.get("/version").json()["mole"] == MOLE_VERSION  # of the worker that took it
     cofactors = client.get("/cofactors").json()
     assert cofactors and all(isinstance(name, str) and isinstance(query, str) for name, query in cofactors.items())
 
 
-def test_wrong_settings_stop_the_api(tmp_path: Path):
+def test_wrong_settings_stop_the_api_and_the_workers(tmp_path: Path):
     (tmp_path / "file").touch()
     with pytest.raises(ValidationError) as error:
-        Settings(working_directory=tmp_path / "file", database_url="postgresql+asyncpg://", max_concurrent_computations=0,
-                 max_computation_minutes=0, mole=tmp_path / "file", memembed=tmp_path / "missing", opm_cache=tmp_path / "file")
+        WorkerSettings(working_directory=tmp_path / "file", database_url="postgresql+asyncpg://", worker_timeout_seconds=1,
+                       max_computation_minutes=0, mole=tmp_path / "file", memembed=tmp_path / "missing", opm_cache=tmp_path / "file")
     problems = {e["loc"][0]: e["msg"] for e in error.value.errors()}  # all of them at once
     assert "is not writable" in problems["working_directory"]
-    assert "max_concurrent_computations" in problems and "max_computation_minutes" in problems
+    assert "worker_timeout_seconds" in problems and "max_computation_minutes" in problems
     assert "is not executable" in problems["mole"]
     assert "does not exist" in problems["memembed"]
     assert "is not writable" in problems["opm_cache"]
     with pytest.raises(ValidationError, match="must be a full path"):
-        Settings(working_directory=tmp_path, database_url="postgresql+asyncpg://", mole="mole2")
+        WorkerSettings(working_directory=tmp_path, database_url="postgresql+asyncpg://", mole="mole2")
+    with pytest.raises(ValidationError) as error:
+        ApiSettings(working_directory=tmp_path, max_outstanding_computations=0)
+    assert {e["loc"][0] for e in error.value.errors()} == {"database_url", "max_outstanding_computations"}
 
 
-def tools(directory: Path, mole: str) -> Settings:
-    return Settings(working_directory=directory, database_url="postgresql+asyncpg://", mole=script(directory, "mole", mole),
+def tools(directory: Path, mole: str) -> WorkerSettings:
+    return WorkerSettings(working_directory=directory, database_url="postgresql+asyncpg://", mole=script(directory, "mole", mole),
                     memembed=script(directory, "memembed", "exit 0"),
                     opm_cache=directory / "opm-cache")
 
