@@ -19,7 +19,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict
 from starlette.datastructures import UploadFile
@@ -100,25 +99,6 @@ def can_run(s: StoredSession) -> str | None:
 
 # the job types as the IP log names them (Mole, Pores), as the former API's endpoints
 LOGGED_TYPES = {"tunnels": "Mole", "pores": "Pores"}
-
-
-class LoggedJob(APIRoute):
-    """A new job is logged before its body is validated, so a refused one too; its type from the body (- when the body
-    has none)"""
-
-    def get_route_handler(self):
-        handle = super().get_route_handler()
-
-        async def logged(request: Request):
-            try:
-                type = json.loads(await request.body()).get("type")  # the body stays for handle
-            except (ValueError, AttributeError):  # not JSON, not an object
-                type = None
-            kind = LOGGED_TYPES.get(type, "-") if isinstance(type, str) else "-"  # unvalidated: e.g. a list
-            iplog.write(request.app.state.settings.working_directory, "Submit", request.client and request.client.host,
-                        kind, request.path_params["session_id"])
-            return await handle(request)
-        return logged
 
 
 def errors(*codes: int) -> dict:
@@ -425,16 +405,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         found.delete()
         return Response(status_code=204)
 
-    # creating and cancelling jobs: async, on the event loop as the runs (see cancel_session); creating them is logged
-    new_jobs = APIRouter(prefix="/sessions", tags=["jobs"], route_class=LoggedJob)
+    # creating and cancelling jobs: async, on the event loop as the runs (see cancel_session)
     job_routes = APIRouter(prefix="/sessions", tags=["jobs"])
 
-    @new_jobs.post("/{session_id}/jobs", status_code=202, responses=errors(404, 409, 410, 503))
+    @job_routes.post("/{session_id}/jobs", status_code=202, responses=errors(404, 409, 410, 503))
     async def create_job(request: Request, response: Response, session_id: str, new: NewJob) -> Job:
         """A job on the session's structure, run in the background: queued, running, then finished, failed or
         cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
         running); it waits for a slot, queued, and 503 (Retry-After) when the queue is full."""
         settings: Settings = request.app.state.settings
+        iplog.write(settings.working_directory, "Submit", request.client and request.client.host, LOGGED_TYPES[new.type], session_id)
 
         if isinstance(new, NewTunnelsJob):
             parameters = new.parameters
@@ -509,7 +489,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return found.job(number)
 
     app.include_router(sessions)
-    app.include_router(new_jobs)
     app.include_router(job_routes)
     return app
 

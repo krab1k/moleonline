@@ -24,6 +24,12 @@ def test_loads_are_logged(client, settings):
     assert logged(settings) == [("Init", "testclient", "Upload", id), ("Init", "testclient", "Upload", "-")]
 
 
+def test_requests_are_answered_without_the_log(client, settings, caplog):
+    (settings.working_directory / iplog.FILE_NAME).mkdir()  # cannot be written
+    assert upload(client, "1tqn.cif", STRUCTURE).status_code == 202
+    assert any("request log could not be written" in r.getMessage() for r in caplog.records)
+
+
 def test_id_from_the_request_stays_one_line(tmp_path):
     iplog.write(tmp_path, "Submit", "203.0.113.7", "Mole", "x\ny z/" + "a" * 50)
     assert (tmp_path / iplog.FILE_NAME).read_text().endswith(" Submit - 203.0.113.7 Mole x?y?z?" + "a" * 34 + "\n")
