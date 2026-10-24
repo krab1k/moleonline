@@ -28,6 +28,9 @@ COPY --from=api /app/.venv /app/.venv
 RUN mkdir /data && chown $APP_UID:$APP_UID /data
 USER $APP_UID
 EXPOSE 8080
+# the reverse proxies whose X-Forwarded-For gives the client address (the request log), uvicorn's setting: private
+# networks, where a proxy in front (nginx in compose, an ingress in Kubernetes) has an address not known in advance
+ENV FORWARDED_ALLOW_IPS=127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7
 # one process: the runs and their slots are kept in memory; requests are logged by the proxy in front. uvicorn reads
 # its other options from UVICORN_* variables, e.g. UVICORN_ROOT_PATH=/api behind a proxy serving the API under /api/
 ENTRYPOINT ["/app/.venv/bin/uvicorn", "mole_api.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]

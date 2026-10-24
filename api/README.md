@@ -29,8 +29,9 @@ log says what is wrong.
 ### Behind a proxy
 
 In production a reverse proxy (nginx, a Kubernetes ingress) serves the API over HTTPS. The API takes the client
-address (the request log, see below) from `X-Forwarded-For` of the proxies in `TRUSTED_PROXIES`, by default any on
-loopback or a private network; with clients connecting to the API directly, set `TRUSTED_PROXIES=[]`. A proxy
+address (the request log, see below) from `X-Forwarded-For` of the proxies in `FORWARDED_ALLOW_IPS` (uvicorn's), by
+default any on loopback or a private network; with clients connecting to the API directly, set
+`FORWARDED_ALLOW_IPS=127.0.0.1`. A proxy
 serving the API under a path, e.g. `https://example.org/api/`, strips it and the API runs with
 `UVICORN_ROOT_PATH=/api`, so that its documentation (`/api/docs`) and "Try it out" use the proxy's URLs. For nginx:
 
@@ -81,7 +82,7 @@ Settings are environment variables, the defaults are the container's (`src/mole_
 | `MEMEMBED` | `/opt/memembed/memembed` | full path, the membrane of pore computations without OPM's |
 | `OPM_CACHE` | `/data/opm-cache` | membrane files downloaded from OPM, must be writable |
 | `CORS_ORIGINS` | `["*"]` | sites whose pages may call the API, a JSON list, e.g. `["https://moleonline.cz"]` |
-| `TRUSTED_PROXIES` | private networks | reverse proxies whose `X-Forwarded-For` gives the client's address (the request log), a JSON list of addresses and networks; `[]` when clients connect directly, so that none can choose its address |
+| `FORWARDED_ALLOW_IPS` | private networks | reverse proxies whose `X-Forwarded-For` gives the client's address (the request log), uvicorn's setting: addresses and networks separated by commas; `127.0.0.1` when clients connect directly, so that none can choose its address |
 | `UVICORN_ROOT_PATH` | none | the path prefix of a proxy serving the API under it, e.g. `/api` (uvicorn's `--root-path`) |
 
 All times the API stores are in UTC.

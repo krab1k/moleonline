@@ -24,7 +24,6 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from . import data, iplog, mole, pdbe, storage, upload
 from .config import HttpSettings, Settings
@@ -280,7 +279,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return app.openapi_schema
     app.openapi = openapi
     http = settings or HttpSettings()
-    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=http.trusted_proxies)  # the client address, also for the log
 
     @app.middleware("http")
     async def unexpected(request: Request, call_next) -> Response:
