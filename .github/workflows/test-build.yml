@@ -1,10 +1,54 @@
-name: Test Docker Compose Build
+name: Test and build
 
 on:
   push:
   pull_request:
 
 jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install the API with its development tools
+        run: uv sync --locked
+
+      - name: Check the code with ruff
+        run: uv run ruff check
+
+      # the tests needing the real MOLE or MEMEMBED are skipped (MOLE2, MEMEMBED not set)
+      - name: Run the tests
+        run: uv run pytest
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24 # as the web's image (docker/Dockerfile)
+
+      - name: Install the dependencies
+        run: npm ci
+
+      - name: Run the tests
+        run: npm test
+
   docker-compose-build:
     runs-on: ubuntu-latest
 
