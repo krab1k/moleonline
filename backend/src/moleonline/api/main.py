@@ -376,10 +376,10 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
             return found
         if (wanted := found.job(number)) is None:
             return problem(404, f"Job {number} does not exist.")
-        # MOLE's files appear while it runs, a failed run leaves some; the membrane is complete once written
+        # stored when the job finished; the membrane also when MOLE then failed
         if format != data.ResultFormat.membrane and wanted.state != JobState.finished:
             return problem(404, f"Job {number} has no results, it is {wanted.state}.")
-        # in a thread: the tunnels' profiles (pdb) are zipped here
+        # in a thread: the files are read from the report, the tunnels' profiles (pdb) zipped here
         return await run_in_threadpool(data.job_result, found, number, format) or problem(404, f"The job has no {format} results.")
 
     @job_routes.post("/{session_id}/jobs/{number}/cancel", responses=errors(404, 409, 410))

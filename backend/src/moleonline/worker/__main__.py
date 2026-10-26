@@ -11,7 +11,7 @@ from uvicorn.logging import DefaultFormatter
 
 from ..core import storage
 from ..core.config import WorkerSettings
-from . import pdbe
+from . import pdbe, work
 from .runner import Worker
 from .versions import read_mole_version
 
@@ -20,6 +20,7 @@ log = logging.getLogger("uvicorn.error")
 
 async def main() -> None:
     settings = WorkerSettings()  # a wrong setting stops the start
+    work.clear_scratch(settings)
     mole_version = await read_mole_version(settings)
     db = storage.Database(settings.database_url)
     await db.migrate()

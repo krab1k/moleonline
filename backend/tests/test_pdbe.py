@@ -69,7 +69,7 @@ def test_structure_is_downloaded_and_loaded(client, requested, routes, file, ass
     assert saved(id) == ("1tqn", "1tqn.cif", assembly_id, pores)
     folder = client.app.state.settings.working_directory / id
     assert (folder / "1tqn.cif").read_bytes() == STRUCTURE
-    assert (folder / "load" / "input.xml").exists()
+    assert (client.app.state.settings.scratch_directory / id / "load.xml").exists()  # MOLE loaded it
 
 
 def server_error(message: str) -> bytes:
@@ -94,7 +94,7 @@ def test_failed_download(client, answer, message):
     session = wait_session(client, id)
     assert session["state"] == "failed"
     assert session["error"] == message
-    assert not (client.app.state.settings.working_directory / id / "load").exists()  # MOLE did not run
+    assert not (client.app.state.settings.scratch_directory / id / "load.xml").exists()  # MOLE did not run
     assert not list((client.app.state.settings.working_directory / id).glob("*.download"))
 
 
@@ -112,7 +112,7 @@ def test_assembly_the_entry_does_not_have_when_its_assemblies_are_unknown(client
     session = wait_session(client, create(client, assembly="3").json()["id"])
     assert session["state"] == "failed"
     assert session["error"] == "Structure [1tqn] has no assembly [3]."
-    assert not (client.app.state.settings.working_directory / session["id"] / "load").exists()  # MOLE did not run
+    assert not (client.app.state.settings.scratch_directory / session["id"] / "load.xml").exists()  # MOLE did not run
 
 
 def test_stopped_download(client):

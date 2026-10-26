@@ -16,7 +16,7 @@ STOPPED = "Loading of the structure was stopped."
 
 def started_load(client) -> str:
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
-    wait_for_file(client.app.state.settings.working_directory / id / "load" / "started")
+    wait_for_file(client.app.state.settings.scratch_directory / id / "load" / "started")
     return id
 
 
@@ -35,7 +35,7 @@ def test_cancelled_load(api):
     client = api(load=CHILD + UNTIL_GO)
     id = started_load(client)
     assert client.get(f"/sessions/{id}").json()["state"] == "loading"
-    child = int((client.app.state.settings.working_directory / id / "load" / "child").read_text())
+    child = int((client.app.state.settings.scratch_directory / id / "load" / "child").read_text())
 
     response = client.post(f"/sessions/{id}/cancel")
     assert response.status_code == 200
@@ -52,7 +52,7 @@ def test_cancelled_load(api):
 
 def test_load_cancelled_while_waiting_for_a_slot(api):
     client = api(load=UNTIL_GO, workers=1)
-    folder = client.app.state.settings.working_directory
+    folder = client.app.state.settings.scratch_directory
     first = started_load(client)
     waiting = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     assert client.get(f"/sessions/{waiting}").json()["state"] == "queued"
@@ -74,7 +74,7 @@ def test_ready_session_cannot_be_cancelled_and_its_job_runs_on(api):
     assert response.json()["detail"] == "The session is ready, only a queued or loading session can be cancelled."
 
     submit(client, id)
-    folder = client.app.state.settings.working_directory / id / "jobs" / "1"
+    folder = client.app.state.settings.scratch_directory / id / "1"
     wait_for_file(folder / "started")
     assert client.post(f"/sessions/{id}/cancel").status_code == 409  # jobs are cancelled on their own
     (folder / "go").touch()
@@ -84,7 +84,7 @@ def test_ready_session_cannot_be_cancelled_and_its_job_runs_on(api):
 def test_delete_stops_the_run_and_is_410_after(api):
     client = api(load=CHILD + UNTIL_GO)
     id = started_load(client)
-    child = int((client.app.state.settings.working_directory / id / "load" / "child").read_text())
+    child = int((client.app.state.settings.scratch_directory / id / "load" / "child").read_text())
 
     response = client.delete(f"/sessions/{id}")
     assert response.status_code == 204

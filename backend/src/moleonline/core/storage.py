@@ -91,6 +91,11 @@ class Session(BaseModel):
     jobs: list[Job] = []
 
 
+# a job's results in its folder: MOLE's data.json (what the web shows), all MOLE's results with the structure, the
+# membrane of a pore job
+JOB_DATA, JOB_REPORT, JOB_MEMBRANE = "data.json", "report.zip", "membrane.json"
+
+
 class StoredSession(Session):
     """A session as stored, with what only the API needs; a snapshot, read again to see changes"""
     assembly: str | None = None  # of a PDB entry, as requested: preferred, asymmetric or an assembly id
@@ -110,10 +115,12 @@ class StoredSession(Session):
             raise ValueError(f"Session {self.id} has no structure.")
         return self.folder() / self.structure_file
 
-    def load_directory(self) -> Path:
-        return self.folder() / "load"
+    def load_data(self) -> Path:
+        """MOLE's data.json of the load"""
+        return self.folder() / "data.json"
 
     def job_directory(self, number: int) -> Path:
+        """The results of a finished job (JOB_DATA, JOB_REPORT, JOB_MEMBRANE), stored by the worker"""
         return self.folder() / "jobs" / str(number)
 
     def job(self, number: int) -> Job | None:
@@ -317,7 +324,7 @@ def _refusal(row, last_job) -> Refused | None:
 
 
 async def add_job(db: Database, s: StoredSession, type: Literal["tunnels", "pores"], parameters: dict, limit: int) -> Job:
-    """A new job of the session, queued with its run, and its folder. Refused (409, 410, QUEUE_FULL) with the session
+    """A new job of the session, queued with its run. Refused (409, 410, QUEUE_FULL) with the session
     locked, so that two requests never start two jobs on it."""
     async with db.engine.begin() as c:
         row = await _lock_session(c, s.id)
@@ -326,8 +333,6 @@ async def add_job(db: Database, s: StoredSession, type: Literal["tunnels", "pore
             raise refused
         await _queue_has_room(c, limit)
         job = Job(number=(last["number"] if last else 0) + 1, type=type, parameters=parameters, submitted=now())
-        # may be there already, empty: left by a job whose transaction failed after it
-        s.job_directory(job.number).mkdir(parents=True, exist_ok=True)
         await c.execute(jobs.insert().values(session_id=s.id, **job.model_dump()))
         await c.execute(runs.insert().values(session_id=s.id, number=job.number, phase=QUEUED, queued=job.submitted))
     return job

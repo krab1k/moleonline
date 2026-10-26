@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from moleonline.api.main import create_app
 from moleonline.core.config import ApiSettings, WorkerSettings
+from moleonline.worker import work
 from moleonline.worker.versions import ToolError, read_mole_version
 
 from .conftest import MOLE_VERSION, STRUCTURE, query, script, upload, wait_session
@@ -33,13 +34,15 @@ def test_wrong_settings_stop_the_api_and_the_workers(tmp_path: Path):
     (tmp_path / "file").touch()
     with pytest.raises(ValidationError) as error:
         WorkerSettings(working_directory=tmp_path / "file", database_url="postgresql+asyncpg://", worker_timeout_seconds=1,
-                       max_computation_minutes=0, mole=tmp_path / "file", memembed=tmp_path / "missing", opm_cache=tmp_path / "file")
+                       max_computation_minutes=0, mole=tmp_path / "file", memembed=tmp_path / "missing", opm_cache=tmp_path / "file",
+                       scratch_directory=tmp_path / "file")
     problems = {e["loc"][0]: e["msg"] for e in error.value.errors()}  # all of them at once
     assert "is not writable" in problems["working_directory"]
     assert "worker_timeout_seconds" in problems and "max_computation_minutes" in problems
     assert "is not executable" in problems["mole"]
     assert "does not exist" in problems["memembed"]
     assert "is not writable" in problems["opm_cache"]
+    assert "is not writable" in problems["scratch_directory"]
     with pytest.raises(ValidationError, match="must be a full path"):
         WorkerSettings(working_directory=tmp_path, database_url="postgresql+asyncpg://", mole="mole2")
     with pytest.raises(ValidationError) as error:
@@ -47,10 +50,18 @@ def test_wrong_settings_stop_the_api_and_the_workers(tmp_path: Path):
     assert {e["loc"][0] for e in error.value.errors()} == {"database_url", "max_outstanding_computations"}
 
 
+def test_scratch_directory_is_emptied_when_a_worker_starts(tmp_path: Path):
+    settings = tools(tmp_path, "exit 0")
+    (settings.scratch_directory / "session" / "1").mkdir(parents=True)  # left by a worker that was killed
+    (settings.scratch_directory / "session" / "1" / "input.xml").touch()
+    work.clear_scratch(settings)
+    assert list(settings.scratch_directory.iterdir()) == []
+
+
 def tools(directory: Path, mole: str) -> WorkerSettings:
     return WorkerSettings(working_directory=directory, database_url="postgresql+asyncpg://", mole=script(directory, "mole", mole),
                     memembed=script(directory, "memembed", "exit 0"),
-                    opm_cache=directory / "opm-cache")
+                    opm_cache=directory / "opm-cache", scratch_directory=directory / "scratch")
 
 
 @pytest.mark.parametrize("mole, problem", [

@@ -10,7 +10,7 @@ from moleonline.core.storage import INTERRUPTED
 
 from .conftest import STRUCTURE, gone, upload, wait_for_file, wait_session
 
-# the fake MOLE marks that it started (next to its input), then waits until the test lets it go
+# the fake MOLE marks that it started (in the run's folder), then waits until the test lets it go
 STARTED = 'touch "$(dirname "$1")/started"'
 UNTIL_GO = STARTED + '; while [ ! -f "$(dirname "$1")/go" ]; do sleep 0.02; done'
 
@@ -21,7 +21,7 @@ def load(client) -> str:
 
 def test_waiting_for_a_slot(api):
     client = api(load=UNTIL_GO, workers=1)
-    folder = client.app.state.settings.working_directory
+    folder = client.app.state.settings.scratch_directory
     first, second = load(client), load(client)
     wait_for_file(folder / first / "load" / "started")
     time.sleep(0.3)
@@ -58,14 +58,14 @@ def test_tool_that_cannot_start(api):
 
 def test_time_limit_kills_the_whole_process_tree(api):
     # the pores tool starts MEMEMBED as a child; the child must not keep running
-    client = api(load='sleep 30 & echo $! > "$(dirname "$1")/child"; ' + UNTIL_GO)
+    client = api(load='sleep 30 & echo $! > "$(dirname "$1").child"; ' + UNTIL_GO)  # outlives the run's folder
     for worker in client.workers.workers:
         worker.time_limit = 0.5
     id = load(client)
     session = wait_session(client, id)
     assert session["state"] == "failed"
     assert session["error"] == "The computation exceeded the time limit of 30 minutes."
-    child = int((client.app.state.settings.working_directory / id / "load" / "child").read_text())
+    child = int((client.app.state.settings.scratch_directory / id / "load.child").read_text())
     assert gone(child)
 
 
@@ -84,7 +84,7 @@ def test_stopping_a_worker_kills_its_run(api):
     """SIGTERM (a deploy): the run's processes are killed with their children; its lease expires and it fails as
     interrupted"""
     client = api(load='sleep 30 & echo $! > "$(dirname "$1")/child"; ' + UNTIL_GO, workers=1)
-    folder = client.app.state.settings.working_directory
+    folder = client.app.state.settings.scratch_directory
     id = load(client)
     wait_for_file(folder / id / "load" / "started")
     child = int((folder / id / "load" / "child").read_text())
@@ -118,12 +118,13 @@ def test_a_worker_that_cannot_store_an_outcome_stops(api, monkeypatch):
 def test_a_cancel_does_not_stop_the_worker(api):
     """The worker kills the cancelled run, waits for its threads and takes the next run"""
     client = api(load=UNTIL_GO, workers=1)
-    folder = client.app.state.settings.working_directory
+    folder = client.app.state.settings.scratch_directory
     first = load(client)
     wait_for_file(folder / first / "load" / "started")
     assert client.post(f"/sessions/{first}/cancel").status_code == 200
     second = load(client)
     wait_for_file(folder / second / "load" / "started")  # the same worker took it
+    assert not (folder / first / "load").exists()  # its folder removed before
     (folder / second / "load" / "go").touch()
     assert wait_session(client, second)["state"] == "ready"
     assert client.workers.alive() == 1 and client.workers.errors == []

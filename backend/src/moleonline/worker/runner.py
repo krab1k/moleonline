@@ -1,6 +1,6 @@
 """A worker: takes the oldest queued run from the database and runs it, one at a time. A run is a session's load (its
 structure downloaded from PDBe first, unless it was uploaded) or one of its jobs: its processes (MOLE, the pores tool)
-one after another, then its finish (zipping the results).
+one after another in a folder on the worker's own disk, then its finish (storing the results), see work.py.
 
 While it runs, the worker renews the run's lease twice a second. When it no longer holds it (the run was cancelled or
 deleted, or its lease expired), it kills the run's processes with their children, waits for the run's threads and
@@ -108,20 +108,24 @@ class Worker:
 
     async def _compute(self, run: Run, s: storage.StoredSession) -> str | None:
         """Why the run failed, None when it did not"""
+        directory = work.scratch(self.settings, s, run.number)
         try:
-            planned = await in_thread(work.load if run.number is None else work.job, self.settings, s,
+            planned = await in_thread(work.load if run.number is None else work.job, self.settings, s, directory,
                                       *([] if run.number is None else [run.number]))
+            failure = None
             try:
                 async with asyncio.timeout(self.time_limit):
                     for step in planned.steps:
-                        if error := await run_process(step):
-                            return error
+                        if failure := await run_process(step):
+                            break
             except TimeoutError:
                 minutes = f"{self.minutes} minute{'s' if self.minutes != 1 else ''}"
-                return f"The computation exceeded the time limit of {minutes}."
-            return await in_thread(planned.finish) if planned.finish else None
+                failure = f"The computation exceeded the time limit of {minutes}."
+            return await in_thread(planned.finish, failure)
         except Exception as e:  # noqa: BLE001 (e.g. a process cannot be started; never leave the run in progress)
             return str(e)
+        finally:  # also when stopped: its processes were killed, its threads waited for
+            await in_thread(work.discard, directory)
 
 
 async def in_thread(f: Callable[..., Any], *args) -> Any:

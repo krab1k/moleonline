@@ -9,7 +9,7 @@ from .conftest import STRUCTURE, upload, wait, wait_for_file, wait_session
 from .test_runner import UNTIL_GO
 from .test_submit import submit
 
-# MOLE's results next to its input: data.json, the viewers' scripts, the tunnels' profiles
+# MOLE's results in the run's folder: data.json, the viewers' scripts, the tunnels' profiles
 RESULTS = """d="$(dirname "$1")"; mkdir -p "$d/json" "$d/pymol" "$d/chimera" "$d/vmd" "$d/pdb/profile/more"
 echo '{"Channels": {}}' > "$d/json/data.json"; echo pymol > "$d/pymol/complex.py"; echo chimera > "$d/chimera/complex.py"
 echo vmd > "$d/vmd/complex"; echo a > "$d/pdb/profile/a.pdb"; echo b > "$d/pdb/profile/more/b.pdb\""""
@@ -91,14 +91,14 @@ def test_no_results_while_running(api):
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait_session(client, id)
     submit(client, id)
-    folder = client.app.state.settings.working_directory / id / "jobs" / "1"
+    folder = client.app.state.settings.scratch_directory / id / "1"
     wait_for_file(folder / "started")
     assert (folder / "json" / "data.json").exists()  # MOLE writes as it goes
     assert client.get(f"/sessions/{id}/jobs/1/results/data").status_code == 404
     (folder / "go").touch()
     assert wait(client, id, 1)["state"] == "finished"
     assert client.get(f"/sessions/{id}/jobs/1/results/data").status_code == 200
-    assert sorted(p.name for p in folder.glob("report.zip*")) == ["report.zip"]  # written under another name first
+    assert not folder.exists()  # removed once the results were stored
 
 
 def test_no_data_of_a_failed_load(api):

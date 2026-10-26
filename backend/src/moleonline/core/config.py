@@ -45,11 +45,14 @@ class WorkerSettings(CoreSettings):
     mole: Path = Path("/opt/mole2/mole2")
     memembed: Path = Path("/opt/memembed/memembed")  # the membrane of pore computations without OPM's
     opm_cache: Path = Path("/data/opm-cache")  # membranes downloaded from OPM, reused for 30 days
+    # where runs compute, on the worker's own disk: MOLE writes many small files, slow on a shared volume; only the
+    # results the API serves are then stored in working_directory. Each worker's own: emptied when the worker starts.
+    scratch_directory: Path = Path(tempfile.gettempdir()) / "moleonline"
     # touched by the worker's loop, also while it waits for the database: its age tells a liveness probe (Kubernetes,
     # compose's healthcheck) that the worker hangs
     heartbeat_file: Path = Path("/tmp/heartbeat")
 
-    @field_validator("opm_cache")
+    @field_validator("opm_cache", "scratch_directory")
     @classmethod
     def writable_cache(cls, path: Path) -> Path:
         return writable(path)

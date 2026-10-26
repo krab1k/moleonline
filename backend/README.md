@@ -44,8 +44,13 @@ The database holds the sessions, their jobs, the queue and a log of submitted re
 
 | Path | Contents |
 |---|---|
-| `/data/computations/<id>/` | One session: its structure, `load/` and `jobs/<n>/` with MOLE's input and results |
+| `/data/computations/<id>/` | One session: its structure, `data.json` (what its load found) and `jobs/<n>/` with each finished job's results |
 | `/data/opm-cache/` | Membranes downloaded from OPM, kept for 30 days |
+
+A job's folder holds `data.json` (what the website shows), `report.zip` (all of MOLE's results and the structure) and,
+for pores, `membrane.json`. The other downloads are read from `report.zip`. The workers run MOLE in a folder on their
+own disk and copy only these files to the volume, because MOLE writes many small files and a shared volume (NFS) is
+slow with those.
 
 Monthly or yearly usage (sessions, jobs and their outcomes, distinct users):
 
@@ -73,6 +78,7 @@ For the workers:
 | `MOLE` | `/opt/mole2/mole2` | Path to MOLE |
 | `MEMEMBED` | `/opt/memembed/memembed` | Path to MEMEMBED |
 | `OPM_CACHE` | `/data/opm-cache` | Where membranes from OPM are cached |
+| `SCRATCH_DIRECTORY` | `/tmp/moleonline` | Where computations run, on a local disk; each worker needs its own, it is emptied when the worker starts |
 | `HEARTBEAT_FILE` | `/tmp/heartbeat` | Touched every few seconds; a liveness probe checks its age |
 
 For the API:

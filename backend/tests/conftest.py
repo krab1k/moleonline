@@ -22,6 +22,7 @@ from moleonline.worker.versions import read_mole_version
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 MOLE_VERSION = "9.8.7.6"  # what the fake MOLE reports when started without arguments, as MOLE does
 STRUCTURE = (Path(__file__).parent / "data" / "1tqn.cif").read_bytes()
+KEEP_INPUT = 'cp "$1" "$(dirname "$1").{}" 2>/dev/null'  # with the extension, see make_settings
 
 
 def script(directory: Path, name: str, body: str) -> Path:
@@ -62,12 +63,15 @@ class Settings(ApiSettings, WorkerSettings):
 
 def make_settings(directory: Path, database: str, load: str = "exit 0", run: str = "exit 0", workers: int = 4, queued: int = 20,
                   mole: Path | None = None) -> Settings:
-    """Their own working directory. The fake MOLE runs load for a load (input in folder load/), run for a computation,
-    and reports its version without arguments. mole: a real MOLE instead. queued: runs that may wait for the workers."""
+    """Their own working and scratch directories. The fake MOLE runs load for a load (input in the run's folder load/),
+    run for a computation, and reports its version without arguments; it keeps a copy of its input next to the run's
+    folder (scratch/<session>/load.xml, 1.xml), which is removed after the run. mole: a real MOLE instead. queued: runs
+    that may wait for the workers."""
     fake = (f"case \"$1\" in\n  '') echo 'WebChemistry Tunnels {MOLE_VERSION}, (c) test' ;;\n"
-            f"  */load/input.xml) {load} ;;\n  *) {run} ;;\nesac")
+            f"  */load/input.xml) {KEEP_INPUT.format("xml")}; {load} ;;\n  *) {KEEP_INPUT.format("xml")}; {run} ;;\nesac")
     return Settings(
         working_directory=directory / "computations",
+        scratch_directory=directory / "scratch",
         database_url=database,
         max_outstanding_computations=workers + queued,
         mole=mole or script(directory, "mole", fake),
@@ -135,13 +139,14 @@ def settings(tmp_path: Path, database: str) -> Settings:
 @pytest.fixture
 def api(tmp_path: Path, database: str, monkeypatch):
     """api(load=..., run=..., pores=..., workers=..., queued=...): a started API and its workers (client.workers) with
-    these fake MOLE scripts and a fake pores tool running pores (input: pores.json); the workers are stopped, their runs
-    killed, when the test ends. PDBe's client is client.app.state.pdbe (the tests replace it)."""
+    these fake MOLE scripts and a fake pores tool running pores (input: pores.json, kept as scratch/<session>/<n>.json);
+    the workers are stopped, their runs killed, when the test ends. PDBe's client is client.app.state.pdbe (the tests
+    replace it)."""
     monkeypatch.setattr(runner, "IDLE_SECONDS", 0.02)  # the workers look for runs, the tests do not wait for them
     monkeypatch.setattr(runner, "CHECK_SECONDS", 0.02)
 
     def start(pores: str = "exit 0", workers: int = 4, **fake) -> TestClient:
-        monkeypatch.setattr(work, "PORES_TOOL", [str(script(tmp_path, "pores", pores))])
+        monkeypatch.setattr(work, "PORES_TOOL", [str(script(tmp_path, "pores", f"{KEEP_INPUT.format('json')}; {pores}"))])
         settings = make_settings(tmp_path, database, workers=workers, **fake)
         client = started.enter_context(TestClient(create_app(settings)))  # the API migrates the database first
         client.app.state.pdbe = httpx2.AsyncClient(base_url="https://www.ebi.ac.uk/pdbe", transport=httpx2.MockTransport(no_pdbe))

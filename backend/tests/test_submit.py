@@ -45,6 +45,7 @@ def test_job_runs_and_finishes(api):
     assert client.get(f"/sessions/{id}").json()["jobs"] == [done]
 
     folder = client.app.state.settings.working_directory / id / "jobs" / "1"
+    assert sorted(p.name for p in folder.iterdir()) == ["data.json", "report.zip"]  # only what the API serves
     with zipfile.ZipFile(folder / "report.zip") as report:
         assert sorted(report.namelist()) == ["1tqn.cif", "json/data.json"]
     [(parameters, version)] = query(f"SELECT parameters, mole_version FROM jobs WHERE session_id = '{id}'")  # stored with it
@@ -55,19 +56,20 @@ def test_job_runs_and_finishes(api):
 
 
 def xml(client, id: str, submit_id: int) -> ET.Element:
-    """MOLE's input of the job, written when it starts"""
+    """MOLE's input of the job, as the fake MOLE kept it"""
     wait(client, id, submit_id)
-    return ET.parse(client.app.state.settings.working_directory / id / "jobs" / str(submit_id) / "input.xml").getroot()
+    return ET.parse(client.app.state.settings.scratch_directory / id / f"{submit_id}.xml").getroot()
 
 
 def test_input_of_the_examples(client):
     id = loaded(client)
     folder = client.app.state.settings.working_directory / id
+    scratch = client.app.state.settings.scratch_directory / id
 
     submit(client, id, (EXAMPLES / "1tqn_residue_channels.json").read_text())
     root = xml(client, id, 1)
     assert root.findtext("Input") == str(folder / "1tqn.cif") and root.find("Input").get("SpecificChains") == ""
-    assert root.findtext("WorkingDirectory") == str(folder / "jobs" / "1")
+    assert root.findtext("WorkingDirectory") == str(scratch / "1")
     assert root.find("Params/Cavity").attrib == {"ProbeRadius": "9", "InteriorThreshold": "1.25", "IgnoreHETAtoms": "0",
                                                  "IgnoreHydrogens": "0"}
     assert root.find("Params/Tunnel").attrib == {"BottleneckRadius": "1.25", "BottleneckTolerance": "3", "MaxTunnelSimilarity": "0.7",
@@ -151,7 +153,7 @@ def test_busy_session_refuses_and_the_job_is_cancelled(api):
     client = api(run=UNTIL_GO)
     id = loaded(client)
     submit(client, id)
-    wait_for_file(client.app.state.settings.working_directory / id / "jobs" / "1" / "started")
+    wait_for_file(client.app.state.settings.scratch_directory / id / "1" / "started")
 
     assert client.get(f"/sessions/{id}/jobs/1").json()["state"] == "running"
     busy = submit(client, id)
@@ -183,9 +185,9 @@ def test_finished_job_cannot_be_cancelled_and_unknown_jobs_are_404(api):
 def test_jobs_wait_in_the_queue_until_it_is_full(api):
     client = api(run=UNTIL_GO, workers=1, queued=1)
     first, second, third = loaded(client), loaded(client), loaded(client)
-    folder = client.app.state.settings.working_directory
+    folder = client.app.state.settings.scratch_directory
     submit(client, first)
-    wait_for_file(folder / first / "jobs" / "1" / "started")
+    wait_for_file(folder / first / "1" / "started")
     waiting = submit(client, second)
     assert waiting.status_code == 202 and waiting.json()["state"] == "queued"  # all slots busy: it waits
     full = submit(client, third)
@@ -195,11 +197,11 @@ def test_jobs_wait_in_the_queue_until_it_is_full(api):
     time.sleep(0.2)
     assert client.get(f"/sessions/{second}/jobs/1").json()["started"] is None  # still waiting
 
-    (folder / first / "jobs" / "1" / "go").touch()  # the slot is free: the queued job runs
+    (folder / first / "1" / "go").touch()  # the slot is free: the queued job runs
     assert wait(client, first, 1)["state"] == "finished"
-    wait_for_file(folder / second / "jobs" / "1" / "started")
+    wait_for_file(folder / second / "1" / "started")
     assert client.get(f"/sessions/{second}/jobs/1").json()["state"] == "running"
-    (folder / second / "jobs" / "1" / "go").touch()
+    (folder / second / "1" / "go").touch()
     assert wait(client, second, 1)["state"] == "finished"
     assert submit(client, third).status_code == 202  # room again
 
@@ -207,16 +209,16 @@ def test_jobs_wait_in_the_queue_until_it_is_full(api):
 def test_queued_job_is_cancelled_before_it_runs(api):
     client = api(run=UNTIL_GO, workers=1)
     first, second = loaded(client), loaded(client)
-    folder = client.app.state.settings.working_directory
+    folder = client.app.state.settings.scratch_directory
     submit(client, first)
-    wait_for_file(folder / first / "jobs" / "1" / "started")
+    wait_for_file(folder / first / "1" / "started")
     submit(client, second)
     cancelled = client.post(f"/sessions/{second}/jobs/1/cancel")
     assert cancelled.status_code == 200 and cancelled.json()["state"] == "cancelled" and cancelled.json()["started"] is None
-    (folder / first / "jobs" / "1" / "go").touch()
+    (folder / first / "1" / "go").touch()
     assert wait(client, first, 1)["state"] == "finished"
     time.sleep(0.3)  # the slot is free, the cancelled job must not start
-    assert not (folder / second / "jobs" / "1" / "started").exists()
+    assert not (folder / second / "1" / "started").exists()
     assert submit(client, second).json()["number"] == 2  # the session takes jobs again
 
 
@@ -251,15 +253,3 @@ def test_unknown_and_deleted_session(client):
     id = loaded(client)
     client.delete(f"/sessions/{id}")
     assert submit(client, id).status_code == 410
-
-
-def test_job_after_one_whose_transaction_failed(api):
-    """The folder of a job is made before its transaction commits, and left when it fails; the next job gets its
-    number and folder"""
-    client = api(run=RESULTS)
-    id = loaded(client)
-    (client.app.state.settings.working_directory / id / "jobs" / "1").mkdir(parents=True)
-
-    response = submit(client, id)
-    assert response.status_code == 202 and response.json()["number"] == 1
-    assert wait(client, id, 1)["state"] == "finished"

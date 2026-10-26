@@ -24,9 +24,11 @@ def test_upload_is_loaded(client, settings):
 
     folder = settings.working_directory / id
     assert (folder / "1tqn.cif").read_bytes() == STRUCTURE
-    xml = ET.parse(folder / "load" / "input.xml").getroot()
+    scratch = settings.scratch_directory / id
+    xml = ET.parse(scratch / "load.xml").getroot()  # as the fake MOLE kept it
     assert xml.findtext("Input") == str(folder / "1tqn.cif")
-    assert xml.findtext("WorkingDirectory") == str(folder / "load")
+    assert xml.findtext("WorkingDirectory") == str(scratch / "load")
+    assert not (scratch / "load").exists()  # removed after the run
     assert xml.find("Params/Cavity").attrib == {"ProbeRadius": "5", "InteriorThreshold": "1.1", "IgnoreHETAtoms": "0",
                                                 "IgnoreHydrogens": "0"}
 

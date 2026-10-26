@@ -17,9 +17,8 @@ def element(tag: str, text: str | None = None, **attributes: str) -> ET.Element:
     return e
 
 
-def load_input(s: StoredSession) -> Path:
-    """The load (folder load/): MOLE reads the structure and writes its residues and chains (json/data.json), no tunnels"""
-    directory = s.load_directory()
+def load_input(s: StoredSession, directory: Path) -> Path:
+    """The load: MOLE reads the structure and writes its residues and chains (json/data.json), no tunnels"""
     root = element("Tunnels")
     root.append(element("Input", str(s.structure_path())))
     root.append(element("WorkingDirectory", str(directory)))
@@ -31,8 +30,6 @@ def load_input(s: StoredSession) -> Path:
     export.append(element("Types", Cavities="0", Tunnels="0", PoresAuto="0", PoresMerged="0", PoresUser="0"))
     root.append(export)
     root.append(element("Origins", Auto="0"))
-
-    directory.mkdir(exist_ok=True)
     return write(root, directory / INPUT)
 
 
@@ -115,16 +112,12 @@ def write(root: ET.Element, path: Path) -> Path:
     return path
 
 
-def zip_report(directory: Path, structure: Path) -> None:
-    """report.zip in the submission's folder: the files of its subfolders (results of each format) and the structure.
-    It appears only when complete."""
-    temp = directory / f"{REPORT}.tmp"
-    try:
-        with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as report:
-            for folder in sorted(p for p in directory.iterdir() if p.is_dir()):
-                for file in sorted(f for f in folder.rglob("*") if f.is_file()):  # also in their subfolders (pdb/profile)
-                    report.write(file, file.relative_to(directory).as_posix())
-            report.write(structure, structure.name)
-        temp.replace(directory / REPORT)
-    finally:
-        temp.unlink(missing_ok=True)
+def zip_report(directory: Path, structure: Path) -> Path:
+    """report.zip in the run's folder: the files in its subfolders (results of each format) and the structure"""
+    path = directory / REPORT
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as report:
+        for folder in sorted(p for p in directory.iterdir() if p.is_dir()):
+            for file in sorted(f for f in folder.rglob("*") if f.is_file()):  # also in their subfolders (pdb/profile)
+                report.write(file, file.relative_to(directory).as_posix())
+        report.write(structure, structure.name)
+    return path
