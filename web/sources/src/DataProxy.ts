@@ -277,22 +277,65 @@ export namespace DataProxyCofactors {
 
 export namespace TwoDProts {
     export type OnStatusChangeHandler = (status: string, jobId: string, errorMsg: string) => void;
-    export type OnErrorHandler = (err: any) => void;
+    export type OnErrorHandler = (message: string) => void;
+
+    const SERVICE = "2DProts (2dprots.ncbr.muni.cz)";
+    const REQUEST_SECONDS = 30; // each request, without its answer in time it failed
+    const JOB_MINUTES = 10; // a job not finished by then is given up
+    const POLL_MS = 1000;
+    const POLL_FAILURES = 5; // consecutive failed status checks: one alone may be a hiccup
+
+    class ServiceError extends Error {
+        constructor(readonly status: number) {
+            super(`HTTP ${status}`);
+        }
+    }
+
+    // What the user is told about a failed request to 2DProts
+    export function describeFailure(error: unknown): string {
+        if (error instanceof ServiceError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429) {
+            return `${SERVICE} refused the request (HTTP ${error.status}).`;
+        }
+        if (error instanceof TypeError || error instanceof ServiceError
+            || (error instanceof DOMException && error.name === "TimeoutError")) {
+            return `${SERVICE} is not available at the moment. Please, try again later.`;
+        }
+        return `${SERVICE} failed: ${error instanceof Error ? error.message : String(error)}`;
+    }
+
+    async function request(url: string, stop: AbortSignal, init: RequestInit = {}): Promise<any> {
+        const response = await fetch(url, { ...init, signal: AbortSignal.any([stop, AbortSignal.timeout(REQUEST_SECONDS * 1000)]) });
+        if (!response.ok) {
+            throw new ServiceError(response.status);
+        }
+        return response.json();
+    }
+
+    // The picture of a finished job: the SVG's text
+    export async function picture(jobId: string): Promise<string> {
+        const response = await fetch(`https://2dprots.ncbr.muni.cz/static/2DProt/custom_jobs/${jobId}/output.svg`,
+                                     { signal: AbortSignal.timeout(REQUEST_SECONDS * 1000) });
+        if (!response.ok) {
+            throw new ServiceError(response.status);
+        }
+        return response.text();
+    }
 
     export class Watcher {
         private static baseURL = 'https://2dprots.ncbr.muni.cz/api/v1/custom_protein';
         private static statusURL = (jobId: string) => `https://2dprots.ncbr.muni.cz/api/v1/custom_protein/${jobId}`;
-        private static activeMonitors: Map<string, boolean> = new Map();
 
-        public static async startJob(
+        // Starts a 2DProts job and follows it until it succeeded or failed; returns a function that stops following
+        // it, also before 2DProts answered. onError gets the message for the user; nothing is reported after a stop.
+        public static startJob(
             proteinUrl: string,
             channels: (Tunnel)[], // Local channels object
             onStatusChange: OnStatusChangeHandler,
             onError: OnErrorHandler
-        ) {
-            try {
-                // Start the job
-                const response = await fetch(this.baseURL, {
+        ): () => void {
+            const stop = new AbortController();
+            (async () => {
+                const data = await request(this.baseURL, stop.signal, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -302,77 +345,43 @@ export namespace TwoDProts {
                         channels: channels,
                     }),
                 });
-
-                if (!response.ok) {
-                    throw new Error(`Failed to start job. Status: ${response.status}`);
-                }
-
-                const data = await response.json();
-
                 if (!data.job_id) {
-                    throw new Error('Job ID not found in response.');
+                    throw new Error('it did not start the computation.');
                 }
-
-                const jobId = data.job_id;
-
-                // Begin monitoring the job
-                this.activeMonitors.set(jobId, true); // Mark the monitor as active
-                this.monitorJob(jobId, onStatusChange, onError);
-            } catch (error) {
-                onError(error);
-            }
+                await this.monitorJob(data.job_id, stop.signal, onStatusChange);
+            })().catch(error => {
+                if (!stop.signal.aborted) {
+                    console.error('2DProts:', error);
+                    onError(describeFailure(error));
+                }
+            });
+            return () => stop.abort();
         }
 
-        private static async monitorJob(
-            jobId: string,
-            onStatusChange: OnStatusChangeHandler,
-            onError: OnErrorHandler
-        ) {
-            const checkStatus = async () => {
-                if (!this.activeMonitors.get(jobId)) {
-                    // Stop monitoring if the job is "killed"
-                    console.log(`Monitoring stopped for job ${jobId}`);
-                    return;
-                }
-
+        private static async monitorJob(jobId: string, stop: AbortSignal, onStatusChange: OnStatusChangeHandler) {
+            const end = Date.now() + JOB_MINUTES * 60 * 1000;
+            let failures = 0;
+            while (!stop.aborted) {
                 try {
-                    const response = await fetch(this.statusURL(jobId));
-                    if (!response.ok) {
-                        throw new Error(`Failed to fetch status. Status: ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    const jobState = data.job_state;
-                    const errorMsg = data.job_error;
-
-                    onStatusChange(jobState, jobId, errorMsg);
-
-                    if (jobState === 'SUCCESS' || jobState === 'FAILURE') {
-                        // Job finished, stop monitoring
-                        this.activeMonitors.delete(jobId);
+                    const data = await request(this.statusURL(jobId), stop);
+                    failures = 0;
+                    if (stop.aborted) {
                         return;
                     }
-
-                    // Wait 1 second before checking status again
-                    setTimeout(checkStatus, 1000);
-                } catch (err) {
-                    onError(err);
+                    onStatusChange(data.job_state, jobId, data.job_error);
+                    if (data.job_state === 'SUCCESS' || data.job_state === 'FAILURE') {
+                        return;
+                    }
+                } catch (error) {
+                    if (stop.aborted || ++failures >= POLL_FAILURES) {
+                        throw error;
+                    }
                 }
-            };
-
-            // Start the status check loop
-            checkStatus();
-        }
-
-        public static stopMonitoring(jobId: string) {
-            // Stop the monitoring loop for the given job ID
-            if (this.activeMonitors.has(jobId)) {
-                this.activeMonitors.set(jobId, false);
-                console.log(`Job monitoring manually stopped for job ID: ${jobId}`);
-            } else {
-                console.warn(`No active monitoring found for job ID: ${jobId}`);
+                if (Date.now() > end) {
+                    throw new Error(`it did not finish the computation within ${JOB_MINUTES} minutes.`);
+                }
+                await new Promise(resolve => setTimeout(resolve, POLL_MS));
             }
         }
-
     }
 }

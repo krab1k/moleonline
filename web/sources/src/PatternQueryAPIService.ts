@@ -10,6 +10,6 @@ export class ApiService {
     private static baseUrl = DataSources.PATTERN_QUERY_API_URL[DataSources.PATTERN_QUERY_MODE];
 
     public static getValidationResult(query: string): Promise<PatternQueryResponse> {
-        return getJson(`${this.baseUrl}/?query=${encodeURIComponent(query)}`);
+        return getJson(`${this.baseUrl}/?query=${encodeURIComponent(query)}`, 10);
     }
 }

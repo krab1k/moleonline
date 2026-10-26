@@ -648,6 +648,34 @@ interface StartingPointQueryBoxState {
 export class StartingPointQueryBox extends React.Component<StartingPointQueryBoxProps, StartingPointQueryBoxState> {
 
     state: StartingPointQueryBoxState = { value: "", isValid: false, validationInProgress: false, validationMessage: "Query cannot be empty..." }
+    // the query is validated once typing paused, by PatternQuery's service
+    private validation?: ReturnType<typeof setTimeout>;
+
+    componentWillUnmount() {
+        clearTimeout(this.validation);
+    }
+
+    private validate(value: string) {
+        validatePatternQuery(value).then((result) => {
+            if (value !== this.state.value) {
+                return; // the query changed meanwhile, its own validation follows
+            }
+            this.setState({
+                isValid: result.valid,
+                validationInProgress: false,
+                validationMessage: result.valid ? "" : (result.message || "The query is not valid.")
+            });
+        }).catch(() => {
+            if (value !== this.state.value) {
+                return;
+            }
+            this.setState({
+                isValid: false,
+                validationInProgress: false,
+                validationMessage: "The query cannot be checked, PatternQuery (webchem.ncbr.muni.cz) is not available at the moment. Please, try again later."
+            });
+        });
+    }
 
     render() {
         let button = <Button onClick={() => {
@@ -671,21 +699,8 @@ export class StartingPointQueryBox extends React.Component<StartingPointQueryBox
                     validationInProgress: true,
                     validationMessage: "Validation in progress... Please wait."
                 });
-                validatePatternQuery(val.value).then((result) => {
-                    this.setState({
-                        isValid: result.valid,
-                        value: val.value,
-                        validationInProgress: false,
-                        validationMessage: result.valid ? "" : (result.message !== void 0) ? result.message : "Unkown validation error..."
-                    });
-                }).catch((err) => {
-                    this.setState({
-                        isValid: false,
-                        value: val.value,
-                        validationInProgress: false,
-                        validationMessage: "Validation API not available. Please try again later."
-                    });
-                })
+                clearTimeout(this.validation);
+                this.validation = setTimeout(() => this.validate(val.value), 400);
             }} />
             <div className="msp-control-row">
                 <span>{this.props.label}</span>

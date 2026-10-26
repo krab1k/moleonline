@@ -145,9 +145,16 @@ export class TwoDProts extends React.Component<{}, { isComputing: boolean, error
         }));
     }
 
+    // stops following the running job, also before 2DProts answered
+    private stopJob?: () => void;
+    // each computation, and a cancel, starts a new run: whatever arrives for an older one (a status, its picture,
+    // a failure) is ignored
+    private run = 0;
+
     componentWillUnmount() {
         this.unsubscribe.forEach(u => u());
         this.unsubscribe = [];
+        this.stopJob?.();
     }
 
     private getLastErrorMessage(message: string): string {
@@ -198,7 +205,7 @@ export class TwoDProts extends React.Component<{}, { isComputing: boolean, error
         const svgElement = document.getElementById('svgContainer')?.querySelector('svg');
 
         if (!svgElement) {
-            alert('The loaded content is not a valid SVG.');
+            this.setState({ error: <div className="text-danger">2DProts returned no valid picture.</div> });
             return;
         }
 
@@ -219,6 +226,8 @@ export class TwoDProts extends React.Component<{}, { isComputing: boolean, error
     }
 
     private async startComputation() {
+        this.stopJob?.();
+        const run = ++this.run;
         this.setState({ canceled: false, info: void 0 });
         let params = getParameters();
         if (params === null) {
@@ -227,30 +236,33 @@ export class TwoDProts extends React.Component<{}, { isComputing: boolean, error
         }
         const computationId = params.computationId;
         try {
-            TwoDProtsProxy.Watcher.startJob(
+            this.stopJob = TwoDProtsProxy.Watcher.startJob(
                 // 2DProts downloads the structure itself, so it needs the full address, also when the API is under /api
                 new URL(ApiService.structureUrl(computationId), window.location.origin).href,
                 TwoDProtsBridge.getVizualizedChannels(),
                 (status, jobId, errorMsg) => {
                     console.log(`2DProts Job Status: ${status}`);
-                    if (this.state.canceled) {
-                        return; // a status that was on its way when the job was cancelled
+                    if (run !== this.run) {
+                        return; // a status that was on its way when the job was cancelled or another started
                     }
                     if (status === 'SUCCESS') {
                         this.setState({ isComputing: false, jobId });
-                        this.loadSvg()
-                            .then(() => new Promise<void>(resolve => setTimeout(resolve, 100)))
-                            .then(() => {
-                                this.processSvg()
-                            });
+                        this.loadSvg(jobId, run).then(async loaded => {
+                            if (loaded) {
+                                await new Promise<void>(resolve => setTimeout(resolve, 100));
+                                this.processSvg();
+                            }
+                        });
                     } else if (status === 'FAILURE') {
                         this.setState({ isComputing: false, jobId: '', error: <div className="text-danger">{this.getLastErrorMessage(errorMsg)}</div> })
                     } else if (status === 'PENDING' && this.state.jobId === '') {
                         this.setState({ jobId });
                     }
                 },
-                (error => {
-                    this.setState({ isComputing: false, jobId: '', error: <div className="text-danger">Error: {error.message}</div> })
+                (message => {
+                    if (run === this.run) {
+                        this.setState({ isComputing: false, jobId: '', error: <div className="text-danger">{message}</div> })
+                    }
                 })
             )
         } catch (error: any) {
@@ -260,21 +272,20 @@ export class TwoDProts extends React.Component<{}, { isComputing: boolean, error
     }
 
     private cancelComputation() {
-        const jobId = this.state.jobId;
-        if (jobId !== '') {
-            TwoDProtsProxy.Watcher.stopMonitoring(jobId);
-            this.setState({ error: void 0, isComputing: false, jobId: '', canceled: true });
-        }
+        this.run++;
+        this.stopJob?.();
+        this.stopJob = void 0;
+        this.setState({ error: void 0, isComputing: false, jobId: '', canceled: true });
     }
 
-    private async loadSvg() {
-        const svgUrl = `https://2dprots.ncbr.muni.cz/static/2DProt/custom_jobs/${this.state.jobId}/output.svg`;
-
+    // Shows the job's picture; false when it could not be downloaded (the panel then says why) or the run is no longer
+    // the current one (nothing is shown)
+    private async loadSvg(jobId: string, run: number): Promise<boolean> {
         try {
-            const response = await fetch(svgUrl);
-            if (!response.ok) throw new Error('Failed to load SVG');
-
-            const svgText = await response.text();
+            const svgText = await TwoDProtsProxy.picture(jobId);
+            if (run !== this.run) {
+                return false;
+            }
             const parser = new DOMParser();
             const doc = parser.parseFromString(svgText, 'image/svg+xml');
             const inlineSvg = doc.documentElement as unknown as SVGSVGElement;
@@ -305,12 +316,14 @@ export class TwoDProts extends React.Component<{}, { isComputing: boolean, error
                 }
 
             }
+            return true;
         } catch (error) {
-            Events.invokeNotifyMessage({
-                messageType: "Danger",
-                message: `Error while delivering 2DProts SVG: ${error}`
-            })
-            console.error("Error modifying SVG:", error);
+            console.error("2DProts' picture:", error);
+            if (run !== this.run) {
+                return false;
+            }
+            this.setState({ jobId: '', error: <div className="text-danger">The picture could not be downloaded: {TwoDProtsProxy.describeFailure(error)}</div> });
+            return false;
         }
     }
 
