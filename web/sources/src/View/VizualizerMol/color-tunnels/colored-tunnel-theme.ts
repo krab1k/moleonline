@@ -12,62 +12,34 @@ import { ParamDefinition, ParamDefinition as PD } from 'molstar/lib/mol-util/par
 import { ThemeDataContext } from 'molstar/lib/mol-theme/theme';
 import { isPositionLocation } from 'molstar/lib/mol-geo/util/location-iterator';
 import { ColorNames } from 'molstar/lib/mol-util/color/names';
-import { Vec3 } from 'molstar/lib/mol-math/linear-algebra';
 import { SizeTheme } from 'molstar/lib/mol-theme/size';
+import { Profile } from 'molstar/lib/extensions/sb-ncbr/tunnels/data-model';
 import { LayersInfo } from '../../../DataInterface';
-import { ColorBound, colorTunnelNew, Property } from './property-color';
+import { gradientColors } from './property-color';
+import { centreLineOf, closestPoint } from './centre-line';
 
 const DefaultColor = Color(0xCCCCCC);
 const DescriptionColor = 'Assigns colors as defined by the shape object.';
 
-type ColorOptions = {
-    colorMaxValue: number,
-    colorMinValue: number,
-    layers: LayersInfo[],
-    skipMiddleColors: boolean,
-    colorBounds: ColorBound
-}
-
-function findClosestPoint(target: Vec3, points: Map<Vec3, { layer: LayersInfo, nextLayer: LayersInfo | undefined, distance: number }>) {
-    // if (points.keys().length === 0) {
-    //   throw new Error("The points array cannot be empty.");
-    // }
-    const pointArray = Array.from(points.keys());
-    let closestPoint = pointArray[0];
-    let minDistance = Vec3.distance(target, closestPoint);
-
-    for (const point of Array.from(points.keys())) {
-        const distance = Vec3.distance(target, point);
-        if (distance < minDistance) {
-            minDistance = distance;
-            closestPoint = point;
-        }
-    }
-
-    return points.get(closestPoint);
-}
-
 export const ShapeGroupColorThemeParams = {
-    mappedPoints: ParamDefinition.Value<Map<Vec3, { layer: LayersInfo, nextLayer: LayersInfo | undefined, distance: number }>>(new Map(), { isHidden: true }),
-    colorOptions: ParamDefinition.Value<ColorOptions | undefined>(undefined, { isHidden: true }),
-    property: ParamDefinition.Value<Property | undefined>(undefined, { isHidden: true })
+    centreLine: ParamDefinition.Value<Profile[]>([], { isHidden: true }),
+    layers: ParamDefinition.Value<LayersInfo[]>([], { isHidden: true }),
 };
 export type ShapeGroupColorThemeParams = typeof ShapeGroupColorThemeParams
 
+// Colours each vertex as the closest centreline point. The colours are read from the gradient when
+// the theme is made, so a theme made again from the same props takes the gradient drawn since.
 export function ShapeGroupColorTheme(ctx: ThemeDataContext, props: PD.Values<ShapeGroupColorThemeParams>): ColorTheme<ShapeGroupColorThemeParams> {
+    const line = centreLineOf(props.centreLine);
+    const colors = gradientColors(props.centreLine.map(p => p.Distance), props.layers);
     return {
         factory: ShapeGroupColorTheme,
         granularity: 'vertex',
         color: (location: Location): Color => {
             if (!isPositionLocation(location)) return ColorNames.black;
-            if (props.colorOptions && props.property) { //props.tree && props.colorOptions && props.property
-                // const position = Vec3.toObj(location.position);
-                const node = findClosestPoint(location.position, props.mappedPoints);
-                if (node) {
-                    return colorTunnelNew(props.property, node.layer, node.nextLayer, node.distance, props.colorOptions);
-                }
-            }
-            return DefaultColor;
+            if (colors.length === 0) return DefaultColor;
+            const [x, y, z] = location.position;
+            return colors[closestPoint(line, x, y, z)];
         },
         props,
         description: DescriptionColor

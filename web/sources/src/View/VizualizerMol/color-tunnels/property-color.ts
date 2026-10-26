@@ -254,30 +254,21 @@ export function colorTunnel(property: Property, groupId: number,
     return DefaultColor;
 }
 
-export function colorTunnelNew(property: Property, layer: LayersInfo, nextLayer: LayersInfo | undefined, distance: number,
-    colorOptions: {
-        colorMaxValue: number,
-        colorMinValue: number,
-        layers: LayersInfo[],
-        skipMiddleColors: boolean,
-        colorBounds: ColorBound
-    }) {
-
-    const totalLength = colorOptions.layers[colorOptions.layers.length - 1].LayerGeometry.EndDistance - colorOptions.layers[0].LayerGeometry.StartDistance;
+// The colour at each distance along the channel, taken from the gradient the 2D view drew for the chosen property
+export function gradientColors(distances: number[], layers: LayersInfo[]): Color[] {
     const canvas = LayerColors.getCanvas();
-    if (canvas) {
-        let n = distance / totalLength;
-        if (n > 1) {
-            n = 1;
-        }
-        const x = Math.floor(n * (canvas.width - 1));
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (ctx) {
-            const pixelData = ctx.getImageData(x, 0, 1, 1).data;
-            return Color.fromRgb(pixelData[0], pixelData[1], pixelData[2]);
-        }
+    const ctx = canvas && canvas.width > 0 ? canvas.getContext('2d', { willReadFrequently: true }) : null;
+    if (!canvas || !ctx || layers.length === 0) {
+        return distances.map(() => DefaultColor);
     }
-    return DefaultColor;
+
+    const totalLength = layers[layers.length - 1].LayerGeometry.EndDistance - layers[0].LayerGeometry.StartDistance;
+    const row = ctx.getImageData(0, 0, canvas.width, 1).data;
+    return distances.map(distance => {
+        const n = Math.min(Math.max(distance / totalLength, 0), 1);
+        const x = 4 * Math.floor(n * (canvas.width - 1));
+        return Color.fromRgb(row[x], row[x + 1], row[x + 2]);
+    });
 }
 
 export function getLayerGroupId(dist: number, layers: LayersInfo[]) {

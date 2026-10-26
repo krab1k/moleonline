@@ -228,22 +228,6 @@ export function convertToPositionData(profile: Profile[], probeRadius: number, l
     return position as Required<PositionData>;
 }
 
-export function getLayerIndexes(profile: Profile[], layers: LayersInfo[]): Map<number, number> {
-    const layerIndex = new Map<number, number>();
-
-    if (layers.length === 0) {
-        for (let i = 0; i < profile.length; i++) {
-            layerIndex.set(i, 0);
-        }
-        return layerIndex;
-    }
-
-    for (let i = 0; i < profile.length; i++) {
-        layerIndex.set(i, getLayerGroupId(profile[i].T, layers));
-    }
-    return layerIndex;
-}
-
 async function createTunnelMesh(
     data: Profile[],
     layers: LayersInfo[],
@@ -261,7 +245,6 @@ async function createTunnelMesh(
     // const preprocessedData = getBorderData(data, layers);
     const positions = convertToPositionData(preprocessedData, props.probeRadius, layers);
     const bounds: Boundary = getBoundary(positions);
-    const layerIndexes = getLayerIndexes(preprocessedData, layers);
     const centerLine = extendCenterLine(getCenterLine(preprocessedData), preprocessedData[0].Radius, preprocessedData[preprocessedData.length - 1].Radius);
     const centerLineProcessed: CenterLinePoint[] = []; //processCenterLine(data, layers);
 
@@ -280,7 +263,6 @@ async function createTunnelMesh(
             maxRadius: maxR,
             box: bounds.box,
             props: p,
-            layerIndexes,
             centerLine,
             layers,
             data: preprocessedData,
@@ -319,7 +301,6 @@ export function computeTunnelSurface(
         maxRadius: number,
         box: Box3D | null,
         props: MolecularSurfaceCalculationProps,
-        layerIndexes: Map<number, number>,
         centerLine: Vec3[],
         layers: LayersInfo[],
         data: Profile[],
@@ -337,7 +318,6 @@ export type SurfaceData = {
     maxRadius: number,
     box: Box3D | null,
     props: MolecularSurfaceCalculationProps,
-    layerIndexes: Map<number, number>,
     centerLine: Vec3[],
     layers: LayersInfo[],
     data: Profile[],
@@ -351,7 +331,6 @@ async function calcTunnelSurface(ctx: RuntimeContext,
         maxRadius: number,
         box: Box3D | null,
         props: MolecularSurfaceCalculationProps,
-        layerIndexes: Map<number, number>,
         centerLine: Vec3[],
         layers: LayersInfo[],
         data: Profile[],
@@ -456,26 +435,3 @@ export type CenterLinePoint = {
     dist: number,
     layerId: number
 }
-
-export function assignLayers(centerLine: Profile[], layers: LayersInfo[]): Map<Vec3, { layer: LayersInfo, nextLayer: LayersInfo | undefined, distance: number }> {
-    let currentLayerId = 0;
-    let currentLayer = layers[currentLayerId];
-    // let currentPoint = Vec3.create(data[0].X, data[0].Y, data[0].Z);
-    let mappedPoints: Map<Vec3, { layer: LayersInfo, nextLayer: LayersInfo | undefined, distance: number }> = new Map();
-
-    for (const point of centerLine) {
-        const distance = point.Distance;
-        if (distance > currentLayer.LayerGeometry.EndDistance) {
-            currentLayerId = currentLayerId + 1 < layers.length ? currentLayerId + 1 : currentLayerId;
-            currentLayer = layers[currentLayerId];
-        }
-        mappedPoints.set(Vec3.create(point.X, point.Y, point.Z), {
-            layer: currentLayer,
-            nextLayer: currentLayerId + 1 < layers.length ? layers[currentLayerId + 1] : undefined,
-            distance
-        })
-
-    }
-    return mappedPoints;
-}
-

@@ -9,7 +9,7 @@ import { BaseGeometry, ColorSmoothingParams } from "molstar/lib/mol-geo/geometry
 import { MarkerAction } from "molstar/lib/mol-util/marker-action";
 import { MembranePoint, Point, Tunnel } from "../../DataInterface";
 import { TunnelStateObject } from "molstar/lib/extensions/sb-ncbr/tunnels/data-model";
-import { assignLayers, createSpheresShape, createTunnelShape, interpolateTunnel } from "./color-tunnels/algorithm";
+import { createSpheresShape, createTunnelShape, interpolateTunnel } from "./color-tunnels/algorithm";
 import { TunnelPropertyColorShapeParams } from "./color-tunnels/data-model";
 import { ShapeRepresentation as ColorShapeRepresentation } from "./color-tunnels/shapeRepresentation";
 import { ShapeGroupColorTheme, ShapeGroupSizeTheme } from "./color-tunnels/colored-tunnel-theme";
@@ -178,19 +178,10 @@ export const TunnelPropertyColorRepresentation3D = Transform({
             //     props = { ...PD.getDefaultValues(a.data.params), ...params, instanceGranularity: true };
             // }
             let repr = ColorShapeRepresentation(a.data.getShape, a.data.geometryUtils);
-            const data = interpolateTunnel(a.data.data.data.tunnel.data, a.data.data.params.samplingRate);
             repr.setTheme({
                 color: ShapeGroupColorTheme({}, {
-                    // tree: createTree(data),
-                    mappedPoints: assignLayers(data, a.data.data.params.layers),
-                    colorOptions: {
-                        colorMaxValue: a.data.data.params.colorTheme.params.property.params.colorMaxValue,
-                        colorMinValue: a.data.data.params.colorTheme.params.property.params.colorMinValue,
-                        layers: a.data.data.params.layers,
-                        skipMiddleColors: a.data.data.params.colorTheme.params.skipMiddleColors,
-                        colorBounds: a.data.data.params.colorTheme.params.colorBounds
-                    },
-                    property: a.data.data.params.colorTheme.params.property.name
+                    centreLine: interpolateTunnel(a.data.data.data.tunnel.data, a.data.data.params.samplingRate),
+                    layers: a.data.data.params.layers,
                 }),
                 size: ShapeGroupSizeTheme({}, {})
             })

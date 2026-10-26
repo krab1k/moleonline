@@ -4,6 +4,7 @@ import { Mat4, Tensor, Vec3 } from "molstar/lib/mol-math/linear-algebra";
 import { RuntimeContext } from "molstar/lib/mol-task";
 import { SurfaceData } from "./algorithm";
 import { LayersInfo, Profile } from "../../../DataInterface";
+import { centreLineOf, closestPoint } from "./centre-line";
 
 type CalcTunnelSurfaceProps = {
     ctx: RuntimeContext,
@@ -140,11 +141,7 @@ self.onmessage = async (e) => {
                                 const dd = rad - d;
                                 if (dd < data[idx]) {
                                     data[idx] = dd;
-                                    const g = props.surfaceData.layerIndexes.get(id[i]);
-                                    idData[idx] = g ?? -1;
-
-                                    const gii = findClosestPoint(Vec3.create(spx, spy, spz), mappedPoints)
-                                    idData[idx] = gii ?? -1;
+                                    idData[idx] = layerIds[closestPoint(centreLine, spx, spy, spz)];
                                 }
                             }
                         }
@@ -266,12 +263,7 @@ self.onmessage = async (e) => {
 
                             if (current > 0.0 && dSq < (current * current)) {
                                 data[idx] = Math.sqrt(dSq);
-                                const dp = dx * atob[0] + dy * atob[1] + dz * atob[2];
-                                const g = props.surfaceData.layerIndexes.get(id[OrderedSet.indexOf(indices, dp < 0.0 ? b : a)]);
-                                idData[idx] = g ?? -1;
-
-                                const gii = findClosestPoint(Vec3.create(px, py, pz), mappedPoints)
-                                idData[idx] = gii ?? -1;
+                                idData[idx] = layerIds[closestPoint(centreLine, px, py, pz)];
                             }
                         }
                     }
@@ -301,51 +293,29 @@ self.onmessage = async (e) => {
         }
     }
 
-    function findClosestPoint(target: Vec3, points: Map<Vec3, number>) {
-        const pointArray = Array.from(points.keys());
-        let closestPoint = pointArray[0];
-        let minDistance = Vec3.distance(target, closestPoint);
-    
-        for (const point of Array.from(points.keys())) {
-            const distance = Vec3.distance(target, point);
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestPoint = point;
-            }
-        }
-    
-        return points.get(closestPoint);
-    }
-
-    function assignLayersToPoints(
-        centerLine: Profile[],
-        layers: LayersInfo[]
-    ): { mappedPoints: Map<Vec3, number> } {
+    // the layer of each centreline point
+    function assignLayersToPoints(centerLine: Profile[], layers: LayersInfo[]): Int32Array {
         let currentLayerId = 0;
         let currentLayer = layers[currentLayerId];
-        let mappedPoints: Map<Vec3, number> = new Map();
-        let pointArray: { point: Vec3; index: number }[] = [];
+        const layerIds = new Int32Array(centerLine.length);
 
-        for (const point of centerLine) {
-            const distance = point.Distance;
-            if (distance > currentLayer.LayerGeometry.EndDistance) {
+        for (let i = 0; i < centerLine.length; i++) {
+            if (centerLine[i].Distance > currentLayer.LayerGeometry.EndDistance) {
                 currentLayerId = currentLayerId + 1 < layers.length ? currentLayerId + 1 : currentLayerId;
                 currentLayer = layers[currentLayerId];
             }
-            const vec = Vec3.create(point.X, point.Y, point.Z);
-            mappedPoints.set(vec, currentLayerId);
-            pointArray.push({ point: vec, index: currentLayerId });
+            layerIds[i] = currentLayerId;
         }
 
-
-        return { mappedPoints };
+        return layerIds;
     }
 
     const { resolution, probeRadius, probePositions } = props.surfaceData.props;
     const scaleFactor = 1 / resolution;
     const ngTorus = Math.max(5, 2 + Math.floor(probeRadius * scaleFactor));
 
-    const { mappedPoints } = assignLayersToPoints(props.surfaceData.data, props.surfaceData.layers);
+    const centreLine = centreLineOf(props.surfaceData.data);
+    const layerIds = assignLayersToPoints(props.surfaceData.data, props.surfaceData.layers);
 
     const cellSize = Vec3.create(props.surfaceData.maxRadius, props.surfaceData.maxRadius, props.surfaceData.maxRadius);
     Vec3.scale(cellSize, cellSize, 2);
@@ -353,7 +323,7 @@ self.onmessage = async (e) => {
     const neighbours = lookup3d.result;
     if (props.surfaceData.box === null) props.surfaceData.box = lookup3d.boundary.box;
 
-    const { indices, x: px, y: py, z: pz, id, radius } = props.surfaceData.positions;
+    const { indices, x: px, y: py, z: pz, radius } = props.surfaceData.positions;
     const n = OrderedSet.size(indices);
 
     const pad = props.surfaceData.maxRadius + resolution;
