@@ -49,6 +49,8 @@ export function ShapeRepresentation<D, G extends Geometry, P extends Geometry.Pa
     let currentProps: PD.Values<P> = PD.getDefaultValues(currentParams);
     let locationIt: LocationIterator;
     let positionIt: LocationIterator;
+    // a new theme only needs the colours computed again, which the next update does
+    let themeChanged = false;
 
     if (builder.modifyState) Representation.updateState(_state, builder.modifyState(_state));
 
@@ -56,6 +58,8 @@ export function ShapeRepresentation<D, G extends Geometry, P extends Geometry.Pa
 
     function prepareUpdate(props: Partial<PD.Values<P>> = {}, shape?: Shape<G>) {
         VisualUpdateState.reset(updateState);
+        updateState.updateColor = themeChanged;
+        themeChanged = false;
 
         if (!shape && !_shape) {
             // console.error('no shape given')
@@ -274,6 +278,7 @@ export function ShapeRepresentation<D, G extends Geometry, P extends Geometry.Pa
             //     console.warn('The `ShapeRepresentation` theme is fixed to `ShapeGroupColorTheme` and `ShapeGroupSizeTheme`. Colors are taken from `Shape.getColor` and sizes from `Shape.getSize`');
             // }
             Object.assign(_theme, theme);
+            themeChanged = true;
         },
         destroy() {
             renderObjects.length = 0;

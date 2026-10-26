@@ -5,6 +5,7 @@ import { Tunnel, TunnelMetaInfo } from "../DataInterface";
 const plugin = vi.hoisted(() => ({
     pending: [] as { resolve: () => void, reject: (e: unknown) => void }[],
     rendered: new Set<string>(),
+    recolored: [] as string[],
     nextRef: 0,
 }));
 
@@ -16,7 +17,13 @@ vi.mock("./Context", () => {
             reject,
         });
     });
-    return { Context: { getInstance: () => ({ plugin: { state: { data: {} } }, renderTunnel: render, renderPropertyColorTunnel: render }) } };
+    // a rendered visual is coloured again in place
+    const recolor = async (ref: string) => {
+        if (!plugin.rendered.has(ref)) return false;
+        plugin.recolored.push(ref);
+        return true;
+    };
+    return { Context: { getInstance: () => ({ plugin: { state: { data: {} } }, renderTunnel: render, renderPropertyColorTunnel: render, recolorPropertyColorTunnel: recolor }) } };
 });
 
 vi.mock("molstar/lib/mol-plugin/commands", () => ({
@@ -52,6 +59,7 @@ describe("channel visual operations", () => {
     beforeEach(() => {
         plugin.pending = [];
         plugin.rendered.clear();
+        plugin.recolored = [];
         plugin.nextRef = 0;
     });
 
@@ -70,6 +78,18 @@ describe("channel visual operations", () => {
         await settle(showChannelVisuals([c], true));
         await settle(showChannelVisuals([c], true, true), showChannelPropertyColorVisuals(c, {} as any, true), showChannelVisuals([c], true, true));
         expect([...plugin.rendered]).toEqual([c.__ref]);
+    });
+
+    it("colours a coloured channel again without rendering it again", async () => {
+        const c = channel();
+        await settle(showChannelVisuals([c], true));
+        await settle(showChannelPropertyColorVisuals(c, {} as any, true));
+        const coloured = c.__ref;
+
+        await showChannelPropertyColorVisuals(c, {} as any, true);
+        expect(c.__ref).toBe(coloured);
+        expect(plugin.recolored).toEqual([coloured]);
+        expect([...plugin.rendered]).toEqual([coloured]);
     });
 
     it("leaves a channel whose render failed hidden and showable", async () => {

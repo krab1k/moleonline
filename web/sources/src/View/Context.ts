@@ -325,6 +325,24 @@ export class Context {
         return [tunnlRepr.data!.repr.getAllLoci()[0], repr.ref];
     }
 
+    /**
+     * Colours the channel rendered by renderPropertyColorTunnel again from the gradient the 2D view drew since,
+     * keeping its surface. Returns false when the channel has no such visual.
+     */
+    public async recolorPropertyColorTunnel(ref: string): Promise<boolean> {
+        const cell = this.plugin.state.data.select(StateSelection.Generators.byRef(ref).subtree().ofType(PluginStateObject.Shape.Representation3D))
+            .find(c => (c.obj?.data.sourceData as { tag?: string } | undefined)?.tag === "PropertyColorTunnel");
+        if (!cell?.obj) return false;
+
+        const repr = cell.obj.data.repr;
+        const color = repr.theme.color;
+        repr.setTheme({ ...repr.theme, color: color.factory({}, color.props) });
+        await this.plugin.runTask(repr.createOrUpdate());
+        // the plugin's representations are synced manually, so the canvas takes the new colours only when told
+        this.plugin.canvas3d?.update(repr, true);
+        return true;
+    }
+
     public async renderSurface(triangles: number[], vertices: number[], color?: Color, tag?: string, label?: string) {
         if ((triangles === undefined || triangles.length === 0) || (vertices === undefined || vertices.length === 0)) {
             return null;

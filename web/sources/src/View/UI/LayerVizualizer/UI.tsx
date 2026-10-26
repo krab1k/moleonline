@@ -326,9 +326,10 @@ class ColorBoundsMenuItem extends React.Component<State & { mode: ColorBoundsMod
         const instance = Vizualizer.ACTIVE_INSTANCES[this.props.instanceId];
         const mode = this.props.mode;
         instance.setColorBoundsMode(mode);
-        LayerColors.invokeOnColorBoundsChanged(mode === 'Absolute' ? 'absolute' : 'minmax');
         instance.vizualize();
+        // the 3D channel takes its colours from the gradient, so it is drawn before the channel is told
         instance.renderOffCanvas();
+        LayerColors.invokeOnColorBoundsChanged(mode === 'Absolute' ? 'absolute' : 'minmax');
         this.props.app.setState({ colorBoundsMode: mode });
     }
 

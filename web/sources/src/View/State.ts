@@ -663,6 +663,9 @@ async function updateChannelPropertyColorVisual(channel: Tunnel & TunnelMetaInfo
                 channel.__channelsDB = true;
             }
 
+            // a coloured channel only takes the new colours: its surface does not depend on the property
+            if (channel.__layerColored && channel.__isVisible && await context.recolorPropertyColorTunnel(channel.__ref)) return;
+
             // the channel keeps its old visual and state until the new visual is rendered
             const previousRef = channel.__ref;
             const [loci, ref] = await renderChannel(() => context.renderPropertyColorTunnel(channel, colorOptions));
