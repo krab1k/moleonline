@@ -73,11 +73,25 @@ jobs:
       - name: Check compose.yaml (its images are built below)
         run: docker compose config --quiet
 
+  # the client nginx tells the API (also behind the cluster's proxy) and its rate limit
+  proxy:
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build the website's image
+        run: docker build -f web/docker/Dockerfile -t moleonline-web-test web
+
+      - name: Check the client and the rate limit
+        run: web/docker/test-clients.sh moleonline-web-test
+
   # the images Kubernetes runs: built for every pull request, pushed to ghcr.io for each commit on main (its full
   # hash, and latest)
   images:
     runs-on: ubuntu-26.04
-    needs: [api, web, compose]
+    needs: [api, web, compose, proxy]
     permissions:
       contents: read
       packages: write

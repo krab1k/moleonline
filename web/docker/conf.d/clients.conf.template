@@ -1,0 +1,11 @@
+# Who the client of a request is, for the rate limit below and for the API's limits (the only address nginx sends it in
+# X-Forwarded-For): who connects, or, when that is TRUSTED_PROXY (the cluster's ingress in front of nginx), the address
+# the proxy added last to X-Forwarded-For. What a client writes into the header itself is ignored. The image's default
+# trusts no proxy: in compose, clients connect to nginx directly.
+set_real_ip_from ${TRUSTED_PROXY};
+real_ip_header X-Forwarded-For;
+real_ip_recursive off;
+
+# Requests to the API per client, API_REQUESTS_PER_SECOND on average with bursts (site.conf); more are refused with 429
+limit_req_zone $binary_remote_addr zone=api:10m rate=${API_REQUESTS_PER_SECOND}r/s;
+limit_req_status 429;

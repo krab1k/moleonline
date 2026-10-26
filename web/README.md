@@ -16,6 +16,17 @@ What it offers:
 The image built by [`docker/Dockerfile`](docker/Dockerfile) serves the site with nginx and forwards `/api/` to the
 [backend](../backend). It runs together with the backend, see the [main README](../README.md#running-locally).
 
+Its settings, as environment variables:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `API_ADDRESS` | `api:8080` | Where nginx forwards `/api/` |
+| `TRUSTED_PROXY` | none | A proxy in front of nginx (an address or a network): for its requests, the client is the address it added to `X-Forwarded-For` |
+| `API_REQUESTS_PER_SECOND` | `50` | Requests to the API one client may make per second on average, with bursts of 200; more are refused with 429 |
+
+nginx tells the API only the client's address, never what a client wrote into `X-Forwarded-For` itself; the API's own
+limits rely on it. [`docker/test-clients.sh`](docker/test-clients.sh) checks both, CI runs it.
+
 ## Development
 
 Start the whole application with Compose first (`docker compose up -d` in the repository's root). Then:

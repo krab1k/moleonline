@@ -28,6 +28,9 @@ ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 # where nginx forwards /api/ (conf.d/api.conf.template): compose's service; in Kubernetes the API's
 # service by its full name, which nginx's resolver needs (it does not search the cluster's domains)
 ENV API_ADDRESS=api:8080
+# conf.d/clients.conf.template: the proxy in front of nginx whose X-Forwarded-For is trusted (none by default), the
+# requests to the API one client may make per second on average
+ENV TRUSTED_PROXY=127.0.0.1/32 API_REQUESTS_PER_SECOND=50
 
 USER nginx
 

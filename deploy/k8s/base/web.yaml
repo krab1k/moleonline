@@ -30,6 +30,10 @@ spec:
             # nginx's resolver needs the full name, it does not search the cluster's domains
             - name: API_ADDRESS
               value: moleonline-api.$(POD_NAMESPACE).svc.cluster.local:8080
+            # the cluster's pod network, where the Gateway's Traefik connects from: the client is the address it
+            # adds to X-Forwarded-For (web/docker/conf.d/clients.conf.template)
+            - name: TRUSTED_PROXY
+              value: 10.42.0.0/16
           ports:
             - name: http
               containerPort: 8080
