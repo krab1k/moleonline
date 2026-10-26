@@ -1,5 +1,10 @@
 """Errors as problem details (RFC 9457): application/problem+json with type, title, status and detail"""
 
+from fastapi.testclient import TestClient
+
+from moleonline.api.main import create_app
+from moleonline.core import storage
+
 from .conftest import STRUCTURE, upload, wait_session
 
 PROBLEM = "application/problem+json"
@@ -39,3 +44,13 @@ def test_documented_as_problems(client):
     for status in ("404", "409", "410", "422", "500", "503"):
         assert responses[status]["content"] == {PROBLEM: {"schema": {"$ref": "#/components/schemas/Problem"}}}, status
     assert "HTTPValidationError" not in description["components"]["schemas"]  # FastAPI's 422 is replaced
+
+
+def test_unexpected_errors_are_problems_too(settings, monkeypatch):
+    async def broken(*args, **kwargs):
+        raise RuntimeError("broken")
+    monkeypatch.setattr(storage, "create", broken)
+    with TestClient(create_app(settings), raise_server_exceptions=False) as client:
+        response = client.post("/sessions", json={"pdb_id": "1tqn"})
+    assert response.status_code == 500 and response.headers["content-type"] == PROBLEM
+    assert response.json()["detail"] == "An unexpected error occurred on the server. Please, try again later."

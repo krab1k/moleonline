@@ -15,7 +15,6 @@ from fastapi import APIRouter, Body, FastAPI, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -24,7 +23,7 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..core import entries, storage
-from ..core.config import ApiSettings, HttpSettings
+from ..core.config import ApiSettings
 from ..core.parameters import MoleParameters, PoresRequest
 from ..core.storage import Job, JobState, Refused, Session, SessionState, StoredSession
 from . import data, upload
@@ -195,21 +194,11 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
                         content[PROBLEM] = content.pop("application/json")
         return app.openapi_schema
     app.openapi = openapi
-    http = settings or HttpSettings()
-
-    @app.middleware("http")
-    async def unexpected(request: Request, call_next) -> Response:
-        """A middleware, not an exception handler: those of Exception answer outside of all middleware, without CORS"""
-        try:
-            return await call_next(request)
-        except Exception:
-            log.exception("Unexpected error of %s %s", request.method, request.url.path)
-            return problem(500, "An unexpected error occurred on the server. Please, try again later.")
-
     app.add_middleware(GZipMiddleware)  # for clients that accept it; not zips, data.json often has megabytes
-    # the exposed headers are those the web reads
-    app.add_middleware(CORSMiddleware, allow_origins=http.cors_origins, allow_methods=["GET", "POST", "DELETE"],
-                       allow_headers=["Content-Type"], expose_headers=["Location", "Retry-After", "Content-Disposition"])
+
+    @app.exception_handler(Exception)
+    async def unexpected(request: Request, e: Exception) -> JSONResponse:  # logged by uvicorn
+        return problem(500, "An unexpected error occurred on the server. Please, try again later.")
 
     @app.exception_handler(Refused)
     async def refused(request: Request, e: Refused) -> JSONResponse:
