@@ -33,13 +33,7 @@ class CoreSettings(BaseSettings):
         return writable(path)
 
 
-class HttpSettings(BaseSettings):
-    """The API's, read when the application is built, before ApiSettings (its middleware)"""
-    # sites whose pages may call the API (CORS); the results are public by their ids
-    cors_origins: list[str] = ["*"]
-
-
-class ApiSettings(HttpSettings, CoreSettings):
+class ApiSettings(CoreSettings):
     """The API's: uvicorn moleonline.api.main:app"""
     # runs (loads, jobs) queued or running together; more are refused (503)
     max_outstanding_computations: int = Field(24, ge=1)

@@ -96,7 +96,6 @@ Of the API:
 | Setting | Default | |
 |---|---|---|
 | `MAX_OUTSTANDING_COMPUTATIONS` | `24` | runs (loads, jobs) queued or running together; a new session or job beyond them is refused (503 with `Retry-After`) |
-| `CORS_ORIGINS` | `["*"]` | sites whose pages may call the API, a JSON list, e.g. `["https://moleonline.cz"]` |
 | `FORWARDED_ALLOW_IPS` | private networks | reverse proxies whose `X-Forwarded-For` gives the client's address (the request log), uvicorn's setting: addresses and networks separated by commas; `127.0.0.1` when clients connect directly, so that none can choose its address |
 | `UVICORN_ROOT_PATH` | none | the path prefix of a proxy serving the API under it, e.g. `/api` (uvicorn's `--root-path`) |
 
