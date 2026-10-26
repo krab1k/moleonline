@@ -49,7 +49,7 @@ src = ["src"]
 extend-select = ["E", "W", "B", "RUF"]
 
 [tool.alembic]
-# the one revision (until MOLEonline is deployed) is made anew: README.md#database
+# the one revision (until MOLEonline is deployed) is made anew: README.md#database-schema
 script_location = "%(here)s/src/moleonline/core/migrations"
 
 [[tool.alembic.post_write_hooks]]

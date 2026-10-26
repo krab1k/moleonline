@@ -50,7 +50,7 @@ async def ready_session(db: Database, folder: Path) -> storage.StoredSession:
 
 
 def test_tables_are_those_of_the_revision(database):
-    """The revision (migrations/versions) makes the tables storage.py describes: made anew when they change, README.md#database"""
+    """The revision (migrations/versions) makes the tables storage.py describes: made anew when they change, README.md#database-schema"""
     async def check(db: Database):
         async with db.engine.connect() as c:
             differences = await c.run_sync(lambda sync: compare_metadata(MigrationContext.configure(sync), storage.metadata))
