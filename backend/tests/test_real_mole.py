@@ -20,7 +20,7 @@ def test_tunnels_of_an_uploaded_structure(api):
     assert submit(client, id, (EXAMPLES / "1tqn_point_channels.json").read_text()).status_code == 202  # the example of the documentation
     assert wait(client, id, 1, seconds=120)["state"] == "finished"
     data = client.get(f"/sessions/{id}/jobs/1/results/data").json()
-    assert data["Version"] == client.get("/version").json()["mole"]  # read from MOLE when the API started
+    assert data["Version"] == client.get("/version").json()["mole"]  # read from MOLE when the worker started
     assert any(data["Channels"].values())  # tunnels, paths or pores
     for format in ("report", "pymol", "vmd", "chimera", "pdb"):
         response = client.get(f"/sessions/{id}/jobs/1/results/{format}")
