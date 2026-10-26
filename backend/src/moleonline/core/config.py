@@ -22,7 +22,7 @@ def writable(path: Path) -> Path:
 
 class CoreSettings(BaseSettings):
     working_directory: Path = Path("/data/computations")  # the sessions' files
-    # the sessions, their jobs, the queue of their runs, the request log: postgresql+asyncpg://user:password@host/database
+    # the sessions, their jobs, the queue of their runs, the request log: postgresql://user:password@host/database
     database_url: str
     # a run whose worker did not renew its lease this long (crashed, killed, its node lost) fails as interrupted
     worker_timeout_seconds: int = Field(60, ge=5)
