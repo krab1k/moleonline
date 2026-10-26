@@ -16,7 +16,7 @@ import { ChannelsDBData as ChannelsDBDataCache, TunnelName } from "../Cache"
 import { Tunnels } from "./CommonUtils/Tunnels";
 import { loadCifTunnels } from "./VizualizerMol/mmcif-tunnels/converter2json";
 import { TunnelsId } from "./CommonUtils/TunnelsId";
-import { ChannelAnnotation } from "../ChannelsDBAPIService";
+import { ChannelAnnotation, channelsDBNotices } from "../ChannelsDBAPIService";
 import WaveLoader from "./CommonUtils/WaveLoader";
 import { LoadingStatusDisplay } from "./CommonUtils/LoadingInfo/LoadingStatusDisplay";
 import { LoadingStatus } from "./CommonUtils/LoadingInfo/LoadingStatus";
@@ -129,49 +129,51 @@ export class LeftPanel extends React.Component<{ context: Context }, { isLoading
                 });
                 return;
             }
-            ChannelsDBDataCache.getChannelsData(pdbId).then(async channelsDbData => {
-                const annotations: Map<string, ChannelAnnotation[]> = await ChannelsDBDataCache.getChannelsAnnotations(pdbId);
-                const guidChannelsDbData = TunnelsId.generateGuidAll(channelsDbData);
-                let completeChannelsDbData = addCaverTag(guidChannelsDbData);
-                completeChannelsDbData = TunnelsId.generateIdAllWithAnnotations(annotations, completeChannelsDbData, compId, 'channelsDb');
-                Tunnels.markChannelsDB(completeChannelsDbData);
-                Tunnels.setChannelsDB(completeChannelsDbData);
-                TunnelName.reload({ Channels: completeChannelsDbData }, '-1');
-                channels.set(-1, completeChannelsDbData);
-                await this.loadSubmissionsChannels(info, channels);
+            // ChannelsDB is one source of channels next to the computed ones: it is waited for (at most its timeout),
+            // and whatever it answered, the computed channels are shown and more can be computed
+            (async () => {
+                const computed: Map<number, ChannelsDBChannels> = new Map();
+                const [channelsDb, annotations, residues, submissions] = await Promise.allSettled([
+                    ChannelsDBDataCache.getChannelsData(pdbId),
+                    ChannelsDBDataCache.getChannelsAnnotations(pdbId),
+                    ChannelsDBDataCache.getResidueAnnotations(pdbId),
+                    this.loadSubmissionsChannels(info, computed),
+                ]);
+                if (submissions.status === "rejected") {
+                    throw submissions.reason;
+                }
+                let shown: PromiseSettledResult<ChannelsDBChannels> = channelsDb;
+                if (channelsDb.status === "fulfilled") {
+                    try {
+                        const guidChannelsDbData = TunnelsId.generateGuidAll(channelsDb.value);
+                        let completeChannelsDbData = addCaverTag(guidChannelsDbData);
+                        const channelAnnotations = annotations.status === "fulfilled" ? annotations.value : new Map<string, ChannelAnnotation[]>();
+                        completeChannelsDbData = TunnelsId.generateIdAllWithAnnotations(channelAnnotations, completeChannelsDbData, compId, 'channelsDb');
+                        Tunnels.markChannelsDB(completeChannelsDbData);
+                        Tunnels.setChannelsDB(completeChannelsDbData);
+                        TunnelName.reload({ Channels: completeChannelsDbData }, '-1');
+                        channels.set(-1, completeChannelsDbData);
+                    } catch (error) {
+                        console.error(error);
+                        shown = { status: "rejected", reason: error };
+                    }
+                } else if (!isNotFound(channelsDb.reason)) {
+                    console.warn("ChannelsDB:", channelsDb.reason);
+                }
+                for (const notice of channelsDBNotices(pdbId, shown, residues)) {
+                    Events.invokeNotifyMessage(notice);
+                }
+                computed.forEach((data, submitId) => channels.set(submitId, data));
                 Tunnels.invokeOnTunnelsLoaded();
                 LoadingStatus.log('Finalizing…');
                 this.setState({ channelsData: channels, isLoadingChannels: false })
-            }).catch(async error => {
-                // 404: ChannelsDB has no data for this entry, it only has no ChannelsDB channels
-                if (info.jobs.length === 0 && !isNotFound(error)) {
-                    this.setState({ isLoadingChannels: false, error: String(error) })
-                    Events.invokeNotifyMessage({
-                        messageType: "Danger",
-                        message: 'Could not fetch data from ChannelsDB'
-                    })
-                    return;
-                }
-                if (!isNotFound(error)) {
-                    Events.invokeNotifyMessage({
-                        messageType: "Warning",
-                        message: describeError(error, 'Could not fetch data from ChannelsDB') + '. Only the channels computed here are shown.'
-                    })
-                }
-                try {
-                    await this.loadSubmissionsChannels(info, channels);
-                    Tunnels.invokeOnTunnelsLoaded();
-                    this.setState({ channelsData: channels, isLoadingChannels: false })
-                    LoadingStatus.log('Finalizing…');
-                } catch (error) {
-                    this.setState({ isLoadingChannels: false, error: String(error) })
-                    Events.invokeNotifyMessage({
-                        messageType: "Danger",
-                        message: describeError(error, 'Could not fetch data from MoleAPI')
-                    })
-                }
-                LoadingStatus.clear();
-            });
+            })().catch(error => {
+                this.setState({ isLoadingChannels: false, error: String(error) })
+                Events.invokeNotifyMessage({
+                    messageType: "Danger",
+                    message: describeError(error, 'Could not fetch data from MoleAPI')
+                })
+            }).finally(() => LoadingStatus.clear());
         }).bind(this), fresh, (compId: string, error: string) => {
             this.setState({ isLoading: false, isLoadingChannels: false, error });
             LoadingStatus.clear();

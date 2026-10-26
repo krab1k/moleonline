@@ -46,17 +46,25 @@ export async function requestError(method: string, url: string, response: Respon
     return error;
 }
 
-// In debug mode, every request is logged with the time it took, reading the response body included
-async function request<T>(url: string, init: RequestInit, read: (response: Response) => Promise<T>): Promise<T> {
+// In debug mode, every request is logged with the time it took, reading the response body included.
+// timeoutSeconds: without the whole response by then, the request fails with a RequestError of status 0, as one not
+// answered at all (not refused: asking again later can succeed)
+async function request<T>(url: string, init: RequestInit, read: (response: Response) => Promise<T>, timeoutSeconds?: number): Promise<T> {
     const method = init.method ?? "GET";
     if (CommonOptions.DEBUG_MODE)
         console.time(`${method} ${url}`);
     try {
-        const response = await fetch(url, init);
+        const signal = timeoutSeconds === void 0 ? void 0 : AbortSignal.timeout(timeoutSeconds * 1000);
+        const response = await fetch(url, { ...init, signal });
         if (!response.ok) {
             throw await requestError(method, url, response);
         }
         return await read(response);
+    } catch (error) {
+        if (error instanceof DOMException && error.name === "TimeoutError") {
+            throw new RequestError(`${method}: ${url} gave no answer within ${timeoutSeconds} s`, 0, false);
+        }
+        throw error;
     } finally {
         if (CommonOptions.DEBUG_MODE)
             console.timeEnd(`${method} ${url}`);
@@ -65,8 +73,8 @@ async function request<T>(url: string, init: RequestInit, read: (response: Respo
 
 const json = (response: Response): Promise<any> => response.json();
 
-export function getJson(url: string): Promise<any> {
-    return request(url, { method: "GET" }, json);
+export function getJson(url: string, timeoutSeconds?: number): Promise<any> {
+    return request(url, { method: "GET" }, json, timeoutSeconds);
 }
 
 export function getText(url: string): Promise<string> {

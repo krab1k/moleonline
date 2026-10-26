@@ -83,6 +83,15 @@ describe('requests', () => {
         await expect(getJson('/api/sessions/x')).rejects.toMatchObject({ message: 'The session has been deleted.', status: 410, fromApi: true });
     });
 
+    it('fails as not answered (status 0, not refused) without the response in time', async () => {
+        vi.stubGlobal('fetch', vi.fn((_url: string, init: RequestInit) => new Promise((_, reject) =>
+            init.signal?.addEventListener('abort', () => reject(init.signal?.reason)))));
+        const error = await getJson('https://example.org/slow', 0.05).catch(e => e);
+        expect(error).toBeInstanceOf(RequestError);
+        expect(error).toMatchObject({ status: 0, message: 'GET: https://example.org/slow gave no answer within 0.05 s' });
+        expect(isRefused(error)).toBe(false);
+    });
+
     it('times a request in debug mode until its body is read', async () => {
         CommonOptions.DEBUG_MODE = true;
         const events: string[] = [];

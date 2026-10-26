@@ -74,39 +74,42 @@ export class ChannelsDBData {
     private static channelAnnotationCache: Map<string, ChannelAnnotation[]> = new Map();
     private static fileChannelAnnotationCache: Map<string, ChannelAnnotation[]> = new Map();
     private static channelDataCache: ChannelsDBChannels;
-    private static residueAnnotationCache: Map<string, ResidueAnnotation[]>;
-    // One request per entry, shared by the panels that ask for it. A refused one stays (ChannelsDB has no such
-    // entry); after a network or server error the next caller asks again.
-    private static loaded: { pdbid: string, promise: Promise<unknown> } | undefined;
+    private static residueAnnotationCache: Map<string, ResidueAnnotation[]> | undefined;
+    // The channels (with their annotations) and the residue annotations are asked for separately, one failing does not
+    // take the other. One request per entry, shared by the panels that ask for it. A refused one stays (ChannelsDB has
+    // no such entry); after a network or server error, or no answer in time, the next caller asks again.
+    private static channels: { pdbid: string, promise: Promise<unknown> } | undefined;
+    private static residues: { pdbid: string, promise: Promise<unknown> } | undefined;
 
-    private static reload(pdbid: string) {
-        if (this.loaded?.pdbid !== pdbid) {
-            const loaded = {
-                pdbid, promise: this.load(pdbid).catch(error => {
-                    if (!isRefused(error) && this.loaded === loaded) {
-                        this.loaded = void 0;
+    private static once(slot: "channels" | "residues", pdbid: string, load: () => Promise<unknown>) {
+        let loaded = this[slot];
+        if (loaded?.pdbid !== pdbid) {
+            const current = {
+                pdbid, promise: load().catch(error => {
+                    if (!isRefused(error) && this[slot] === current) {
+                        this[slot] = void 0;
                     }
                     throw error;
                 })
             };
-            this.loaded = loaded;
+            this[slot] = loaded = current;
         }
-        return this.loaded.promise;
+        return loaded.promise;
     }
 
-    private static load(pdbid: string) {
+    private static loadChannels(pdbid: string) {
         // the channels are filtered to the loaded structure, so they wait for it
-        let channelsData = Promise.all([ApiService.getChannelsData(pdbid), Context.getInstance().getStructureChains()])
+        return this.once("channels", pdbid, () => Promise.all([ApiService.getChannelsData(pdbid), Context.getInstance().getStructureChains()])
             .then(([val, chains]) => {
                 this.channelAnnotationCache = val.channelsAnnotations;
                 this.channelDataCache = (chains === null) ? val.channelsData : this.inStructure(val.channelsData, chains);
-                return val;
-            });
-        let proteinData = ApiService.getProteinData(pdbid).then(val => {
-            this.residueAnnotationCache = val.residueData;
-        });
+            }));
+    }
 
-        return Promise.all([channelsData, proteinData]);
+    private static loadResidues(pdbid: string) {
+        return this.once("residues", pdbid, () => ApiService.getProteinData(pdbid).then(val => {
+            this.residueAnnotationCache = val.residueData;
+        }));
     }
 
     // ChannelsDB computed its channels on one structure, the asymmetric unit or an assembly, and names the chains
@@ -137,17 +140,7 @@ export class ChannelsDBData {
         return result;
     }
 
-    public static isCached() {
-        return (this.channelAnnotationCache !== void 0
-            && this.channelDataCache !== void 0
-            && this.residueAnnotationCache !== void 0);
-    }
-
     public static getChannelAnnotationsImmediate(channelId: string) {
-        if (!this.isCached() && this.fileChannelAnnotationCache === void 0) {
-            return null;
-        }
-
         let annotations = this.channelAnnotationCache.get(channelId);
 
         if (annotations === void 0) {
@@ -160,16 +153,20 @@ export class ChannelsDBData {
     }
 
     public static getChannelsAnnotations(pdbid: string): Promise<Map<string, ChannelAnnotation[]>> {
-        return this.reload(pdbid).then(() => this.channelAnnotationCache);
+        return this.loadChannels(pdbid).then(() => this.channelAnnotationCache);
     }
 
     public static getChannelsData(pdbid: string): Promise<ChannelsDBChannels> {
-        return this.reload(pdbid).then(() => this.channelDataCache);
+        return this.loadChannels(pdbid).then(() => this.channelDataCache);
+    }
+
+    // The annotations of residues (ChannelsDB's and UniProt's), shown in the residue tables when they arrived
+    public static getResidueAnnotations(pdbid: string): Promise<Map<string, ResidueAnnotation[]> | undefined> {
+        return this.loadResidues(pdbid).then(() => this.residueAnnotationCache);
     }
 
     public static getResidueAnnotationsImmediate(seqNumberAndChain: string) {
-
-        if (!this.isCached()) {
+        if (this.residueAnnotationCache === void 0) {
             return null;
         }
 
@@ -182,16 +179,7 @@ export class ChannelsDBData {
     }
 
     public static getResiduesAnnotationsImmediate() {
-        if (!this.isCached()) {
-            return null;
-        }
-
-        let annotations = this.residueAnnotationCache;
-        if (annotations === void 0) {
-            return null;
-        }
-
-        return <Map<string, ResidueAnnotation[]>>annotations;
+        return this.residueAnnotationCache ?? null;
     }
 
     public static getAnnotations() {
