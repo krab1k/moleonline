@@ -43,7 +43,7 @@ You can change these settings in the environment or in a `.env` file next to `co
 Data is kept in two volumes, `moleonline_db` (the database) and `moleonline_data` (structures and results). To start
 again with no data, run `docker compose down -v`.
 
-Compose is meant for local use and development. Production runs in Kubernetes.
+Compose is meant for local use and development. Deployments run in Kubernetes, see [`deploy/k8s`](deploy/k8s).
 
 ## Citing
 

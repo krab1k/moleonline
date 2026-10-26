@@ -1,0 +1,23 @@
+# The dev instance: kubectl --context kuba-cluster apply -k deploy/k8s/dev
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: racek1-ns
+resources:
+  - ../base
+patches:
+  - target:
+      kind: Gateway
+      name: moleonline
+    patch: |-
+      - op: replace
+        path: /spec/listeners/0/hostname
+        value: moleonline-dev.biodata.ceitec.cz
+      - op: replace
+        path: /spec/listeners/1/hostname
+        value: moleonline-dev.biodata.ceitec.cz
+  - target:
+      kind: HTTPRoute
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: moleonline-dev.biodata.ceitec.cz

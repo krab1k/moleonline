@@ -1,0 +1,23 @@
+# PostgreSQL by CloudNativePG: the sessions, jobs and the queue. It creates the Secret moleonline-db-app with the
+# credentials; the API and the workers take the connection URI from it.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: moleonline-db
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  storage:
+    storageClass: zfs-csi  # node-local, for databases
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  bootstrap:
+    initdb:
+      database: mole
+      owner: mole

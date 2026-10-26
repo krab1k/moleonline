@@ -1,0 +1,12 @@
+# Structures and results of the sessions, and the OPM cache: shared by the API and all workers
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: moleonline-data
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-csi
+  resources:
+    requests:
+      storage: 20Gi

@@ -1,0 +1,62 @@
+# nginx with the site; it forwards /api/ to the API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moleonline-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: moleonline-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: moleonline-web
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101  # nginx's, the image names it only
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: ghcr.io/krab1k/moleonline-web:latest
+          imagePullPolicy: Always
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # nginx's resolver needs the full name, it does not search the cluster's domains
+            - name: API_ADDRESS
+              value: moleonline-api.$(POD_NAMESPACE).svc.cluster.local:8080
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: moleonline-web
+spec:
+  selector:
+    app.kubernetes.io/name: moleonline-web
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

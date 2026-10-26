@@ -1,0 +1,13 @@
+# MOLEonline in Kubernetes, without its namespace and domain: those are the overlays' (dev/, and prod/ later)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: moleonline
+resources:
+  - database.yaml
+  - data.yaml
+  - api.yaml
+  - worker.yaml
+  - web.yaml
+  - gateway.yaml
