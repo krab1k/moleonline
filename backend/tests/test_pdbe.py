@@ -140,6 +140,10 @@ def test_stopped_download(client):
     ({"pdb_id": "1tqn", "assembly": "a-b"}, "Invalid assembly [a-b]."),
     ({"pdb_id": "1tqn", "assembly": "12345678901"}, "Invalid assembly [12345678901]."),
     ({"pdb_id": "1tq.n"}, "Invalid PDB id [1tq.n]."),
+    ({"pdb_id": "abc"}, "Invalid PDB id [abc]."),
+    ({"pdb_id": "atqn"}, "Invalid PDB id [atqn]."),  # an id starts with a digit
+    ({"pdb_id": "1tqn5"}, "Invalid PDB id [1tqn5]."),
+    ({"pdb_id": "pdb_00001tqn"}, "Invalid PDB id [pdb_00001tqn]."),  # extended ids are not supported
 ])
 def test_refused_before_pdbe_is_asked(client, settings, requested, message):
     pdbe = FakePDBe(client, {})
@@ -148,6 +152,12 @@ def test_refused_before_pdbe_is_asked(client, settings, requested, message):
     assert response.json()["detail"].startswith(message)
     assert pdbe.requests == []
     assert logged(settings) == [("Init", "testclient", "PDB", "-")]
+
+
+@pytest.mark.parametrize("pdb_id", ["1tqn", "1TQN"])
+def test_pdb_ids_are_accepted(client, pdb_id):
+    FakePDBe(client, {FULL: STRUCTURE})
+    assert client.post("/sessions", json={"pdb_id": pdb_id, "assembly": "asymmetric"}).status_code == 202
 
 
 def test_loads_are_logged(client, settings):

@@ -4,4 +4,6 @@ import re
 
 PREFERRED, ASYMMETRIC = "preferred", "asymmetric"
 ASSEMBLY = re.compile(r"^[A-Za-z0-9]{1,10}$")  # goes into PDBe's URL
-PDB_ID = re.compile(r"^[A-Za-z0-9_]{1,12}$")  # also extended ids (pdb_00001abc); a file name and part of PDBe's URL
+# 1tqn; a file name and part of PDBe's URL. Not the extended ids (pdb_00001tqn): PDBe's model server, OPM, M-CSA
+# and the website's services know only these.
+PDB_ID = re.compile(r"^[0-9][a-z0-9]{3}$", re.IGNORECASE)
