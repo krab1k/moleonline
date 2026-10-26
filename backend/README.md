@@ -157,7 +157,7 @@ The tests need a PostgreSQL database they may empty, e.g. a throwaway container 
 
 ```sh
 docker run -d --name moleonline-test-db -p 127.0.0.1:55432:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test \
-  -e POSTGRES_DB=test --tmpfs /var/lib/postgresql/data docker.io/library/postgres:17-alpine -c fsync=off
+  -e POSTGRES_DB=test --tmpfs /var/lib/postgresql docker.io/library/postgres:18-alpine -c fsync=off
 export TEST_DATABASE_URL=postgresql+asyncpg://test:test@127.0.0.1:55432/test
 uv run pytest    # the API with workers in threads, a fake MOLE and pores tool, and a fake PDBe
 MOLE2=/path/to/mole2 MEMEMBED=/path/to/memembed uv run pytest    # also the tests needing them, skipped without

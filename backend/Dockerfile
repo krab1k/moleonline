@@ -19,8 +19,8 @@ RUN git clone https://github.com/psipred/MemEmbed.git . && git checkout d18b9f55
     && git archive -o /opt/memembed/source.tar.gz HEAD
 
 # Python and the package, installed by uv: the API's dependencies, then also the workers'
-FROM docker.io/library/ubuntu:24.04 AS python
-COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /usr/local/bin/uv
+FROM docker.io/library/ubuntu:26.04 AS python
+COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /usr/local/bin/uv
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 COPY pyproject.toml uv.lock .python-version ./
@@ -31,7 +31,7 @@ RUN uv sync --frozen --no-default-groups --no-editable
 FROM python AS python-worker
 RUN uv sync --frozen --no-default-groups --group worker --no-editable
 
-FROM docker.io/library/ubuntu:24.04 AS api
+FROM docker.io/library/ubuntu:26.04 AS api
 RUN useradd --uid 1654 --user-group --no-create-home app && mkdir /data && chown app:app /data
 COPY --from=python /opt/python /opt/python
 COPY --from=python /app/.venv /app/.venv

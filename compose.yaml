@@ -1,18 +1,17 @@
-# MOLEonline: the web's nginx serves the site and proxies /api/ to the API (web/docker/site.conf), which has no port on
-# the host; the API queues the computations, the workers run them, PostgreSQL keeps them. For local use, over HTTP;
-# deployments are in Kubernetes.
+# MOLEonline for local use, over HTTP (deployments are in Kubernetes); only the web has a port, it serves the API
+# under /api/
 name: moleonline
 
 services:
   db:
-    image: docker.io/library/postgres:17-alpine
+    image: docker.io/library/postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: mole
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mole}
       POSTGRES_DB: mole
     volumes:
-      - db:/var/lib/postgresql/data
+      - db:/var/lib/postgresql # PostgreSQL 18 keeps its data in 18/docker under it
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "mole"]
       interval: 5s
@@ -24,32 +23,30 @@ services:
       target: api
     image: moleonline-api
     restart: unless-stopped
-    mem_limit: 2g # answers requests and queues runs; the workers compute
+    mem_limit: 2g
     environment:
-      UVICORN_ROOT_PATH: /api # served by the web's nginx under /api/
-      DATABASE_URL: postgresql+asyncpg://mole:${POSTGRES_PASSWORD:-mole}@db/mole # the sessions, jobs, the queue
+      UVICORN_ROOT_PATH: /api
+      DATABASE_URL: postgresql+asyncpg://mole:${POSTGRES_PASSWORD:-mole}@db/mole
     depends_on:
       db:
         condition: service_healthy
     volumes:
-      - data:/data # the sessions' files
+      - data:/data
 
-  # runs the queued computations, one at a time each; WORKERS of them, or: docker compose up -d --scale worker=N
   worker:
     build:
       context: backend
-      target: worker # with MOLE and MEMEMBED
+      target: worker
     image: moleonline-worker
     restart: unless-stopped
     init: true # reaps processes left by killed computations
-    stop_grace_period: 30s # SIGTERM: its run's processes are killed, the run fails as interrupted
+    stop_grace_period: 30s
     scale: ${WORKERS:-4}
-    # of its one computation: near it MOLE (.NET) stops as out of memory, above it the kernel kills the computation
     mem_limit: ${WORKER_MEMORY_LIMIT:-6g}
     # the same, so no swap: by default the container may swap as much again, slowing the host instead of the kill
     memswap_limit: ${WORKER_MEMORY_LIMIT:-6g}
-    # unhealthy (shown, not restarted by compose) when its loop hangs: it touches /tmp/heartbeat at least every 2 s,
-    # also while it waits for the database; $$: the container's shell, not compose's variables
+    # the worker touches /tmp/heartbeat at least every 2 s, also while it waits for the database; $$: the container's
+    # shell, not compose's variables
     healthcheck:
       test: ["CMD-SHELL", 'test $$(( $$(date +%s) - $$(stat -c %Y /tmp/heartbeat) )) -lt 60']
       interval: 30s
@@ -60,7 +57,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - data:/data # the sessions' files, OPM files
+      - data:/data
 
   web:
     build:
