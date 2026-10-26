@@ -61,7 +61,7 @@ For both the API and the workers:
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `DATABASE_URL` | (required) | `postgresql+asyncpg://user:password@host/database` |
+| `DATABASE_URL` | (required) | `postgresql://user:password@host/database` |
 | `WORKING_DIRECTORY` | `/data/computations` | Where session files are stored |
 | `WORKER_TIMEOUT_SECONDS` | `60` | How long a silent worker is waited for before its computation fails |
 

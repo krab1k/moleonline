@@ -33,7 +33,7 @@ def script(directory: Path, name: str, body: str) -> Path:
 
 async def execute(*statements: str) -> list:
     """Runs the statements in one transaction of the test database; the rows of the last one"""
-    engine = create_async_engine(TEST_DATABASE_URL)
+    engine = create_async_engine(storage.with_driver(TEST_DATABASE_URL))
     try:
         async with engine.begin() as c:
             for statement in statements:

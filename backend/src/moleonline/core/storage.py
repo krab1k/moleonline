@@ -208,11 +208,19 @@ def upgrade(connection: Connection) -> None:
     command.upgrade(config, "head")
 
 
+def with_driver(url: str) -> str:
+    """postgresql://… as PostgreSQL's tools and CloudNativePG's secrets write it, with SQLAlchemy's asyncpg driver"""
+    for scheme in ("postgresql://", "postgres://"):
+        if url.startswith(scheme):
+            return "postgresql+asyncpg://" + url.removeprefix(scheme)
+    return url
+
+
 class Database:
-    """url: postgresql+asyncpg://user:password@host/database"""
+    """url: postgresql://user:password@host/database (or postgresql+asyncpg://…)"""
 
     def __init__(self, url: str):
-        self.engine = create_async_engine(url, pool_pre_ping=True,
+        self.engine = create_async_engine(with_driver(url), pool_pre_ping=True,
                                           connect_args={"timeout": LOGIN_SECONDS, "command_timeout": COMMAND_SECONDS})
 
     async def migrate(self) -> None:

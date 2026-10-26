@@ -225,6 +225,12 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     def home() -> RedirectResponse:
         return RedirectResponse("docs")  # relative: also behind a proxy's prefix (/api/)
 
+    @app.get("/health", include_in_schema=False)
+    def health() -> dict[str, str]:
+        """The process answers, without the database: a liveness probe, which must not restart the API while the
+        database is away (readiness asks /version, which needs it)"""
+        return {"status": "ok"}
+
     @app.get("/version")
     async def get_version(request: Request) -> Version:
         """Versions of the backend (the API, the workers with the pores tool) and of the MOLE that took the latest run"""

@@ -266,3 +266,10 @@ def test_unknown_session(client, id):
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json() == {"type": "about:blank", "title": "Not Found", "status": 404, "detail": f"Session [{id}] does not exist."}
+
+
+@pytest.mark.parametrize("url", ["postgresql://u:p%40ss@db:5432/mole", "postgres://u:p%40ss@db:5432/mole",
+                                 "postgresql+asyncpg://u:p%40ss@db:5432/mole"])
+def test_urls_of_postgresql_tools_use_asyncpg(url):
+    """As CloudNativePG's secret (uri) gives it, the password encoded"""
+    assert storage.with_driver(url) == "postgresql+asyncpg://u:p%40ss@db:5432/mole"

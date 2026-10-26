@@ -4,12 +4,14 @@ import time
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from moleonline.api.main import create_app
 from moleonline.core.config import ApiSettings, WorkerSettings
 from moleonline.worker.versions import ToolError, read_mole_version
 
-from .conftest import MOLE_VERSION, STRUCTURE, script, upload, wait_session
+from .conftest import MOLE_VERSION, STRUCTURE, query, script, upload, wait_session
 
 MOLE = "echo 'WebChemistry Tunnels 2.5.1, (c) test'"
 
@@ -83,3 +85,12 @@ def test_stopping_the_api_while_a_tool_reports_its_version(tmp_path: Path):
             return
         time.sleep(0.02)
     pytest.fail(f"the tool's child {pid} still runs")
+
+
+def test_health_needs_no_database(settings):
+    """The liveness probe's endpoint answers also while the database is away, and is not part of the API's description"""
+    with TestClient(create_app(settings), raise_server_exceptions=False) as client:
+        query("DROP TABLE runs CASCADE")  # what /version reads is not there, as when the database is away
+        assert client.get("/version").status_code == 500
+        assert client.get("/health").json() == {"status": "ok"}
+        assert "/health" not in client.get("/openapi.json").json()["paths"]
