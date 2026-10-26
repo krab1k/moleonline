@@ -1,5 +1,5 @@
 """Alembic's environment: migrates the connection storage.upgrade gives it, or the empty database of DATABASE_URL for
-the alembic command making the revision anew (README.md#database)"""
+the alembic command making the revision anew (README.md#database-schema)"""
 
 import asyncio
 import os

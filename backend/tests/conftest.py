@@ -18,7 +18,7 @@ from moleonline.worker import runner, work
 from moleonline.worker.runner import Worker
 from moleonline.worker.versions import read_mole_version
 
-# a PostgreSQL database the tests empty before each test, postgresql+asyncpg://… (README.md#development)
+# a PostgreSQL database the tests empty before each test, postgresql+asyncpg://… (README.md#tests)
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 MOLE_VERSION = "9.8.7.6"  # what the fake MOLE reports when started without arguments, as MOLE does
 STRUCTURE = (Path(__file__).parent / "data" / "1tqn.cif").read_bytes()
@@ -51,7 +51,7 @@ def query(*statements: str) -> list:
 def database() -> str:
     """The test database, emptied: without the tables and Alembic's record of them, which the API makes when it starts"""
     if not TEST_DATABASE_URL:
-        pytest.fail("Set TEST_DATABASE_URL to a PostgreSQL database the tests may empty, see README.md#development")
+        pytest.fail("Set TEST_DATABASE_URL to a PostgreSQL database the tests may empty, see README.md#tests")
     query(*[f"DROP TABLE IF EXISTS {table} CASCADE" for table in [*storage.metadata.tables, "alembic_version"]])
     return TEST_DATABASE_URL
 

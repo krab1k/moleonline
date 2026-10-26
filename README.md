@@ -1,47 +1,77 @@
 # MOLEonline
 
-MOLEonline is a web service for the location and characterisation of channels, tunnels and pores in
-(bio)macromolecular structures, built on [MOLE 2](https://github.com/sb-ncbr/webchemistry).
+[![MOLEonline paper](https://img.shields.io/badge/Bioinformatics-2025-blue)](https://doi.org/10.1093/bioinformatics/btaf486)
+[![MOLE 2.0 paper](https://img.shields.io/badge/J%20Cheminform-2013-blue)](https://doi.org/10.1186/1758-2946-5-39)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
+[![Tests](https://github.com/krab1k/moleonline/actions/workflows/test-build.yml/badge.svg?branch=main)](https://github.com/krab1k/moleonline/actions/workflows/test-build.yml)
 
-| Directory | |
-|---|---|
-| [`backend/`](backend) | the MOLE API (Python, FastAPI): loads structures, runs MOLE and the pores tool, serves the results |
-| [`web/`](web) | the web interface (TypeScript, React, Mol*) and its nginx container, which serves the API under `/api` |
+MOLEonline finds and describes channels, tunnels and pores in proteins and other macromolecular structures. It is a
+web interface to [MOLE 2](https://github.com/sb-ncbr/webchemistry): load a PDB entry or upload your own structure,
+compute tunnels or a pore through the membrane, and explore them in a 3D view and a 2D diagram.
 
-Each directory has its own README with the details of running, configuring and developing it.
+The public instance runs at [moleonline.biodata.ceitec.cz](https://moleonline.biodata.ceitec.cz).
 
-## Running
+## Repository
 
-[`compose.yaml`](compose.yaml) runs them all: the service `web`, nginx with the site, which forwards `/api/...` to
-the service `api`, which queues the computations; `worker`, which runs them, one at a time each; and `db`, PostgreSQL
-with the sessions, jobs and their queue. Only the site has a port on the host.
+- [`backend/`](backend): the API and the workers that run the computations (Python)
+- [`web/`](web): the website (TypeScript, React, Mol*)
+
+Each directory has its own README with more detail.
+
+## Running locally
+
+You need Docker or Podman with Compose. Then:
 
 ```bash
-git clone https://github.com/sb-ncbr/moleonline
+git clone https://github.com/krab1k/moleonline
 cd moleonline
 docker compose up -d --build
-docker compose logs -f
 ```
 
-Settings, in the environment or in `.env` next to `compose.yaml`:
+The site is at http://localhost:8080. Compose starts the website, the API, four workers and a PostgreSQL database.
+`docker compose logs -f` shows what they are doing.
 
-| Setting | Default | |
+You can change these settings in the environment or in a `.env` file next to `compose.yaml`:
+
+| Setting | Default | Meaning |
 |---|---|---|
-| `MOLEONLINE_PORT` | `8080` | the site's port on the host |
-| `WORKERS` | `4` | computations at once, a worker each; also `docker compose up -d --scale worker=N` |
-| `WORKER_MEMORY_LIMIT` | `6g` | memory of one worker, its computation, see [`backend/README.md`](backend/README.md#configuration) |
-| `POSTGRES_PASSWORD` | `mole` | the database's, set when its volume is made |
+| `MOLEONLINE_PORT` | `8080` | Port of the site on your machine |
+| `WORKERS` | `4` | How many computations run at once |
+| `WORKER_MEMORY_LIMIT` | `6g` | Memory for each computation |
+| `POSTGRES_PASSWORD` | `mole` | Database password, used when the database is first created |
 
-The API's data is in two volumes: `moleonline_db`, the database (sessions, jobs, the queue, the request log), and
-`moleonline_data`, the sessions' files and OPM files. Until MOLEonline is deployed, the database's tables are made anew
-when they change: `docker compose down -v` empties both (see [`backend/README.md`](backend/README.md#database)).
+Data is kept in two volumes, `moleonline_db` (the database) and `moleonline_data` (structures and results). To start
+again with no data, run `docker compose down -v`.
+
+Compose is meant for local use and development. Production runs in Kubernetes.
+
+## Citing
+
+If MOLEonline helps your research, please cite:
+
+> Raček T., Vel'ký D., Bučeková G., Schindler O., Hutařová Vařeková I., Špačková A., Bazgier V., Berka K.,
+> Svobodová R. MOLEonline: a web-based tool for analysing channels, tunnels, and pores (2025 update).
+> *Bioinformatics* 41(9), btaf486 (2025). https://doi.org/10.1093/bioinformatics/btaf486
+
+If you use these parts of it, please cite them too:
+
+- The computations, by MOLE 2.0: Sehnal D. et al. MOLE 2.0: advanced approach for analysis of biomacromolecular
+  channels. *Journal of Cheminformatics* 5, 39 (2013). https://doi.org/10.1186/1758-2946-5-39
+- Known channels from ChannelsDB: Špačková A. et al. ChannelsDB 2.0: a comprehensive database of protein tunnels and
+  pores in AlphaFold era. *Nucleic Acids Research* 52(D1), D413–D418 (2024). https://doi.org/10.1093/nar/gkad1012
+- The 2D diagrams from 2DProts: Hutařová Vařeková I. et al. 2DProts: database of family-wide protein secondary
+  structure diagrams. *Bioinformatics* 37(23), 4599–4601 (2021). https://doi.org/10.1093/bioinformatics/btab505
+
+A step-by-step guide to MOLEonline and ChannelsDB is in Špačková A. et al., Analysis and Visualization of Protein
+Channels, Tunnels, and Pores with MOLEonline and ChannelsDB 2.0, *Methods in Molecular Biology*, 219–233 (2024).
+https://doi.org/10.1007/978-1-0716-4007-4_12
 
 ## History
 
-Until October 2026, the API and the web were developed in separate repositories,
+Until October 2026 the API and the website lived in separate repositories,
 [moleonline-api](https://github.com/sb-ncbr/moleonline-api) and
-[moleonline-web](https://github.com/sb-ncbr/moleonline-web). Their histories are merged here, with their tags
-prefixed by `api/` and `web/`.
+[moleonline-web](https://github.com/sb-ncbr/moleonline-web). Both histories were merged into this one, and their tags
+got the prefixes `api/` and `web/`.
 
 ## Licence
 
