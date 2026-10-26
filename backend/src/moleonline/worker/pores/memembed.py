@@ -5,8 +5,10 @@ the membrane normal is the z axis, with dummy atoms (DUM, names N and O) on both
 like OPM. The protein atoms keep their order, so superposing them onto the input gives the
 transformation back into the structure's frame.
 
-Settings of the original Pores: thickness optimised after the orientation (-q 1). The search is
-the deterministic direct search (-s 2): the same structure always gives the same membrane.
+Settings of the original Pores: thickness optimised after the orientation (-q 1), the protein forced
+to span the membrane (-l; without it, a long protein like TolC can lie in the membrane). The search
+is the deterministic direct search (-s 2), not the repeated genetic algorithm of Pores (-s 3): the
+same structure always gives the same membrane.
 """
 
 import subprocess
@@ -35,11 +37,21 @@ def membrane_from_memembed(structure: gemmi.Structure, memembed: str, beta_barre
     if len(_atoms(protein)) == 0:
         raise MembraneError("The structure contains no protein to place into a membrane.")
     protein.shorten_chain_names()  # PDB files have one-letter chains, PDBe assemblies use A_2 etc.
+    # MEMEMBED skips HETATM records, so the modified residues left are written as ATOM, and
+    # selenomethionine (common in crystal structures) as the methionine it stands for
+    for chain in protein[0]:
+        for residue in chain:
+            residue.het_flag = "A"
+            if residue.name == "MSE":
+                residue.name = "MET"
+                for atom in residue:
+                    if atom.name == "SE":
+                        atom.name, atom.element = "SD", gemmi.Element("S")
 
     with tempfile.TemporaryDirectory(prefix="memembed") as directory:
         input_path, output_path = Path(directory) / "protein.pdb", Path(directory) / "membrane.pdb"
         protein.write_pdb(str(input_path))
-        command = [memembed, "-s", "2", "-q", "1", *(["-b"] if beta_barrel else []), "-o", str(output_path), str(input_path)]
+        command = [memembed, "-s", "2", "-q", "1", "-l", *(["-b"] if beta_barrel else []), "-o", str(output_path), str(input_path)]
         result = subprocess.run(command, capture_output=True, text=True, check=False)  # MEMEMBED writes only the -o file
         if result.returncode != 0 or not output_path.exists():
             output = (result.stderr or result.stdout).strip()[-500:]

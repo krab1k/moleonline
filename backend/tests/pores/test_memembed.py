@@ -9,6 +9,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import gemmi
 import numpy as np
 import pytest
 
@@ -48,6 +49,22 @@ def test_repeatable():
     first = membrane_from_memembed(structure, MEMEMBED, False, [])
     second = membrane_from_memembed(structure, MEMEMBED, False, [])
     assert np.allclose([p for p, _ in first.points], [p for p, _ in second.points])
+
+
+def test_selenomethionine():
+    """Selenomethionine (MSE, HETATM records) is placed as the methionine it stands for, not left out."""
+    structure = read_structure(REFERENCE / "3ldc" / "data_molecule")
+    with_mse = structure.clone()
+    for residue in (r for chain in with_mse[0] for r in chain if r.name == "MET"):
+        residue.name, residue.het_flag = "MSE", "H"
+        for atom in residue:
+            if atom.name == "SD":
+                atom.name, atom.element = "SE", gemmi.Element("Se")
+    assert any(r.name == "MSE" for chain in with_mse[0] for r in chain)
+
+    placed, expected = membrane_from_memembed(with_mse, MEMEMBED, False, []), membrane_from_memembed(structure, MEMEMBED, False, [])
+    assert placed.rmsd < 0.01
+    assert np.allclose([p for p, _ in placed.points], [p for p, _ in expected.points])
 
 
 @pytest.mark.skipif(not MOLE, reason="set MOLE2 to the mole2 executable")
