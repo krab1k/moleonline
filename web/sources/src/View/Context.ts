@@ -209,7 +209,7 @@ export class Context {
                 } else if (type === "pdb") {
                     trajectory = update.to(dataNode).apply(TrajectoryFromPDB);
                 } else {
-                    throw Error("Unkown type of input file")
+                    throw Error("Unknown type of input file")
                 }
                 structure = trajectory.apply(ModelFromTrajectory).apply(StructureFromModel, {
                     type: assemblyId === null || assemblyId === '' ? { name: 'model', params: {} } : { name: 'assembly', params: { id: assemblyId } }
