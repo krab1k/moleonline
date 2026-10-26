@@ -1,0 +1,76 @@
+# The site at the environment's domain (set by the overlay): a Gateway of its own with a Let's Encrypt certificate (DNS: a
+# CNAME of the domain to kuba-lb.cloud.e-infra.cz), HTTPS to the web, HTTP redirected to HTTPS
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: moleonline
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-gateway
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: web
+      protocol: HTTP
+      port: 8000
+      hostname: moleonline.example.org
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: websecure
+      protocol: HTTPS
+      port: 8443
+      hostname: moleonline.example.org
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: moleonline-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: moleonline
+spec:
+  parentRefs:
+    - name: moleonline
+      sectionName: websecure
+  hostnames:
+    - moleonline.example.org
+  rules:
+    - filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: moleonline-hsts
+      backendRefs:
+        - name: moleonline-web
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: moleonline-redirect
+spec:
+  parentRefs:
+    - name: moleonline
+      sectionName: web
+  hostnames:
+    - moleonline.example.org
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+---
+# Browsers use only HTTPS for the domain from then on
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: moleonline-hsts
+spec:
+  headers:
+    stsSeconds: 31536000

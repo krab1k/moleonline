@@ -1,0 +1,58 @@
+# Runs the queued computations, one at a time each; more of them: replicas
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moleonline-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: moleonline-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: moleonline-worker
+    spec:
+      shareProcessNamespace: true  # the pause process reaps what killed computations leave, as compose's init
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        fsGroup: 1654
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: ghcr.io/krab1k/moleonline-worker:latest
+          imagePullPolicy: Always
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: moleonline-db-app
+                  key: uri
+          # the worker touches it at least every 2 s, also while it waits for the database
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "test $(( $(date +%s) - $(stat -c %Y /tmp/heartbeat) )) -lt 60"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi  # most computations are small, a ribosome takes about 3 GB
+            limits:
+              cpu: "2"
+              memory: 6Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: moleonline-data
