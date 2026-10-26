@@ -16,6 +16,7 @@ from moleonline.core import storage
 from moleonline.core.config import ApiSettings, WorkerSettings
 from moleonline.worker import runner, work
 from moleonline.worker.runner import Worker
+from moleonline.worker.versions import read_mole_version
 
 # a PostgreSQL database the tests empty before each test, postgresql+asyncpg://… (README.md#development)
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
@@ -90,7 +91,8 @@ class Workers:
 
     async def _main(self) -> None:
         db = storage.Database(self.settings.database_url)
-        worker = Worker(self.settings, db, self.http, MOLE_VERSION)
+        # as python -m moleonline.worker: the fake MOLE reports MOLE_VERSION, a real one its own
+        worker = Worker(self.settings, db, self.http, await read_mole_version(self.settings))
         with self.lock:
             self.workers.append(worker)
             self.loops.append((asyncio.get_running_loop(), asyncio.current_task()))
