@@ -121,6 +121,18 @@ def test_loads_are_refused_when_the_queue_is_full(api, settings):
     assert len([p for p in client.app.state.settings.working_directory.iterdir() if p.is_dir()]) == 1  # no session for them
 
 
+def test_a_client_with_too_many_computations_is_refused(api):
+    """429: no client (a script) takes the whole queue"""
+    client = api(load=UNTIL_GO, workers=1, queued=4, per_client=2)
+    started_load(client)
+    assert upload(client, "1tqn.cif", STRUCTURE).status_code == 202  # waits for the worker
+    refused = client.post("/sessions", json={"pdb_id": "1tqn"})
+    assert refused.status_code == 429 and refused.headers["retry-after"] == "60"
+    assert refused.json()["detail"] == ("You have 2 unfinished computations, at most 2 can wait or run at once. "
+                                        "Please, wait until some of them finish.")
+    assert upload(client, "1tqn.cif", STRUCTURE).status_code == 429  # refused before its file is read
+
+
 def test_overlapping_uploads_do_not_overfill_the_queue(api, monkeypatch):
     """Both pass the check before their files are read; the one stored second is refused when it would start"""
     client = api(load=UNTIL_GO, workers=1, queued=0)

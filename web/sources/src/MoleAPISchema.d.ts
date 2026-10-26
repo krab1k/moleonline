@@ -82,7 +82,8 @@ export interface paths {
      * Create Job
      * @description A job on the session's structure, run in the background: queued, running, then finished, failed or
      * cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
-     * running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full.
+     * running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full, 429 when the client
+     * has too many computations in it or started too many in the last hour.
      */
     post: operations["create_job"];
   };
@@ -541,6 +542,12 @@ export interface operations {
           "application/problem+json": components["schemas"]["Problem"];
         };
       };
+      /** @description Too Many Requests */
+      429: {
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
       /** @description Internal Server Error */
       500: {
         content: {
@@ -587,6 +594,12 @@ export interface operations {
       };
       /** @description Unprocessable Content */
       422: {
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Too Many Requests */
+      429: {
         content: {
           "application/problem+json": components["schemas"]["Problem"];
         };
@@ -869,7 +882,8 @@ export interface operations {
    * Create Job
    * @description A job on the session's structure, run in the background: queued, running, then finished, failed or
    * cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
-   * running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full.
+   * running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full, 429 when the client
+   * has too many computations in it or started too many in the last hour.
    */
   create_job: {
     parameters: {
@@ -909,6 +923,12 @@ export interface operations {
       };
       /** @description Unprocessable Content */
       422: {
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Too Many Requests */
+      429: {
         content: {
           "application/problem+json": components["schemas"]["Problem"];
         };

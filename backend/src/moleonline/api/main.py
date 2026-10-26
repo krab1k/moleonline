@@ -135,13 +135,20 @@ class Version(BaseModel):
     mole: str | None  # of the MOLE that took the latest run; None before the first one
 
 
+def admission(request: Request) -> storage.Admission:
+    """The limits a new session or job of the request's client is checked against"""
+    settings: ApiSettings = request.app.state.settings
+    return storage.Admission(settings.max_outstanding_computations, storage.client_of(request.client and request.client.host),
+                             settings.per_client(), settings.max_computations_per_hour)
+
+
 async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
     """A session of the uploaded structure, or why it is refused"""
     if int(request.headers.get("content-length") or 0) > upload.MAX_REQUEST_BYTES:  # not read at all
         return problem(413, upload.TOO_LARGE)
     settings: ApiSettings = request.app.state.settings
-    if await storage.queue_is_full(request.app.state.db, settings.max_outstanding_computations):  # not read either
-        raise storage.QUEUE_FULL
+    if refused := await storage.refusal(request.app.state.db, admission(request)):  # not read either
+        raise refused
     async with request.form() as form:
         file = form.get("file")
         if not isinstance(file, UploadFile) or not file.size:
@@ -154,7 +161,7 @@ async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
             if refused := await run_in_threadpool(upload.store, file.file, gzipped, temp):
                 return problem(*refused)
             # the queue is checked again, with the session added in one step: other uploads may have filled it
-            s = await storage.create(request.app.state.db, settings.working_directory, settings.max_outstanding_computations,
+            s = await storage.create(request.app.state.db, settings.working_directory, admission(request),
                                      structure=temp, structure_file=name)
         finally:
             temp.unlink(missing_ok=True)
@@ -202,7 +209,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
 
     @app.exception_handler(Refused)
     async def refused(request: Request, e: Refused) -> JSONResponse:
-        """A new session or job not accepted: 409, 410, 503 (with Retry-After)"""
+        """A new session or job not accepted: 409, 410, 429 and 503 (with Retry-After)"""
         return problem(e.status, e.detail, headers=e.headers)
 
     @app.exception_handler(RequestValidationError)
@@ -243,7 +250,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
 
     sessions = APIRouter(prefix="/sessions", tags=["sessions"])
 
-    @sessions.post("", status_code=202, responses=errors(503))
+    @sessions.post("", status_code=202, responses=errors(429, 503))
     async def create_session(request: Request, response: Response, new: NewSession) -> Session:
         """A session of a PDB entry: downloaded from PDBe and loaded by MOLE in the background. Poll the session
         (Location) until it is ready or failed."""
@@ -255,14 +262,14 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
             if not entries.ASSEMBLY.match(new.assembly):
                 return problem(422, f"Invalid assembly [{new.assembly}]. "
                                     f"Use {entries.PREFERRED}, {entries.ASYMMETRIC} or an assembly id of the entry.")
-            s = await storage.create(request.app.state.db, settings.working_directory, settings.max_outstanding_computations,
+            s = await storage.create(request.app.state.db, settings.working_directory, admission(request),
                                      pdb_id=new.pdb_id.lower(), assembly=new.assembly)
             created_id = s.id
             return created(request, response, s)
         finally:
             await storage.log_request(request.app.state.db, "Init", request.client and request.client.host, "PDB", created_id)
 
-    @sessions.post("/upload", status_code=202, responses=errors(413, 503), openapi_extra=UPLOAD_FORM)
+    @sessions.post("/upload", status_code=202, responses=errors(413, 429, 503), openapi_extra=UPLOAD_FORM)
     async def upload_session(request: Request, response: Response) -> Session:
         """A session of an uploaded structure, loaded by MOLE in the background; a gzipped file is stored unpacked.
         Poll the session (Location) until it is ready or failed."""
@@ -338,12 +345,12 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
 
     job_routes = APIRouter(prefix="/sessions", tags=["jobs"])
 
-    @job_routes.post("/{session_id}/jobs", status_code=202, responses=errors(404, 409, 410, 503))
+    @job_routes.post("/{session_id}/jobs", status_code=202, responses=errors(404, 409, 410, 429, 503))
     async def create_job(request: Request, response: Response, session_id: str, new: NewJob) -> Job:
         """A job on the session's structure, run in the background: queued, running, then finished, failed or
         cancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or
-        running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full."""
-        settings: ApiSettings = request.app.state.settings
+        running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full, 429 when the client
+        has too many computations in it or started too many in the last hour."""
         await storage.log_request(request.app.state.db, "Submit", request.client and request.client.host, LOGGED_TYPES[new.type],
                                   session_id)
         found = await find(request, session_id)
@@ -351,8 +358,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
             return found
         if problems := new.parameters.problems():
             return problem(422, problems)
-        job = await storage.add_job(request.app.state.db, found, new.type, new.parameters.model_dump(),
-                                    settings.max_outstanding_computations)
+        job = await storage.add_job(request.app.state.db, found, new.type, new.parameters.model_dump(), admission(request))
         response.headers["Location"] = request.url_for("get_job", session_id=session_id, number=job.number).path
         return job
 

@@ -86,6 +86,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "content": {
@@ -160,6 +170,16 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -629,7 +649,7 @@
           "jobs"
         ],
         "summary": "Create Job",
-        "description": "A job on the session's structure, run in the background: queued, running, then finished, failed or\ncancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or\nrunning); it waits for a worker, queued, and 503 (Retry-After) when the queue is full.",
+        "description": "A job on the session's structure, run in the background: queued, running, then finished, failed or\ncancelled. Poll the job (Location). One job runs on a session at a time (409 while another one is queued or\nrunning); it waits for a worker, queued, and 503 (Retry-After) when the queue is full, 429 when the client\nhas too many computations in it or started too many in the last hour.",
         "operationId": "create_job",
         "parameters": [
           {
@@ -717,6 +737,16 @@
               }
             },
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           },
           "500": {
             "content": {

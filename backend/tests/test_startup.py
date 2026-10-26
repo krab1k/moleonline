@@ -58,6 +58,13 @@ def test_scratch_directory_is_emptied_when_a_worker_starts(tmp_path: Path):
     assert list(settings.scratch_directory.iterdir()) == []
 
 
+@pytest.mark.parametrize("outstanding, per_client, expected", [(24, None, 12), (48, None, 24), (1, None, 1), (24, 20, 20)])
+def test_a_client_may_have_half_of_the_queue_by_default(tmp_path: Path, outstanding, per_client, expected):
+    settings = ApiSettings(working_directory=tmp_path, database_url="postgresql+asyncpg://", max_outstanding_computations=outstanding,
+                           max_outstanding_per_client=per_client)
+    assert settings.per_client() == expected
+
+
 def tools(directory: Path, mole: str) -> WorkerSettings:
     return WorkerSettings(working_directory=directory, database_url="postgresql+asyncpg://", mole=script(directory, "mole", mole),
                     memembed=script(directory, "memembed", "exit 0"),

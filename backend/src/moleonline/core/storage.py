@@ -1,5 +1,5 @@
 """Sessions, their jobs and the queue of their runs, in PostgreSQL. A session's files are in its folder in the working
-directory: the structure, the load's folder (load/) and a folder per job (jobs/<number>/).
+directory: the structure, what its load found (data.json) and a folder per job with its results (jobs/<number>/).
 
 A run is a session's load or one of its jobs: queued, running, then done. A worker running it holds its lease, which
 it renews; a lease not renewed for the timeout expires (the worker crashed, was killed, lost its node), and the API's
@@ -7,10 +7,15 @@ cleanup fails the run as interrupted. A worker writes about a run only while it 
 renew once expired. Every change of a state is one transaction
 that applies only from the state it expects, so that a cancel or a delete is never overwritten by a run's late
 outcome; a run is not done exactly while its load or job is in progress. Every transaction changing a session, its
-jobs or its runs locks the session's row first, so that two of them never wait for each other."""
+jobs or its runs locks the session's row first, so that two of them never wait for each other.
+
+Each run is added by a client (its address), so that no client can take all of the service: a client has a limited
+number of runs queued or running and of runs added in an hour, and a free worker takes a run of the client with the
+fewest running first."""
 
 import asyncio
 import base64
+import ipaddress
 import logging
 import re
 import uuid
@@ -135,8 +140,33 @@ class Refused(Exception):
         self.status, self.detail, self.headers = status, detail, headers
 
 
-RETRY_AFTER = 60  # seconds, when the queue is full
+RETRY_AFTER = 60  # seconds, when the queue is full or the client has too many runs in it
 QUEUE_FULL = Refused(503, "The server is busy, its queue is full. Please, try again later.", {"Retry-After": str(RETRY_AFTER)})
+
+
+@dataclass(frozen=True)
+class Admission:
+    """Who adds a run, and the limits it is checked against (None: none)"""
+    limit: int  # runs queued or running together
+    client: str | None = None  # who asks, see client_of
+    per_client: int | None = None  # of them, from one client
+    per_hour: int | None = None  # runs one client may add in an hour
+
+
+def client_of(address: str | None) -> str | None:
+    """The client of an address, for the limits: the address; an IPv6 one as its /64 network, which one machine may
+    use as a whole"""
+    if not address:
+        return None
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address[:64]
+    if ip.version == 4:
+        return str(ip)
+    if ip.ipv4_mapped is not None:
+        return str(ip.ipv4_mapped)
+    return str(ipaddress.ip_network(f"{ip}/64", strict=False))
 
 
 # ------------------------------------------------------------------------------------------------------- the tables
@@ -185,7 +215,9 @@ runs = Table(
     Column("queued", DateTime(timezone=True), nullable=False),
     Column("started", DateTime(timezone=True)),
     Column("ended", DateTime(timezone=True)),
+    Column("client", String(64)),  # who added it, see client_of; None: unknown
     Index("runs_by_phase", "phase", "id"),
+    Index("runs_by_client", "client", "queued"),
 )
 
 requests = Table(
@@ -271,28 +303,52 @@ async def _outstanding(c: AsyncConnection) -> int:
     return await c.scalar(select(func.count()).select_from(runs).where(runs.c.phase != DONE))
 
 
-async def _queue_has_room(c: AsyncConnection, limit: int) -> None:
-    """Refused (QUEUE_FULL) when limit runs are queued or running; with the queue locked until the transaction ends"""
+async def _refusal_of(c: AsyncConnection, a: Admission) -> Refused | None:
+    """Why a run is not added: the queue is full (QUEUE_FULL), the client has too many runs queued or running, or
+    added too many in the last hour (429)"""
+    if await _outstanding(c) >= a.limit:
+        return QUEUE_FULL
+    if a.client is None:
+        return None
+    if a.per_client is not None:
+        mine = await c.scalar(select(func.count()).select_from(runs).where(runs.c.client == a.client, runs.c.phase != DONE))
+        if mine >= a.per_client:
+            return Refused(429, f"You have {mine} unfinished computations, at most {a.per_client} can wait or run at once. "
+                                "Please, wait until some of them finish.", {"Retry-After": str(RETRY_AFTER)})
+    if a.per_hour is not None:
+        hour_ago = now() - timedelta(hours=1)
+        added, oldest = (await c.execute(select(func.count(), func.min(runs.c.queued))
+                                          .where(runs.c.client == a.client, runs.c.queued > hour_ago))).one()
+        if added >= a.per_hour:
+            wait = max(1, int((oldest - hour_ago).total_seconds()) + 1)  # until the oldest leaves the hour
+            return Refused(429, f"You have started {added} computations in the last hour, at most {a.per_hour} are possible. "
+                                "Please, try again later.", {"Retry-After": str(wait)})
+    return None
+
+
+async def _admit(c: AsyncConnection, a: Admission) -> None:
+    """Raises why the run is not added (_refusal_of); with the queue locked until the transaction ends"""
     await c.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": QUEUE_LOCK})
-    if await _outstanding(c) >= limit:
-        raise QUEUE_FULL
+    if refused := await _refusal_of(c, a):
+        raise refused
 
 
-async def create(db: Database, working_directory: Path, limit: int, pdb_id: str | None = None,
+async def create(db: Database, working_directory: Path, admission: Admission, pdb_id: str | None = None,
                  assembly: str | None = None, structure: Path | None = None, structure_file: str | None = None) -> StoredSession:
     """A new session, queued with its load: of a PDB entry (downloaded by the load), or of an uploaded structure
     (moved into its folder as structure_file). The folder is made first: a session never lacks its files, at most a
-    folder lacks a session. Refused (QUEUE_FULL) when limit runs are queued or running."""
+    folder lacks a session. Refused (QUEUE_FULL, 429) by the admission's limits."""
     session = StoredSession(id=new_id(), pdb_id=pdb_id, assembly=assembly, created=now(), structure_file=structure_file)
     session._directory = working_directory
     async with db.engine.begin() as c:
-        await _queue_has_room(c, limit)
+        await _admit(c, admission)
         session.folder().mkdir()
         if structure is not None:
             structure.rename(session.structure_path())
         await c.execute(sessions.insert().values(id=session.id, state=session.state, error="", pdb_id=pdb_id, assembly=assembly,
                                                  created=session.created, structure_file=structure_file, opm=False, deleted=False))
-        await c.execute(runs.insert().values(session_id=session.id, number=None, phase=QUEUED, queued=session.created))
+        await c.execute(runs.insert().values(session_id=session.id, number=None, phase=QUEUED, queued=session.created,
+                                             client=admission.client))
     return session
 
 
@@ -323,18 +379,19 @@ def _refusal(row, last_job) -> Refused | None:
     return None
 
 
-async def add_job(db: Database, s: StoredSession, type: Literal["tunnels", "pores"], parameters: dict, limit: int) -> Job:
-    """A new job of the session, queued with its run. Refused (409, 410, QUEUE_FULL) with the session
+async def add_job(db: Database, s: StoredSession, type: Literal["tunnels", "pores"], parameters: dict, admission: Admission) -> Job:
+    """A new job of the session, queued with its run. Refused (409, 410, QUEUE_FULL, 429) with the session
     locked, so that two requests never start two jobs on it."""
     async with db.engine.begin() as c:
         row = await _lock_session(c, s.id)
         last = (await c.execute(select(jobs).where(jobs.c.session_id == s.id).order_by(jobs.c.number.desc()).limit(1))).mappings().first()
         if refused := _refusal(row, last):
             raise refused
-        await _queue_has_room(c, limit)
+        await _admit(c, admission)
         job = Job(number=(last["number"] if last else 0) + 1, type=type, parameters=parameters, submitted=now())
         await c.execute(jobs.insert().values(session_id=s.id, **job.model_dump()))
-        await c.execute(runs.insert().values(session_id=s.id, number=job.number, phase=QUEUED, queued=job.submitted))
+        await c.execute(runs.insert().values(session_id=s.id, number=job.number, phase=QUEUED, queued=job.submitted,
+                                             client=admission.client))
     return job
 
 
@@ -383,10 +440,10 @@ async def delete(db: Database, session_id: str) -> None:
                         .values(state=JobState.cancelled, finished=now()))
 
 
-async def queue_is_full(db: Database, limit: int) -> bool:
-    """Whether a new session or job would be refused (QUEUE_FULL), without locking the queue"""
+async def refusal(db: Database, admission: Admission) -> Refused | None:
+    """Why a new session or job would be refused by the admission's limits, without locking the queue"""
     async with db.engine.connect() as c:
-        return await _outstanding(c) >= limit
+        return await _refusal_of(c, admission)
 
 
 # ---------------------------------------------------------------------------------------------------------- runs
@@ -408,14 +465,18 @@ def _held(run: Run):
 
 
 async def claim(db: Database, worker: str, mole_version: str, timeout: float) -> Run | None:
-    """The oldest queued run, now running with the worker's lease: its load loading or its job running, with the MOLE
-    that runs it (queued runs wait over a restart, also one with another MOLE); None when none waits"""
+    """A queued run, now running with the worker's lease: its load loading or its job running, with the MOLE that runs
+    it (queued runs wait over a restart, also one with another MOLE); None when none waits. The oldest of the client
+    with the fewest runs running: a client with many queued runs only uses the workers others leave free."""
+    running = (select(runs.c.client, func.count().label("running")).where(runs.c.phase == RUNNING, runs.c.client.is_not(None))
+               .group_by(runs.c.client).subquery())
     while True:
         # each candidate in a transaction of its own: one lost to another worker or a cancel keeps no lock while the
         # next is tried, so that two workers never wait for each other's sessions
         async with db.engine.begin() as c:
-            row = (await c.execute(select(runs.c.id, runs.c.session_id, runs.c.number).where(runs.c.phase == QUEUED)
-                                   .order_by(runs.c.id).limit(1))).first()
+            row = (await c.execute(select(runs.c.id, runs.c.session_id, runs.c.number)
+                                   .outerjoin(running, runs.c.client == running.c.client).where(runs.c.phase == QUEUED)
+                                   .order_by(func.coalesce(running.c.running, 0), runs.c.id).limit(1))).first()
             if row is None:
                 return None
             await _lock_session(c, row.session_id)

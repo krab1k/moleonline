@@ -17,7 +17,7 @@ from moleonline.core import storage
 from moleonline.core.storage import INTERRUPTED, STOPPED_LOAD, Database, JobState, Refused, SessionState
 
 VERSION = "2.5.26.10.17"
-LIMIT = 100  # of the queue, unless a test says otherwise
+LIMIT = storage.Admission(100)  # of the queue, unless a test says otherwise
 WORKER, TIMEOUT = "worker-1", 60  # holding the leases of the runs it takes; seconds until a lease not renewed expires
 
 
@@ -137,11 +137,74 @@ def test_one_of_two_jobs_submitted_at_once_is_refused(database, folder):
 
 def test_the_queue_limit_holds_for_requests_at_once(database, folder):
     async def check(db: Database):
-        results = await asyncio.gather(*[storage.create(db, folder, 3, pdb_id="1tqn", assembly="preferred") for _ in range(8)],
-                                       return_exceptions=True)
+        results = await asyncio.gather(*[storage.create(db, folder, storage.Admission(3), pdb_id="1tqn", assembly="preferred")
+                                         for _ in range(8)], return_exceptions=True)
         assert sum(isinstance(r, storage.StoredSession) for r in results) == 3
         assert all(r is storage.QUEUE_FULL for r in results if not isinstance(r, storage.StoredSession))
         assert len(list(folder.iterdir())) == 3  # the refused ones made no folder
+    run(database, check)
+
+
+@pytest.mark.parametrize("address, client", [
+    ("192.0.2.7", "192.0.2.7"),
+    ("2001:db8:1:2:aaaa::1", "2001:db8:1:2::/64"),  # one machine may use its whole /64 network
+    ("2001:db8:1:2:bbbb::9", "2001:db8:1:2::/64"),
+    ("::ffff:192.0.2.7", "192.0.2.7"),  # IPv4 mapped to IPv6
+    ("testclient", "testclient"),  # not an address (tests)
+    (None, None),
+])
+def test_clients_of_addresses(address, client):
+    assert storage.client_of(address) == client
+
+
+def client(name: str, per_client: int | None = None, per_hour: int | None = None) -> storage.Admission:
+    return storage.Admission(100, name, per_client, per_hour)
+
+
+def test_a_client_is_limited_in_runs_queued_or_running(database, folder):
+    """A client cannot fill the queue, other clients still get in; also for requests at once"""
+    async def check(db: Database):
+        results = await asyncio.gather(*[storage.create(db, folder, client("bot", per_client=3), pdb_id="1tqn", assembly="preferred")
+                                         for _ in range(8)], return_exceptions=True)
+        refused = [r for r in results if isinstance(r, Refused)]
+        assert len(refused) == 5 and {(r.status, r.headers["Retry-After"]) for r in refused} == {(429, "60")}
+        assert refused[0].detail.startswith("You have 3 unfinished computations, at most 3 can wait or run at once.")
+        assert await storage.create(db, folder, client("person", per_client=3), pdb_id="1tqn", assembly="preferred")
+        assert (await storage.refusal(db, client("bot", per_client=3))).status == 429  # the upload's check before reading
+
+        taken = await storage.claim(db, WORKER, VERSION, TIMEOUT)
+        assert await storage.end(db, taken)  # a run of the bot done: room for another one
+        assert await storage.create(db, folder, client("bot", per_client=3), pdb_id="1tqn", assembly="preferred")
+    run(database, check)
+
+
+def test_a_client_is_limited_in_runs_added_in_an_hour(database, folder):
+    async def check(db: Database):
+        for _ in range(2):
+            await storage.create(db, folder, client("bot", per_hour=2), pdb_id="1tqn", assembly="preferred")
+            assert await storage.end(db, await storage.claim(db, WORKER, VERSION, TIMEOUT))  # done ones count too
+        with pytest.raises(Refused) as refused:
+            await storage.create(db, folder, client("bot", per_hour=2), pdb_id="1tqn", assembly="preferred")
+        assert refused.value.status == 429
+        assert refused.value.detail.startswith("You have started 2 computations in the last hour, at most 2 are possible.")
+        assert 3500 < int(refused.value.headers["Retry-After"]) <= 3601  # until the first one is an hour old
+        assert await storage.create(db, folder, client("person", per_hour=2), pdb_id="1tqn", assembly="preferred")
+
+        async with db.engine.begin() as c:  # an hour later
+            await c.execute(text("UPDATE runs SET queued = queued - interval '61 minutes'"))
+        assert await storage.create(db, folder, client("bot", per_hour=2), pdb_id="1tqn", assembly="preferred")
+    run(database, check)
+
+
+def test_a_free_worker_takes_a_run_of_the_client_with_fewest_running(database, folder):
+    """A client with many queued runs only uses the workers others leave free; the oldest first among equals"""
+    async def check(db: Database):
+        bot = [await storage.create(db, folder, client("bot"), pdb_id="1tqn", assembly="preferred") for _ in range(3)]
+        person = await storage.create(db, folder, client("person"), pdb_id="1tqn", assembly="preferred")
+        other = await storage.create(db, folder, client("other"), pdb_id="1tqn", assembly="preferred")
+        taken = [await storage.claim(db, f"worker-{i}", VERSION, TIMEOUT) for i in range(4)]
+        # bot (the oldest, nobody runs), person (bot runs one), other, then bot again
+        assert [r.session_id for r in taken] == [bot[0].id, person.id, other.id, bot[1].id]
     run(database, check)
 
 

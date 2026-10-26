@@ -31,8 +31,15 @@ If a setting is wrong (a path that does not exist, for example), the container s
 ### How computations run
 
 When you load a structure or submit a job, the API adds it to the queue and answers immediately. A free worker picks the
-oldest waiting computation. To run more at once, add workers: `docker compose up -d --scale worker=N`. The API keeps
-nothing in memory, so it can run as several replicas, too.
+oldest waiting computation of the client with the fewest running ones, so a script with many queued computations only
+uses the workers nobody else needs. A client is an IP address; IPv6 addresses count by their /64 network. To run more
+at once, add workers: `docker compose up -d --scale worker=N`. The API keeps nothing in memory, so it can run as several
+replicas, too.
+
+When the queue is full, new computations are refused with 503. A single client is refused with 429 earlier: when it
+has `MAX_OUTSTANDING_PER_CLIENT` computations waiting or running, or started `MAX_COMPUTATIONS_PER_HOUR` in the last
+hour. Both answers say when to try again (`Retry-After`). People behind one shared address (a course in one room)
+count as one client; raise the limits for such a day.
 
 Restarting the API or the workers is safe. Waiting computations stay in the queue. A computation that was running fails
 with "interrupted by a restart", and the user can submit it again. The same happens when a worker crashes: if it stops
@@ -86,6 +93,8 @@ For the API:
 | Setting | Default | Meaning |
 |---|---|---|
 | `MAX_OUTSTANDING_COMPUTATIONS` | `24` | Computations waiting or running at most; more are refused with 503 |
+| `MAX_OUTSTANDING_PER_CLIENT` | half of the above | Of them, from one client; more are refused with 429 |
+| `MAX_COMPUTATIONS_PER_HOUR` | `200` | Computations one client may start in an hour; more are refused with 429 |
 | `FORWARDED_ALLOW_IPS` | private networks | Proxies trusted to report the client's address (uvicorn's setting) |
 | `UVICORN_ROOT_PATH` | (none) | Path the API is served under, `/api` behind the website's nginx |
 

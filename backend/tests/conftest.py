@@ -62,7 +62,7 @@ class Settings(ApiSettings, WorkerSettings):
 
 
 def make_settings(directory: Path, database: str, load: str = "exit 0", run: str = "exit 0", workers: int = 4, queued: int = 20,
-                  mole: Path | None = None) -> Settings:
+                  mole: Path | None = None, per_client: int | None = None) -> Settings:
     """Their own working and scratch directories. The fake MOLE runs load for a load (input in the run's folder load/),
     run for a computation, and reports its version without arguments; it keeps a copy of its input next to the run's
     folder (scratch/<session>/load.xml, 1.xml), which is removed after the run. mole: a real MOLE instead. queued: runs
@@ -74,6 +74,7 @@ def make_settings(directory: Path, database: str, load: str = "exit 0", run: str
         scratch_directory=directory / "scratch",
         database_url=database,
         max_outstanding_computations=workers + queued,
+        max_outstanding_per_client=per_client or workers + queued,  # the tests' client may fill the queue unless said
         mole=mole or script(directory, "mole", fake),
         memembed=script(directory, "memembed", "exit 1"),  # the fake pores tool does not run it
         opm_cache=directory / "opm-cache",

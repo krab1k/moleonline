@@ -37,6 +37,13 @@ class ApiSettings(CoreSettings):
     """The API's: uvicorn moleonline.api.main:app"""
     # runs (loads, jobs) queued or running together; more are refused (503)
     max_outstanding_computations: int = Field(24, ge=1)
+    # of them from one client (an address; an IPv6 /64 network), more are refused (429); by default half of them, so
+    # that no client (a script) takes the whole queue
+    max_outstanding_per_client: int | None = Field(None, ge=1)
+    max_computations_per_hour: int = Field(200, ge=1)  # loads and jobs one client may start in an hour, more: 429
+
+    def per_client(self) -> int:
+        return self.max_outstanding_per_client or max(1, self.max_outstanding_computations // 2)
 
 
 class WorkerSettings(CoreSettings):

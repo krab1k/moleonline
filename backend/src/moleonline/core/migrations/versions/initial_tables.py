@@ -62,8 +62,10 @@ def upgrade() -> None:
     sa.Column('queued', sa.DateTime(timezone=True), nullable=False),
     sa.Column('started', sa.DateTime(timezone=True), nullable=True),
     sa.Column('ended', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('client', sa.String(length=64), nullable=True),
     sa.ForeignKeyConstraint(['session_id'], ['sessions.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index('runs_by_client', 'runs', ['client', 'queued'], unique=False)
     op.create_index('runs_by_phase', 'runs', ['phase', 'id'], unique=False)
     # ### end Alembic commands ###
