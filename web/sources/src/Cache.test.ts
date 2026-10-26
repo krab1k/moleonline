@@ -28,9 +28,11 @@ describe('ChannelsDBData', () => {
         const { cache } = await freshCache();
         api.getChannelsData.mockResolvedValue(channels);
         api.getProteinData.mockResolvedValue(protein);
-        const [data, annotations] = await Promise.all([cache.getChannelsData('1tqn'), cache.getChannelsAnnotations('1tqn')]);
+        const [data, annotations, residues] = await Promise.all([cache.getChannelsData('1tqn'), cache.getChannelsAnnotations('1tqn'),
+            cache.getResidueAnnotations('1tqn'), cache.getResidueAnnotations('1tqn')]);
         expect(data).toBe(channels.channelsData);
         expect(annotations).toBe(channels.channelsAnnotations);
+        expect(residues).toBe(protein.residueData);
         expect(api.getChannelsData).toHaveBeenCalledTimes(1);
         expect(api.getProteinData).toHaveBeenCalledTimes(1);
     });
@@ -77,10 +79,17 @@ describe('ChannelsDBData', () => {
         expect(api.getChannelsData).toHaveBeenCalledTimes(2); // 1aaa once, 1bbb once
     });
 
-    it('fails the load when the protein data fail, without an unhandled rejection', async () => {
+    it('loads the channels and the residue annotations independently', async () => {
         const { cache, RequestError } = await freshCache();
         api.getChannelsData.mockResolvedValue(channels);
         api.getProteinData.mockRejectedValue(new RequestError('server error', 500, false));
-        await expect(cache.getChannelsData('1tqn')).rejects.toThrow('server error');
+        await expect(cache.getChannelsData('1tqn')).resolves.toBe(channels.channelsData);
+        await expect(cache.getResidueAnnotations('1tqn')).rejects.toThrow('server error');
+        expect(cache.getResiduesAnnotationsImmediate()).toBeNull();
+
+        api.getChannelsData.mockRejectedValue(new TypeError('Failed to fetch'));
+        api.getProteinData.mockResolvedValue(protein);
+        await expect(cache.getChannelsData('2bg9')).rejects.toThrow('Failed to fetch');
+        await expect(cache.getResidueAnnotations('2bg9')).resolves.toBe(protein.residueData);
     });
 });
