@@ -13,7 +13,7 @@ import pytest
 
 from moleonline.worker.pores.membrane import read_structure
 from moleonline.worker.pores.opm import membrane_from_opm
-from moleonline.worker.pores.path import end_points, write_mole_input
+from moleonline.worker.pores.path import chains_only, end_points, write_mole_input
 
 REFERENCE = Path(__file__).parent / "data"
 MOLE = os.environ.get("MOLE2")
@@ -35,7 +35,7 @@ def compute(pdb_id: str, in_membrane: bool, probe_radius: float, tmp_path: Path)
     working_directory = tmp_path / "1"
     working_directory.mkdir()
     start, end = end_points(structure, membrane, in_membrane, [])
-    mole_input = write_mole_input(structure_path, working_directory, start, end, probe_radius, 0.8, [])
+    mole_input = write_mole_input(structure_path, working_directory, start, end, probe_radius, 0.8, through=not in_membrane)
     return run_mole(mole_input, working_directory)["Channels"]["Paths"][0]
 
 
@@ -48,6 +48,7 @@ def summary(path: dict) -> tuple:
     ("1k4c", "data_json", True, 13.0),
     ("3ldc", "data_json", True, 10.0),
     ("2vv5", "data_json", False, 13.0),
+    ("3j5p", "data_json", False, 13.0),  # the protein ends far from the axis, around a wide vestibule
 ])
 def test_same_path(pdb_id, reference, in_membrane, probe_radius, tmp_path):
     length, bottleneck, residues = summary(compute(pdb_id, in_membrane, probe_radius, tmp_path))
@@ -58,11 +59,12 @@ def test_same_path(pdb_id, reference, in_membrane, probe_radius, tmp_path):
 
 
 def test_1k4c_outside_membrane_close(tmp_path):
-    """The old MOLE (2.5.18) ended this path at a different cavity point of the Fab above the channel."""
+    """The channel is symmetric: production ended the path in another of the cavity points equally near the axis,
+    a quarter turn around it (MOLE's order of equal candidates changed with .NET)."""
     length, bottleneck, residues = summary(compute("1k4c", False, 13.0, tmp_path))
     production = json.loads((REFERENCE / "1k4c" / "submit2_inmembrane_false_data_json").read_text())["Channels"]["Paths"][0]
     p_length, p_bottleneck, p_residues = summary(production)
-    assert abs(length - p_length) < 5 and abs(bottleneck - p_bottleneck) < 0.1
+    assert abs(length - p_length) < 0.5 and abs(bottleneck - p_bottleneck) < 0.05
     assert len(residues & p_residues) >= 0.9 * len(p_residues)
 
 
@@ -77,7 +79,7 @@ def test_curved_membrane_in_membrane_region(tmp_path):
     working_directory = tmp_path / "1"
     working_directory.mkdir()
     start, end = end_points(structure, membrane, True, [])
-    mole_input = write_mole_input(structure_path, working_directory, start, end, 13.0, 0.8, [])
+    mole_input = write_mole_input(structure_path, working_directory, start, end, 13.0, 0.8, through=False)
     assert run_mole(mole_input, working_directory)["Channels"]["Paths"] == []
 
 
@@ -91,9 +93,12 @@ def test_selected_chains(tmp_path):
     working_directory = tmp_path / "1"
     working_directory.mkdir()
     start, end = end_points(structure, membrane, False, chains)
-    mole_input = write_mole_input(structure_path, working_directory, start, end, 13.0, 0.8, chains)
+    mole_input = write_mole_input(chains_only(structure, structure_path, chains, working_directory), working_directory, start, end,
+                                  13.0, 0.8, through=True)
     path = run_mole(mole_input, working_directory)["Channels"]["Paths"][0]
 
     assert {residue.split()[2] for residue in path["Layers"]["ResidueFlow"]} <= set(chains)
     top = membrane.to_membrane_frame([path["Profile"][-1][k] for k in "XYZ"])[2]
     assert top < 25  # the channel ends at about 24 Å, the Fab antibodies reach 45 Å
+    length, bottleneck, _ = summary(path)
+    assert (length, round(bottleneck, 2)) == (63.8, 0.85)  # as Pores.exe computed it (api2.mole.upol.cz, 2026-10-26)

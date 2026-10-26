@@ -10,6 +10,7 @@ from PDBe) or an upload, followed by one `Submit/Pores`. Only what the tests rea
 | `2vv5` | 2026-10-16 | Pores 1.4.5, MOLE 2.5.18.1.14 | `InMembrane=false`, probe 13, threshold 0.8 | OPM's membrane is curved; a submission with `InMembrane=true` found no path |
 | `3ldc` | 2026-10-16 | Pores 1.4.5, MOLE 2.5.18.1.14 | `InMembrane=true`, probe 10, threshold 0.8 | |
 | `3ldc_upload` | 2026-10-16 | Pores 1.4.5, MOLE 2.5.18.1.14 | as `3ldc` | `uploaded_3ldc.cif` (the `3ldc` structure) uploaded with `POST Init`, so Pores used MEMEMBED instead of OPM; the path is identical to `3ldc` |
+| `3j5p` | 2026-10-26 | Pores 1.4.5, MOLE 2.5.18.1.14 | `InMembrane=false`, probe 13, threshold 0.8 | computed by api2.mole.upol.cz, which runs the same Pores.exe as production; TRPV1, the protein ends far from the axis around a wide vestibule |
 | `opm_only` | 2026-10-17 | | | OPM files of entries without a production result, used as the structure too: 2ZW3 (two membranes), 5NG5 (dummy atoms after `END`), 6JNF (no membrane surface near the pore axis) |
 
 Files:

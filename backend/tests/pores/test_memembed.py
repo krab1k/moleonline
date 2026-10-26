@@ -60,7 +60,7 @@ def test_upload_same_path_as_production(tmp_path):
     working_directory = tmp_path / "1"
     working_directory.mkdir()
     start, end = end_points(structure, membrane, True, [])
-    mole_input = write_mole_input(structure_path, working_directory, start, end, 10.0, 0.8, [])
+    mole_input = write_mole_input(structure_path, working_directory, start, end, 10.0, 0.8, through=False)
     subprocess.run([MOLE, str(mole_input)], check=True, capture_output=True)
 
     ours = json.loads((working_directory / "json" / "data.json").read_text())["Channels"]["Paths"][0]["Profile"]

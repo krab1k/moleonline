@@ -6,6 +6,7 @@ contain the protein in the membrane frame.
 
 from pathlib import Path
 
+import gemmi
 import numpy as np
 import pytest
 
@@ -55,3 +56,26 @@ def test_membrane_region_refused(pdb_id, message):
     with pytest.raises(PathError, match=message):
         end_points(structure, m, True, [])
     end_points(structure, m, False, [])  # without the membrane region the pore can be computed
+
+
+def test_axis_of_chosen_chains_from_their_alpha_carbons():
+    """One C-alpha per residue: a calcium ion (also named CA) or another conformation do not move the axis."""
+    structure, m = membrane(REFERENCE / "1k4c" / "data_molecule", REFERENCE / "1k4c" / "opm_1k4c.pdb")
+    chains = ["C", "C_2", "C_3", "C_4"]
+    expected = end_points(structure, m, False, chains)
+
+    chain = next(chain for chain in structure[0] if chain.name == "C")
+    alpha = chain[0].find_atom("CA", "*")
+    alpha.altloc = "A"
+    other = gemmi.Atom()
+    other.name, other.element, other.altloc = "CA", gemmi.Element("C"), "B"
+    other.pos = gemmi.Position(alpha.pos.x + 30, alpha.pos.y, alpha.pos.z)
+    chain[0].add_atom(other)
+    ion = gemmi.Residue()
+    ion.name, ion.het_flag = "CA", "H"
+    atom = gemmi.Atom()
+    atom.name, atom.element, atom.pos = "CA", gemmi.Element("Ca"), gemmi.Position(alpha.pos.x + 50, alpha.pos.y, alpha.pos.z)
+    ion.add_atom(atom)
+    chain.add_residue(ion)
+
+    assert all(np.allclose(a, b) for a, b in zip(end_points(structure, m, False, chains), expected, strict=True))

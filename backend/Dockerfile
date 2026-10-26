@@ -5,7 +5,7 @@
 # Both keep the sessions' files and downloaded OPM files in /data, as the same user (1654, the .NET image's app); the
 # rest is in the database (DATABASE_URL).
 
-ARG MOLE_VERSION=2.5.26.10.17
+ARG MOLE_VERSION=2.5.26.10.26
 FROM docker.io/sbncbr/mole2:${MOLE_VERSION} AS mole
 
 # MEMEMBED (GPL v2): https://github.com/psipred/MemEmbed, unmodified, built without -Werror (newer compilers warn);

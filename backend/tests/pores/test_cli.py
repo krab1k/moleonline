@@ -9,7 +9,7 @@ import pytest
 
 from moleonline.worker.pores import cli
 from moleonline.worker.pores.cli import PoresError, main, run
-from moleonline.worker.pores.membrane import MembraneError
+from moleonline.worker.pores.membrane import MembraneError, read_structure
 from moleonline.worker.pores.path import PathError
 
 REFERENCE = Path(__file__).parent / "data"
@@ -52,7 +52,9 @@ def test_writes_membrane_and_mole_input(tmp_path):
     computation = tmp_path / "computation"
     assert json.loads((computation / "membrane.json").read_text())
     mole_input = (computation / "1" / "input.xml").read_text()
-    assert str(computation / "1k4c.cif") in mole_input and "C,C_2" in mole_input.replace(" ", "")
+    # MOLE computes with a copy of only the chosen chains, of the same name
+    assert f">{computation / '1' / '1k4c.cif'}</Input>" in mole_input
+    assert [chain.name for chain in read_structure(computation / "1" / "1k4c.cif")[0]] == ["C", "C_2"]
 
 
 def test_unexpected_error_is_one_line(tmp_path, monkeypatch, capsys):

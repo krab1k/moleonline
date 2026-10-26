@@ -20,7 +20,7 @@ from ...core.parameters import PoresParameters
 from .membrane import MembraneError, membrane_json, read_structure
 from .memembed import membrane_from_memembed
 from .opm import download_opm, membrane_from_opm
-from .path import PathError, end_points, write_mole_input
+from .path import PathError, chains_only, end_points, write_mole_input
 
 
 class PoresError(Exception):
@@ -57,7 +57,8 @@ def run(parameters_path: Path) -> None:
     start, end = end_points(structure, membrane, parameters.InMembrane, chains)
     if not np.isfinite([start, end]).all():
         raise PathError("The ends of the pore could not be computed, they contain invalid numbers.")
-    write_mole_input(structure_path, working_directory, start, end, parameters.ProbeRadius, parameters.InteriorThreshold, chains)
+    write_mole_input(chains_only(structure, structure_path, chains, working_directory), working_directory, start, end,
+                     parameters.ProbeRadius, parameters.InteriorThreshold, through=not parameters.InMembrane)
 
 
 def main() -> None:
