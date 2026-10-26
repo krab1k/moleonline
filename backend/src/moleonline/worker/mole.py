@@ -122,8 +122,8 @@ def zip_report(directory: Path, structure: Path) -> None:
     try:
         with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as report:
             for folder in sorted(p for p in directory.iterdir() if p.is_dir()):
-                for file in sorted(f for f in folder.iterdir() if f.is_file()):
-                    report.write(file, f"{folder.name}/{file.name}")
+                for file in sorted(f for f in folder.rglob("*") if f.is_file()):  # also in their subfolders (pdb/profile)
+                    report.write(file, file.relative_to(directory).as_posix())
             report.write(structure, structure.name)
         temp.replace(directory / REPORT)
     finally:

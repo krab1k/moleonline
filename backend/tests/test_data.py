@@ -45,7 +45,7 @@ def test_zips(finished):
     client, id = finished
     report = client.get(f"/sessions/{id}/jobs/1/results/report")
     assert report.headers["content-disposition"] == f'attachment; filename="mole_channels_{id}_1.zip"'
-    assert "1tqn.cif" in zipfile.ZipFile(io.BytesIO(report.content)).namelist()
+    assert {"1tqn.cif", "pdb/profile/a.pdb", "pdb/profile/more/b.pdb"} <= set(zipfile.ZipFile(io.BytesIO(report.content)).namelist())
     profiles = client.get(f"/sessions/{id}/jobs/1/results/pdb")
     assert profiles.headers["content-disposition"] == f'attachment; filename="mole_channels_{id}_1_pdb.zip"'
     assert sorted(zipfile.ZipFile(io.BytesIO(profiles.content)).namelist()) == ["a.pdb", "more/b.pdb"]
