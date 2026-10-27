@@ -1,0 +1,74 @@
+# A dump of the database every night, the last 14 kept, on a volume CERIT-SC backs up (30 days)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: moleonline-db-backup
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-csi-backup
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: moleonline-db-backup
+spec:
+  schedule: "17 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70  # postgres in the alpine image
+            runAsGroup: 70
+            fsGroup: 70
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: dump
+              image: docker.io/library/postgres:18-alpine
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  f=/backup/moleonline-$(date +%F).dump
+                  # each on its own: set -e does not stop at a failure left of &&, and a failed dump must fail the
+                  # job before any old dump is removed
+                  pg_dump -Fc "$DATABASE_URL" > "$f.tmp"
+                  mv "$f.tmp" "$f"
+                  rm -f /backup/moleonline-*.dump.tmp  # of the runs that failed
+                  ls -1t /backup/moleonline-*.dump | tail -n +15 | xargs -r rm --
+                  ls -lh /backup
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: moleonline-db-app
+                      key: uri
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: "1"
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: moleonline-db-backup

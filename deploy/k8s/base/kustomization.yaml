@@ -1,4 +1,4 @@
-# MOLEonline in Kubernetes, without its namespace and domain: those are the overlays' (dev/, and prod/ later)
+# MOLEonline in Kubernetes, without its namespace and domain: those are the overlays' (dev/, prod/)
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 labels:

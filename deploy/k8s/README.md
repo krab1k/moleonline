@@ -6,9 +6,11 @@ The manifests for the [CERIT-SC](https://docs.cerit.io/) cluster `kuba-cluster`,
 - [`base/`](base): the whole application, without a namespace or a domain: PostgreSQL (CloudNativePG), a shared volume
   for structures and results, the API, the workers, the website and a Gateway with a Let's Encrypt certificate
 - [`dev/`](dev): the dev instance, in the namespace `racek1-ns` at `moleonline-dev.biodata.ceitec.cz`
+- [`prod/`](prod): the production instance, in the namespace `moleonline-ns` at `moleonline.biodata.ceitec.cz` and
+  `moleonline.cz`, with a nightly dump of the database
 
 The images come from `ghcr.io/krab1k/moleonline-*`, published by CI from every commit on `main`. The dev instance
-follows `latest`.
+follows `latest`, production runs the images of the commit in `prod/kustomization.yaml`.
 
 ## Deploying
 
@@ -24,16 +26,28 @@ To pick up newly published images:
 kubectl --context kuba-cluster -n racek1-ns rollout restart deployment
 ```
 
+## Production
+
+A release is a commit on `main` whose CI run passed: set it as `newTag` of all three images in
+[`prod/kustomization.yaml`](prod/kustomization.yaml) and apply `prod/`.
+
+Each domain has a certificate of its own, issued by HTTP-01: Let's Encrypt asks the domain itself, so a certificate is
+issued only while its domain resolves to the cluster. `moleonline.biodata.ceitec.cz` is a CNAME to
+`kuba-lb.cloud.e-infra.cz`; `moleonline.cz`, the zone's apex, cannot be a CNAME and has the A record of
+`kuba-lb.cloud.e-infra.cz` (147.251.252.9). `mole.upol.cz`, the old domain, is a CNAME to `moleonline.cz`; it only
+redirects there, keeping the path ([`prod/upol-redirect.yaml`](prod/upol-redirect.yaml)).
+
+The database dumps (`pg_dump -Fc`, the last 14) are on the volume `moleonline-db-backup`, which CERIT-SC backs up for
+30 days. To restore one into the running database:
+
+```sh
+kubectl -n moleonline-ns exec -i moleonline-db-1 -- pg_restore --clean --if-exists -d mole < moleonline-<date>.dump
+```
+
 ## Another environment
 
 Copy `dev/` and change the namespace, the domain and, if needed, the number of workers (`replicas` of
-`moleonline-worker`). For production, pin the images to a commit instead of `latest`:
-
-```yaml
-images:
-  - name: ghcr.io/krab1k/moleonline-api
-    newTag: <commit>
-```
+`moleonline-worker`).
 
 ## Operating it
 

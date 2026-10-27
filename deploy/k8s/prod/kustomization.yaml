@@ -1,0 +1,140 @@
+# The production instance: kubectl --context kuba-cluster apply -k deploy/k8s/prod
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: moleonline-ns
+resources:
+  - ../base
+  - backup.yaml
+  - upol-redirect.yaml
+# a release: the images of one commit on main, not latest
+images:
+  - name: ghcr.io/krab1k/moleonline-api
+    newTag: 127678352f155ea9280d0e065fcf0310dfd794b7
+  - name: ghcr.io/krab1k/moleonline-worker
+    newTag: 127678352f155ea9280d0e065fcf0310dfd794b7
+  - name: ghcr.io/krab1k/moleonline-web
+    newTag: 127678352f155ea9280d0e065fcf0310dfd794b7
+replicas:
+  - name: moleonline-worker
+    count: 4
+  - name: moleonline-api  # on different nodes (the patch below): one goes on when the other's node fails
+    count: 2
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: moleonline-api
+      spec:
+        template:
+          spec:
+            topologySpreadConstraints:
+              - maxSkew: 1
+                topologyKey: kubernetes.io/hostname
+                whenUnsatisfiable: DoNotSchedule
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: moleonline-api
+                matchLabelKeys: [pod-template-hash]  # the replicas of one release, not also those it replaces
+  # nfs-csi volumes cannot be expanded later
+  - patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: moleonline-data
+      spec:
+        resources:
+          requests:
+            storage: 1Ti
+  # Both domains serve the site, each with a certificate of its own: one domain that does not resolve to the cluster
+  # yet does not hold up the other's
+  - patch: |-
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      metadata:
+        name: moleonline
+      spec:
+        listeners:
+          - name: web
+            protocol: HTTP
+            port: 8000
+            hostname: moleonline.biodata.ceitec.cz
+            allowedRoutes:
+              namespaces:
+                from: Same
+          - name: websecure
+            protocol: HTTPS
+            port: 8443
+            hostname: moleonline.biodata.ceitec.cz
+            tls:
+              mode: Terminate
+              certificateRefs:
+                - name: moleonline-tls
+            allowedRoutes:
+              namespaces:
+                from: Same
+          - name: web-cz
+            protocol: HTTP
+            port: 8000
+            hostname: moleonline.cz
+            allowedRoutes:
+              namespaces:
+                from: Same
+          - name: websecure-cz
+            protocol: HTTPS
+            port: 8443
+            hostname: moleonline.cz
+            tls:
+              mode: Terminate
+              certificateRefs:
+                - name: moleonline-cz-tls
+            allowedRoutes:
+              namespaces:
+                from: Same
+          # the old domain, only redirected (upol-redirect.yaml)
+          - name: web-upol
+            protocol: HTTP
+            port: 8000
+            hostname: mole.upol.cz
+            allowedRoutes:
+              namespaces:
+                from: Same
+          - name: websecure-upol
+            protocol: HTTPS
+            port: 8443
+            hostname: mole.upol.cz
+            tls:
+              mode: Terminate
+              certificateRefs:
+                - name: moleonline-upol-tls
+            allowedRoutes:
+              namespaces:
+                from: Same
+  - patch: |-
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      metadata:
+        name: moleonline
+      spec:
+        parentRefs:
+          - name: moleonline
+            sectionName: websecure
+          - name: moleonline
+            sectionName: websecure-cz
+        hostnames:
+          - moleonline.biodata.ceitec.cz
+          - moleonline.cz
+  - patch: |-
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      metadata:
+        name: moleonline-redirect
+      spec:
+        parentRefs:
+          - name: moleonline
+            sectionName: web
+          - name: moleonline
+            sectionName: web-cz
+        hostnames:
+          - moleonline.biodata.ceitec.cz
+          - moleonline.cz
