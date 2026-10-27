@@ -7,7 +7,7 @@ import { PluginReactContext } from "molstar/lib/mol-plugin-ui/base";
 import { Controls } from "./UI/Controls/UI";
 import { getParameters } from "../Common/Util/Router";
 import { Events } from "../Bridge";
-import { addCaverTag, loadMoleData } from "./State";
+import { addMissingCaverGroups, loadMoleData } from "./State";
 import { ChannelsDBChannels, MoleData } from "../DataInterface";
 import { SessionInfo } from "../DataProxy";
 import { ApiService, Session } from "../MoleAPIService";
@@ -146,7 +146,7 @@ export class LeftPanel extends React.Component<{ context: Context }, { isLoading
                 if (channelsDb.status === "fulfilled") {
                     try {
                         const guidChannelsDbData = TunnelsId.generateGuidAll(channelsDb.value);
-                        let completeChannelsDbData = addCaverTag(guidChannelsDbData);
+                        let completeChannelsDbData = addMissingCaverGroups(guidChannelsDbData);
                         const channelAnnotations = annotations.status === "fulfilled" ? annotations.value : new Map<string, ChannelAnnotation[]>();
                         completeChannelsDbData = TunnelsId.generateIdAllWithAnnotations(channelAnnotations, completeChannelsDbData, compId, 'channelsDb');
                         Tunnels.markChannelsDB(completeChannelsDbData);

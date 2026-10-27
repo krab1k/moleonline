@@ -146,15 +146,6 @@ function profileToVec3(profile: Profile): Vec3 {
     return Vec3.create(profile.X, profile.Y, profile.Z);
 }
 
-// Caver profiles give each point's distance from the previous one; returns a copy with the distance along the tunnel
-export function cumulativeDistances(profile: Profile[]): Profile[] {
-    let distance = 0;
-    return profile.map(point => {
-        distance += point.Distance;
-        return { ...point, Distance: distance };
-    });
-}
-
 // Centripetal Catmull–Rom spline interpolation
 export function interpolateTunnel(profile: Profile[], sampleRate: number) {
     const interpolatedProfiles: Profile[] = [];
