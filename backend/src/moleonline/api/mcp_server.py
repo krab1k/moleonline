@@ -162,7 +162,8 @@ def create_server(app: FastAPI) -> MCPServer:
 
     @server.tool()
     async def get_session(ctx: Context, session_id: str, wait_seconds: int = 0) -> dict:
-        """The session's state (queued, loading, ready or failed), its structure and its jobs"""
+        """The session's state (queued, loading, ready or failed), its structure and its jobs. Also of a session the user
+        computed on the website: its address is .../online/<session_id>, or .../online/<session_id>/<job number>."""
         return session_view(ctx, await waited(ctx, f"/sessions/{session_id}", wait_seconds, {"ready", "failed"}))
 
     @server.tool()
@@ -204,7 +205,8 @@ def create_server(app: FastAPI) -> MCPServer:
     @server.tool()
     async def get_job(ctx: Context, session_id: str, number: int, wait_seconds: int = 30) -> dict:
         """The job's state (queued, running, finished, failed or cancelled); when finished, its channels: length and
-        bottleneck radius (Å), charge, hydropathy, polarity and lining residues. wait_seconds (at most 45) waits for the end."""
+        bottleneck radius (Å), charge, hydropathy, polarity and lining residues. wait_seconds (at most 45) waits for the end.
+        Also of a job the user computed on the website: its address is .../online/<session_id>/<number>."""
         job = await waited(ctx, f"/sessions/{session_id}/jobs/{number}", wait_seconds, {"finished", "failed", "cancelled"})
         web, api = links(ctx)
         answer = {"session_id": session_id, "number": number, "type": job["type"], "state": job["state"], "error": job["error"] or None,
