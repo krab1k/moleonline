@@ -26,7 +26,7 @@ from ..core import entries, storage
 from ..core.config import ApiSettings
 from ..core.parameters import MoleParameters, PoresRequest
 from ..core.storage import Job, JobState, Refused, Session, SessionState, StoredSession
-from . import data, upload
+from . import data, mcp_server, upload
 from .csa import CSA, CSAResidue
 
 log = logging.getLogger("uvicorn.error")  # the API's log, in uvicorn's format, one line per event
@@ -179,7 +179,8 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         # the runs are run by the workers (python -m moleonline.worker); the API fails those whose lease expired
         cleanup = asyncio.create_task(clean_up(app.state.db, app.state.settings.worker_timeout_seconds))
         app.mount("/", StaticFiles(directory=STATIC_FILES))  # after the endpoints, it would hide them
-        yield
+        async with mcp.session_manager.run():
+            yield
         cleanup.cancel()
         await asyncio.gather(cleanup, return_exceptions=True)
         await app.state.db.close()
@@ -403,6 +404,8 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
 
     app.include_router(sessions)
     app.include_router(job_routes)
+    mcp = mcp_server.create_server(app)  # for assistants, /mcp
+    mcp_server.add_to(app, mcp)
     return app
 
 

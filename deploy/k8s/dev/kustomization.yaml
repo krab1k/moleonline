@@ -5,6 +5,19 @@ namespace: racek1-ns
 resources:
   - ../base
 patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: moleonline-api
+      spec:
+        template:
+          spec:
+            containers:
+              - name: api
+                env:
+                  - name: PUBLIC_URL
+                    value: https://moleonline-dev.biodata.ceitec.cz
   - target:
       kind: Gateway
       name: moleonline

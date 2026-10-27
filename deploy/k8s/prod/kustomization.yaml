@@ -20,6 +20,20 @@ replicas:
   - name: moleonline-api  # on different nodes (the patch below): one goes on when the other's node fails
     count: 2
 patches:
+  # the links of the MCP server: one of the domains below
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: moleonline-api
+      spec:
+        template:
+          spec:
+            containers:
+              - name: api
+                env:
+                  - name: PUBLIC_URL
+                    value: https://moleonline.biodata.ceitec.cz
   - patch: |-
       apiVersion: apps/v1
       kind: Deployment

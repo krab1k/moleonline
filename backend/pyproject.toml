@@ -10,6 +10,8 @@ dependencies = [
     "alembic>=1.20.0",
     "asyncpg>=0.32.0",
     "fastapi>=0.143.3",
+    "httpx2>=2.13.1",
+    "mcp>=2.3.0",
     "pydantic-settings>=2.16.0",
     "python-multipart>=0.0.32",
     "sqlalchemy[asyncio]>=2.1.5",
@@ -31,7 +33,6 @@ dev = [
 # the workers' (PDBe, the pores tool); the API's image has none of them
 worker = [
     "gemmi>=0.7.5",
-    "httpx2>=2.13.1",
     "numpy>=2.5.4",
 ]
 
