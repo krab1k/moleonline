@@ -375,12 +375,12 @@ export class Submissions extends React.Component<SubmissionsProps, SubmissionsSt
                 if (current.state !== job.state) {
                     let session = this.state.computationInfo;
                     if (session === null) {
-                        console.log(`Session was not initialized corectly.`);
+                        console.error(`Session was not initialized corectly.`);
                         return;
                     }
                     let subIdx = getSubmissionIdx(session, job.number);
                     if (subIdx === null) {
-                        console.log(`Submission #${job.number} not found.`);
+                        console.error(`Submission #${job.number} not found.`);
                         return;
                     }
                     session.jobs[subIdx] = current;

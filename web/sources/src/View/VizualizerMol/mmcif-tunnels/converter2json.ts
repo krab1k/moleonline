@@ -84,7 +84,6 @@ function parseAtomSite(category: any): Map<string, { name: string, seq_id: strin
         }
         const key = `${chains.str(i)}|${seqIds.str(i)}`;
         residues.set(key, residue);
-        // residues.set(seqIds.str(i), residue);
     }
     return residues;
 }
@@ -247,7 +246,6 @@ function parseChannelResidues(category: any, resiudes: Map<string, { name: strin
     const residues: Map<string, Residue> = new Map();
 
     for (let i = 0; i < rowCount; i++) {
-        // const residue = resiudes.get(sequenceNumbers.str(i));
         const key = `${chainIds.str(i)}|${sequenceNumbers.str(i)}`;
         const residue = resiudes.get(key);
 
@@ -425,4 +423,5 @@ export async function loadCifTunnels(url: string) {
     } catch (error) {
         console.error('Error:', error);
     }
+    return undefined;
 }

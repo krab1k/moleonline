@@ -389,8 +389,8 @@ export class SelectionHelper {
                         let operatorName = Props.unit.operator_name(l);
                         let name = Props.atom.label_comp_id(l);
                         SelectionHelper.addResidueToSelection(residueId, chainId, operatorName, current.loci, name);
-                    } catch (e) {
-                        console.log("Something else selected instead of resiude");
+                    } catch {
+                        // something else than a residue is selected
                     }
                 }
 
@@ -442,7 +442,6 @@ export class SelectionHelper {
             // TODO add tag to other object(Cavity, Surface), then check it and return if it is one of them
             const loci = ref.loci as ShapeGroup.Loci;
             if (!loci.shape.sourceData || !loci.shape.sourceData.hasOwnProperty("kind")) {
-                console.log("SelectionHelper: Event incomplete - ignoring");
                 return;
             }
             const data = loci.shape.sourceData as ShapeSourceData;

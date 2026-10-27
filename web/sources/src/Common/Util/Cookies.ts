@@ -17,4 +17,5 @@ export function getCookie(c_name: string) {
             return decodeURI(y);
         }
     }
+    return undefined;
 }

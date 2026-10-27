@@ -451,7 +451,7 @@ export class Vizualizer {
 
     public prepareData() {
         if (this.data.length == 0) {
-            console.log("ERR: no data supplied!");
+            console.error("ERR: no data supplied!");
             return;
         }
 

@@ -390,7 +390,7 @@ export class Membrane extends React.Component<{ label: string | React.JSX.Elemen
         this.props.membraneData.__isBusy = true;
         this.forceUpdate(() =>
             showMembraneVisuals([this.props.membraneData as MembraneObject], !this.props.membraneData.__isVisible)
-                .then(() => this.forceUpdate()).catch((err) => { this.forceUpdate(); console.log(err) }));
+                .then(() => this.forceUpdate()).catch((err) => { this.forceUpdate(); console.error(err) }));
     }
 
     render() {

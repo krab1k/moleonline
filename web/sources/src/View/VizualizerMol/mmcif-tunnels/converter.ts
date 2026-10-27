@@ -143,7 +143,6 @@ export const JSON2CIF = (name: string, data: string) => {
 
             const layers = channel["Layers"];
             const layerWeightedProps = layers["LayerWeightedProperties"];
-            // const residueFlow = layers["ResidueFlow"];
             const layersInfo = layers["LayersInfo"];
             const properties = channel["Properties"];
 

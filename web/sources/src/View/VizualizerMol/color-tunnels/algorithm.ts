@@ -242,7 +242,6 @@ async function createTunnelMesh(
         ...DefaultMolecularSurfaceCalculationProps,
     };
     const preprocessedData = interpolateTunnel(data, options.sampleRate);
-    // const preprocessedData = getBorderData(data, layers);
     const positions = convertToPositionData(preprocessedData, props.probeRadius, layers);
     const bounds: Boundary = getBoundary(positions);
     const centerLine = extendCenterLine(getCenterLine(preprocessedData), preprocessedData[0].Radius, preprocessedData[preprocessedData.length - 1].Radius);

@@ -9,6 +9,7 @@
     "strict": true,
     "types": ["node", "vite/client"],
     "noUnusedLocals": true,
+    "noImplicitReturns": true,
     "sourceMap": true,
     "rootDir": "./sources",
     "outDir": "./dist"

@@ -71,10 +71,6 @@ type SequenceViewState = {
 }
 
 export class MoleSequenceView extends PluginUIComponent<{ defaultMode?: SequenceViewMode }, SequenceViewState> {
-    // constructor(props: { defaultMode?: SequenceViewMode }) {
-    //     super(props);
-    //     // this.setState({ structureOptions: { options: [], all: [] }, structure: Structure.Empty, structureRef: '', modelEntityId: '', chainGroupId: -1, operatorKey: '', mode: 'all', operatorName: '' })
-    // }
 
     state: SequenceViewState = { structureOptions: { options: [], all: [] }, structure: Structure.Empty, structureRef: '', modelEntityId: '', chainGroupId: -1, operatorKey: '', mode: 'all', operatorName: '' };
 
@@ -149,7 +145,6 @@ export class MoleSequenceView extends PluginUIComponent<{ defaultMode?: Sequence
                             chainName,
                         });
                     }
-                    // if (wrappers.length > MaxSequenceWrappersCount) return wrappers;
                 }
             }
         }

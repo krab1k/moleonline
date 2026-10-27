@@ -43,7 +43,7 @@ export class ApiService {
 
         for (let item of data) {
             if (item.Name === void 0) {
-                console.log("Found channel annotation without annotation text(Name). Skipping...");
+                console.warn("Found channel annotation without annotation text(Name). Skipping...");
                 continue;
             }
             let list: ChannelAnnotation[] = [];

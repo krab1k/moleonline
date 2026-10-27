@@ -57,7 +57,7 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
         });
         Events.subscribeRunGeneratePDFReport(() => {
             if (this.state.inProgress === true) {
-                console.log("Attempt to run PDF report generator while in progress!");
+                console.warn("Attempt to run PDF report generator while in progress!");
                 return;
             }
             let originalVisibleChannels = LastVisibleChannels.get();
@@ -229,7 +229,7 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
                             })
                             .catch(err => {
                                 rej(err)
-                                console.log(err);
+                                console.error(err);
                             });
                     });
                 }
@@ -245,7 +245,7 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
                                     () => res()
                                 ).catch(err => {
                                     rej(err)
-                                    console.log(err);
+                                    console.error(err);
                                 });
                             res();
                         }
@@ -258,7 +258,7 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
                     () => res()
                 ).catch(err => {
                     rej(err)
-                    console.log(err);
+                    console.error(err);
                 });
             }
         });
@@ -314,7 +314,7 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
     private generateReport(originalVisibleChannels: (Tunnel & TunnelMetaInfo)[]) {
         let urlParams = getParameters();
         if (urlParams === null) {
-            console.log("URL parameters cannot be parsed!");
+            console.error("URL parameters cannot be parsed!");
             return;
         }
 

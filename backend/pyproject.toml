@@ -46,7 +46,7 @@ line-length = 140
 src = ["src"]
 
 [tool.ruff.lint]
-extend-select = ["E", "W", "B", "RUF"]
+extend-select = ["E", "W", "B", "BLE", "RUF"]
 
 [tool.alembic]
 # the one revision (until MOLEonline is deployed) is made anew: README.md#database-schema

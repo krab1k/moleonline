@@ -115,7 +115,7 @@ function createCSAOriginsData(computationId: string) {
                     })
                     .catch(error => { rej(error) });
             } catch (e) {
-                console.log(e);
+                console.error(e);
                 rej(e);
             }
         }, false, (_compId, error) => {
@@ -190,7 +190,7 @@ async function downloadMembraneData(computationId: string, submitId: number) {
                     rej(err);
                 });
         }).catch(err => {
-            console.log("Membrane data not available!", err);
+            console.error("Membrane data not available!", err);
             res(null);
         });
     }).then(() => {
@@ -214,12 +214,6 @@ export async function downloadChannelsData(computationId: string, submitId: numb
                     } else {
                         let data_ = s.data as MoleData;
                         data_ = generateGuidMole(data_);
-                        // Events.invokeChannelDataLoaded(data_); //TODO check handlers that are attached to it
-                        //TODO same with the same one here
-                        // showDefaultVisuals(data_.Channels)
-                        //     .then(() => {
-                        //         res(null)
-                        //     })
                         res(null);
                     }
                 })
@@ -260,17 +254,11 @@ async function downloadChannelsDBData(computationId: string) {
                             data_.Channels = TunnelsId.generateGuidAll(data_.Channels);
                             data_.Channels = TunnelsId.generateIdAll(data_.Channels, computationId, 'channelsDb');
                             data_.Annotations = [];
-                            // Events.invokeChannelDataLoaded(data_);
-                            //TODO probably remove, move to the first load or sync with the left panel checking
-                            // showDefaultVisuals(data_)
-                            //     .then(() => {
-                            //         res(null)
-                            //     }).catch(err => console.log(err))
                             res(null)
                         }
-                    }).catch(error => { rej(error); console.log(error) });
-            }).catch(err => { rej(err); console.log(err) })
-        }).catch(err => { rej(err); console.log(err) })
+                    }).catch(error => { rej(error); console.error(error) });
+            }).catch(err => { rej(err); console.error(err) })
+        }).catch(err => { rej(err); console.error(err) })
     });
 }
 
@@ -284,7 +272,7 @@ function downloadProteinData(computationId: string) {
                 })
                 .catch(error => rej(error));
         } catch (error) {
-            console.log(error);
+            console.error(error);
             rej(error);
         }
     });
@@ -395,7 +383,7 @@ function acquireData(computationId: string, submitId: number, res: any, rej: any
                 console.profileEnd();
         })
         .catch((error) => {
-            console.log(error);
+            console.error(error);
             rej(error);
         })
 }

@@ -134,6 +134,7 @@ export class Residues {
         const location = StructureElement.Loci.getFirstLocation(loci);
         if (location)
             return StructureProperties.atom.label_comp_id(location);
+        return null;
     }
 
     // Residues without an operator (CSA) match the first copy of their chain

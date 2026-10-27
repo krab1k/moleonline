@@ -84,12 +84,6 @@ export class MoleSequence<P extends SequenceProps> extends PluginUIComponent<P> 
                 }
             }
             this.selectedLocis = selectedLocis;
-            // this.setState((prevState) => {
-            //     return {
-            //         selectedLocis,
-            //         ...prevState
-            //     }
-            // })
             this.updateMarker();
         }));
 
@@ -113,6 +107,7 @@ export class MoleSequence<P extends SequenceProps> extends PluginUIComponent<P> 
             const loci = this.props.sequenceWrapper.getLoci(seqIdx);
             if (!StructureElement.Loci.isEmpty(loci)) return loci;
         }
+        return undefined;
     }
 
     getSeqIdx(e: React.MouseEvent) {
@@ -260,7 +255,6 @@ export class MoleSequence<P extends SequenceProps> extends PluginUIComponent<P> 
         const { markerArray } = this.props.sequenceWrapper;
         const hasNumbers = !this.props.hideSequenceNumbers, period = this.sequenceNumberPeriod;
 
-        // let first: HTMLSpanElement | undefined;
 
         let o = 0;
         for (let i = 0, il = markerArray.length; i < il; i++) {
@@ -270,9 +264,6 @@ export class MoleSequence<P extends SequenceProps> extends PluginUIComponent<P> 
             if (!span) return;
             o++;
 
-            // if (!first && markerArray[i] > 0) {
-            //     first = span;
-            // }
 
             const backgroundColor = this.getBackgroundColor(markerArray[i]);
             if (LayerColors.getSelectChannelLiningResidues()) continue; // because of repeatedly changing the bg of the sequence letter(remove the flashing)
@@ -300,9 +291,6 @@ export class MoleSequence<P extends SequenceProps> extends PluginUIComponent<P> 
             }
         }
 
-        // if (first) {
-        //     first.scrollIntoView({ block: 'nearest' });
-        // }
     }
 
     mouseMove = (e: React.MouseEvent) => {

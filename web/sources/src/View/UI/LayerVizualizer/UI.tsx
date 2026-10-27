@@ -453,7 +453,6 @@ class PropertyColorTunnel extends React.Component<{ state: State }, { property: 
                 this.forceUpdate(() => {
                     showChannelPropertyColorVisuals(channel, { property: this.state.property, colorBounds: this.state.colorBounds }, true).then(() => {
                         if (taskId !== this.currentTaskId) {
-                            console.log("Old task ignored.");
                             return;
                         }
                         this.setState({ isProcessing: false });
@@ -466,7 +465,6 @@ class PropertyColorTunnel extends React.Component<{ state: State }, { property: 
                     this.setState({ isProcessing: false }); 
                     this.forceUpdate();
                 }).catch(() => {this.setState({ isProcessing: false }); this.forceUpdate()});
-                // })
             }
         }
     }

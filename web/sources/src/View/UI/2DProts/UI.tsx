@@ -241,7 +241,6 @@ export class TwoDProts extends React.Component<{}, { isComputing: boolean, error
                 new URL(ApiService.structureUrl(computationId), window.location.origin).href,
                 TwoDProtsBridge.getVizualizedChannels(),
                 (status, jobId, errorMsg) => {
-                    console.log(`2DProts Job Status: ${status}`);
                     if (run !== this.run) {
                         return; // a status that was on its way when the job was cancelled or another started
                     }

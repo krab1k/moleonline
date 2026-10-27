@@ -7,7 +7,7 @@ export interface URLParams { submitId: number, computationId: string, isChannels
 export function getParameters(): URLParams | null {
     const match = /\/online\/([a-zA-Z0-9]+)\/*([0-9]*)/.exec(location.pathname);
     if (match === null) {
-        console.log("Corrupted url found - cannot parse parameters.");
+        console.error("Corrupted url found - cannot parse parameters.");
         return null;
     }
     return {
