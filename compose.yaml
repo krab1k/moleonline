@@ -26,6 +26,7 @@ services:
     mem_limit: 2g
     environment:
       UVICORN_ROOT_PATH: /api
+      PUBLIC_URL: http://localhost:${MOLEONLINE_PORT:-8080} # the web's port below, for the links of the MCP server
       DATABASE_URL: postgresql+asyncpg://mole:${POSTGRES_PASSWORD:-mole}@db/mole
     depends_on:
       db:
