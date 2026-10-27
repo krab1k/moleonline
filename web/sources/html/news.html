@@ -41,6 +41,26 @@
     <ul class="list-group">
         <li class="list-group-item list-group-item-action">
             <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1"><b>New API and MCP server</b></h5>
+                <small>27. 10. 2026</small>
+            </div>
+            <div class="mb-1">
+                <span>MOLEonline can now be used from your own scripts and from AI assistants:</span>
+                <ul style="list-style-type: disc !important;">
+                    <li>a new REST API loads structures, computes tunnels and pores and downloads their results,
+                        see <a href="/api/docs" target="_blank">its documentation</a>,
+                    </li>
+                    <li>an MCP server lets AI assistants such as Claude compute and describe tunnels and pores for
+                        you. Add <code data-site-url="/mcp">https://moleonline.biodata.ceitec.cz/mcp</code> to your assistant as
+                        a custom connector (in Claude Code: <code>claude mcp add --transport http moleonline
+                        <span data-site-url="/mcp">https://moleonline.biodata.ceitec.cz/mcp</span></code>). The assistant gives you links to its results
+                        in MOLEonline, and you can paste a link to your own computation to ask about it.
+                    </li>
+                </ul>
+            </div>
+        </li>
+        <li class="list-group-item list-group-item-action">
+            <div class="d-flex w-100 justify-content-between">
                 <h5 class="mb-1"><b>MOLEonline 2025 update was published</b></h5>
                 <small>3. 9. 2025</small>
             </div>
