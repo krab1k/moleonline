@@ -417,7 +417,7 @@ export class Vizualizer {
     }
 
     public setColorBoundsMode(mode: ColorBoundsMode) {
-        this.useColorMinMax = (mode == "Min/max");
+        this.useColorMinMax = (mode === "Min/max");
         //TODO invoke
     }
 
@@ -450,7 +450,7 @@ export class Vizualizer {
     }
 
     public prepareData() {
-        if (this.data.length == 0) {
+        if (this.data.length === 0) {
             console.error("ERR: no data supplied!");
             return;
         }
@@ -955,11 +955,11 @@ export class Vizualizer {
             maxColor: this.maxColor[coloringProperty],
             minColorMiddle: this.minColorMiddle[coloringProperty],
             maxColorMiddle: this.maxColorMiddle[coloringProperty],
-            skipMiddle: (coloringProperty == "NumPositives" || coloringProperty == "NumNegatives" || coloringProperty == "Ionizable")
+            skipMiddle: (coloringProperty === "NumPositives" || coloringProperty === "NumNegatives" || coloringProperty === "Ionizable")
                 ? true
                 : this.skipMiddle,
             centerPosition: center,
-            centerAbsolute: (coloringProperty == "NumPositives" || coloringProperty == "NumNegatives" || coloringProperty == "Ionizable")
+            centerAbsolute: (coloringProperty === "NumPositives" || coloringProperty === "NumNegatives" || coloringProperty === "Ionizable")
                 ? false
                 : !this.useColorMinMax
         };

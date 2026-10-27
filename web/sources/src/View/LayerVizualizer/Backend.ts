@@ -887,7 +887,7 @@ export class Tunnel extends ContextAwareObject {
         if (layerIdx < 0) {
             throw new Error("layerIdx must be greater or equal to 0");
         }
-        let totalLenght = this.layers[this.layers.length - 1].end - this.layers[0].start;
+        let totalLength = this.layers[this.layers.length - 1].end - this.layers[0].start;
         let currLength = this.layers[layerIdx].end - this.layers[0].start;
 
         let scale = this.getScale();
@@ -915,7 +915,7 @@ export class Tunnel extends ContextAwareObject {
 
         let inversionConstant = (this.isInverted()) ? (-1) : 1;
 
-        if (layerIdx == 0) {
+        if (layerIdx === 0) {
             path.push({
                 x: this.bounds.x + start * scale.x,
                 y: bottom - prevRadius * scale.y * inversionConstant
@@ -928,9 +928,9 @@ export class Tunnel extends ContextAwareObject {
 
         let color = this.paletteFunction(Number(prevColorValue), this.paletteFunctionSettings);
         let currentColorStop = 0;
-        if (layerIdx != 0) {
+        if (layerIdx !== 0) {
             color = this.paletteFunction(Number(curColorValue), this.paletteFunctionSettings);
-            currentColorStop = (currLength / totalLenght);
+            currentColorStop = (currLength / totalLength);
         }
         const regex = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/;
         const match = color.match(regex);
@@ -997,7 +997,7 @@ export class Tunnel extends ContextAwareObject {
 
     private renderHitbox(layerIdx: number) {
 
-        if (layerIdx == 0) {
+        if (layerIdx === 0) {
             return;
         }
 

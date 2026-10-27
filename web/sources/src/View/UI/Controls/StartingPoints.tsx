@@ -261,7 +261,7 @@ export class StartingPointResultsBox extends React.Component<StartingPointResult
         }
 
         let contentMaxLength = 20;
-        let miniContent = content.substr(0, contentMaxLength) + "...";
+        let miniContent = content.slice(0, contentMaxLength) + "...";
 
         return <span title={content}>
             {(content.length > contentMaxLength) ? miniContent : content}

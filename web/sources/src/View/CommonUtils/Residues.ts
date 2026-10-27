@@ -116,7 +116,7 @@ export class Residues {
         return !StructureElement.Loci.isEmpty(loci);
     }
 
-    public static getResiudeName(authSeqNumber: number, authAsymId: string, operatorName: string) {
+    public static getResidueName(authSeqNumber: number, authAsymId: string, operatorName: string) {
         const structure = currentStructure();
         if (structure === null) return null;
 

@@ -589,7 +589,7 @@ class CommonButtonArea extends React.Component<State, {}> {
             );
         }
 
-        let label = properties[(this.props.colorBoundsMode == "Min/max") ? 0 : 1];
+        let label = properties[(this.props.colorBoundsMode === "Min/max") ? 0 : 1];
 
         return <BootstrapDropUpMenuButton items={rv} label={label} />
     }
@@ -786,13 +786,13 @@ class InteractionMap extends React.Component<State> {
         //Real width can be different to canvas width - hitboxes could run out of space
         let realXScale = 1;
         let realWidth = vizualizer.getCanvas().offsetWidth.valueOf();
-        if (realWidth != 0) {
+        if (realWidth !== 0) {
             realXScale = 1 / (vizualizer.getCanvas().width / realWidth);
         }
 
         let realYScale = 1;
         let realHeight = vizualizer.getCanvas().offsetHeight.valueOf();
-        if (realHeight != 0) {
+        if (realHeight !== 0) {
             realYScale = 1 / (vizualizer.getCanvas().height / realHeight);
         }
 

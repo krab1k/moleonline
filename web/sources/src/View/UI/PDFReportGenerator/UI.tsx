@@ -123,7 +123,7 @@ export class PDFReportGenerator extends React.Component<{}, AppState> {
 
                     let waitToResolve = () => {
                         window.setTimeout(() => {
-                            if (SelectionHelper.getSelectedChannelId() == channel.Id) {
+                            if (SelectionHelper.getSelectedChannelId() === channel.Id) {
                                 window.setTimeout(() => { res(null) }, 100);
                                 return;
                             }

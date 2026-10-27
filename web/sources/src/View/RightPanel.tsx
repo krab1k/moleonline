@@ -37,8 +37,8 @@ export class RightPanel extends React.Component<{ context: Context }, {twoDProts
             <div className="chdb-panel sequence-viewer collapse" id="sequence-viewer">
                 <SequenceViewer controller={this.props.context} />
             </div>
-            <a id="bottom-panel-collapse" onClick={() => {adjustCollapsiblePanels()}} className="sequence-viewer-header" data-bs-toggle="collapse" href="#bottom-pannel" role="button" aria-expanded="false" aria-controls="bottom-pannel"><span className="bi bi-arrows-expand"></span></a>
-            <div className="chdb-panel bottom-panel collapse show d-flex" id="bottom-pannel">
+            <a id="bottom-panel-collapse" onClick={() => {adjustCollapsiblePanels()}} className="sequence-viewer-header" data-bs-toggle="collapse" href="#bottom-panel" role="button" aria-expanded="false" aria-controls="bottom-panel"><span className="bi bi-arrows-expand"></span></a>
+            <div className="chdb-panel bottom-panel collapse show d-flex" id="bottom-panel">
                 <div className="left-tabs">
                     <div id="left-tabs">
                         <ul className="nav nav-tabs" role="tablist">

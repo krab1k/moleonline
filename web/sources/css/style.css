@@ -1210,7 +1210,7 @@ only screen and (max-height: 542px) {
         padding-right: 2px;
     }
 
-    #bottom-pannel {
+    #bottom-panel {
         flex-direction: column;
     }
 

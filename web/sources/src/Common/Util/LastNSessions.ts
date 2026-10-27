@@ -16,7 +16,7 @@ export function getNthSession(n: number) {
 
 function formatDate(date: Date) {
     let day = `${date.getDate()}`;
-    if (day.length == 1) {
+    if (day.length === 1) {
         day = `0${day}`;
     }
     let month = `${date.getMonth() + 1}`;

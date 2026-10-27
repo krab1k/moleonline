@@ -235,7 +235,7 @@ function parseProfiles(channels: Map<string, Tunnel>, category: any) {
     }
 }
 
-function parseChannelResidues(category: any, resiudes: Map<string, { name: string, seq_id: string, chain: string }>): Map<string, Residue> {
+function parseChannelResidues(category: any, atomSiteResidues: Map<string, { name: string, seq_id: string, chain: string }>): Map<string, Residue> {
     const rowCount = category.rowCount;
     const channelIds = category.getField("channel_id");
     const orders = category.getField("order");
@@ -247,7 +247,7 @@ function parseChannelResidues(category: any, resiudes: Map<string, { name: strin
 
     for (let i = 0; i < rowCount; i++) {
         const key = `${chainIds.str(i)}|${sequenceNumbers.str(i)}`;
-        const residue = resiudes.get(key);
+        const residue = atomSiteResidues.get(key);
 
         residues.set(orders.str(i), {
             Order: orders.str(i),

@@ -76,7 +76,7 @@ export function adjustCollapsiblePanels() {
         const collapseSequence = element('#sequence-collapse');
         const collapseBottomPanel = element('#bottom-panel-collapse');
         const plugin = element('#plugin');
-        const bottomPanel = element('#bottom-pannel');
+        const bottomPanel = element('#bottom-panel');
         const sequenceViewer = element('#sequence-viewer');
         if (!collapseSequence || !collapseBottomPanel || !plugin || !bottomPanel || !sequenceViewer) {
             return;

@@ -210,7 +210,7 @@ export class Selection extends React.Component<State, { label?: string | React.J
                 return /\d/.test(name) && n !== '1' ? '_' + n : '';
             };
             const elements = r.map((val, index) => {
-                const name = val.residueName ? val.residueName : Residues.getResiudeName(val.authSeqNumber, val.chain.authAsymId, val.operatorName);
+                const name = val.residueName ? val.residueName : Residues.getResidueName(val.authSeqNumber, val.chain.authAsymId, val.operatorName);
                 return <div key={index}>
                     {name}&nbsp;{val.authSeqNumber}&nbsp;{val.chain.authAsymId}&nbsp;{`${operator(val.operatorName)}${index < r.length - 1 ? ',' : ''}`}
                 </div>;

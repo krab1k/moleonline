@@ -43,7 +43,7 @@ export function rgbToHex(rgb: RGBColor) {
     let gHex = Math.ceil(rgb.g).toString(16);
     let bHex = Math.ceil(rgb.b).toString(16);
 
-    return `#${((rHex.length == 1) ? "0" : "") + rHex}${((gHex.length == 1) ? "0" : "") + gHex}${((bHex.length == 1) ? "0" : "") + bHex}`;
+    return `#${((rHex.length === 1) ? "0" : "") + rHex}${((gHex.length === 1) ? "0" : "") + gHex}${((bHex.length === 1) ? "0" : "") + bHex}`;
 }
 
 export interface RGBColor {

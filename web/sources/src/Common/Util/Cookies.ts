@@ -8,13 +8,10 @@ export function setCookie(c_name: string, value: string, exdays?: number) {
 }
 
 export function getCookie(c_name: string) {
-    let i, x, y, ARRcookies = document.cookie.split(";");
-    for (i = 0; i < ARRcookies.length; i++) {
-        x = ARRcookies[i].substr(0, ARRcookies[i].indexOf("="));
-        y = ARRcookies[i].substr(ARRcookies[i].indexOf("=") + 1);
-        x = x.replace(/^\s+|\s+$/g, "");
-        if (x == c_name) {
-            return decodeURI(y);
+    for (const cookie of document.cookie.split(";")) {
+        const eq = cookie.indexOf("="); // the value can contain "=" too
+        if (eq !== -1 && cookie.slice(0, eq).trim() === c_name) {
+            return decodeURI(cookie.slice(eq + 1));
         }
     }
     return undefined;
