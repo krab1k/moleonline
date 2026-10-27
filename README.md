@@ -9,7 +9,8 @@ MOLEonline finds and describes channels, tunnels and pores in proteins and other
 web interface to [MOLE 2](https://github.com/sb-ncbr/webchemistry): load a PDB entry or upload your own structure,
 compute tunnels or a pore through the membrane, and explore them in a 3D view and a 2D diagram.
 
-The public instance runs at [moleonline.biodata.ceitec.cz](https://moleonline.biodata.ceitec.cz).
+The public instance runs at [moleonline.biodata.ceitec.cz](https://moleonline.biodata.ceitec.cz). AI assistants can
+use it through its [MCP server](backend/README.md#mcp-server).
 
 ## Repository
 

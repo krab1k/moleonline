@@ -5,7 +5,8 @@ and serves the results to the website.
 
 It has two parts, both in `src/moleonline`:
 
-- **The API** (`api`, FastAPI) answers requests from the website and puts computations into a queue.
+- **The API** (`api`, FastAPI) answers requests from the website and puts computations into a queue. It also serves
+  an [MCP server](#mcp-server) for AI assistants.
 - **The workers** (`worker`) take computations from the queue and run MOLE, one at a time each. For pores through the
   membrane, they first place the membrane, using [OPM](https://opm.phar.umich.edu/) or a prediction by
   [MEMEMBED](https://github.com/psipred/MemEmbed).
@@ -97,6 +98,7 @@ For the API:
 | `MAX_COMPUTATIONS_PER_HOUR` | `200` | Computations one client may start in an hour; more are refused with 429 |
 | `FORWARDED_ALLOW_IPS` | private networks | Proxies trusted to report the client's address (uvicorn's setting) |
 | `UVICORN_ROOT_PATH` | (none) | Path the API is served under, `/api` behind the website's nginx |
+| `PUBLIC_URL` | (from the request) | The site's address as users see it, e.g. `https://moleonline.biodata.ceitec.cz`, for links in the MCP server's answers |
 
 Each worker gets `WORKER_MEMORY_LIMIT` of memory (6 GB by default in compose), which is enough for a ribosome. If a
 computation needs more, it fails, usually with an out-of-memory error. The API itself needs little, 2 GB is plenty.
@@ -128,6 +130,35 @@ A computation that fails is not an HTTP error: its `state` is `failed` and `erro
 
 The active sites come from [M-CSA](https://www.ebi.ac.uk/thornton-srv/m-csa/) (Ribeiro et al., Nucleic Acids Research
 2018, CC BY 4.0). `tools/mcsa/convert.py` converts them into `src/moleonline/api/resources/mcsa_sites.csv.gz`.
+
+## MCP server
+
+AI assistants (Claude, Cursor and others) can use MOLEonline through the
+[Model Context Protocol](https://modelcontextprotocol.io). The server is at `/mcp` on the site, for example
+`https://moleonline.biodata.ceitec.cz/mcp` (`http://localhost:8080/mcp` locally). In Claude Code:
+
+```sh
+claude mcp add --transport http moleonline https://moleonline.biodata.ceitec.cz/mcp
+```
+
+In Claude's apps, add it as a custom connector with the same URL.
+
+| Tool | Description |
+|---|---|
+| `load_structure` | Load a PDB entry |
+| `load_structure_url` | Load a structure file from a public https URL, e.g. an AlphaFold model (up to 30 MB, downloaded within 30 s) |
+| `get_session` | State of a session and its jobs |
+| `compute_tunnels` | Compute tunnels from the M-CSA active site, from given residues or from automatically found starting points |
+| `compute_pore` | Compute a pore through the membrane |
+| `get_job` | State of a job; when finished, summaries of up to 20 channels: length, bottleneck, charge, hydropathy, polarity, lining residues |
+
+The answers also link to the result on the website and to the downloads. MOLE's full `data.json` is available as the
+resource `mole://sessions/{id}/jobs/{n}/data`, with all the channels.
+
+The tools call the API's endpoints inside the API process, so the same validation and limits apply as for the REST API,
+and the computations count towards the user's own address. The server keeps no state between requests and answers with
+plain JSON, so any API replica can answer it. The tools wait at most 45 seconds for a structure or a computation (a
+download included); if it is still loading or running, the assistant asks again.
 
 ## Development
 
