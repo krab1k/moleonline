@@ -15,6 +15,9 @@ from fastapi import FastAPI, Request
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
+from starlette.exceptions import HTTPException
+from starlette.routing import Route
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ..core.limits import MAX_STRUCTURE_MB, MB
 from .upload import TOO_LARGE
@@ -224,8 +227,23 @@ def create_server(app: FastAPI) -> MCPServer:
 
 def add_to(app: FastAPI, server: MCPServer) -> None:
     """The server's route, /mcp. Stateless: no session is kept between requests, any replica answers; JSON answers, no
-    event streams. No DNS rebinding protection, which guards servers on the user's machine: this one is public, without
-    credentials to steal."""
+    event streams. Only POST: a GET would open the stream of the server's own messages, which a stateless server never
+    sends, kept open with pings (a browser's visit, for ever); 405 says there is none, as MCP allows. No DNS rebinding
+    protection, which guards servers on the user's machine: this one is public, without credentials to steal."""
     mcp_app = server.streamable_http_app(stateless_http=True, json_response=True,
                                          transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
-    app.router.routes.extend(mcp_app.routes)
+    [route] = mcp_app.routes
+    app.router.routes.append(Route(route.path, PostOnly(route.endpoint)))
+
+
+class PostOnly:
+    """An ASGI app answering only POST, other methods 405 (the API's problem): the route itself matches them all, else
+    the static files mounted at / would answer them"""
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["method"] != "POST":
+            raise HTTPException(405, headers={"Allow": "POST"})
+        await self.app(scope, receive, send)

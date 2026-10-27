@@ -39,6 +39,13 @@ def test_tools(client):
         "load_structure", "load_structure_url", "get_session", "compute_tunnels", "compute_pore", "get_job"}
 
 
+@pytest.mark.parametrize("method", ["GET", "DELETE"])
+def test_only_post(client, method):
+    """No stream of the server's messages (GET), no session to end (DELETE)"""
+    response = client.request(method, "/mcp", headers={"Accept": "text/event-stream"})
+    assert (response.status_code, response.headers["Allow"], response.json()["status"]) == (405, "POST", 405)
+
+
 def test_the_apis_problems_reach_the_model(client):
     assert tool(client, "load_structure", pdb_id="nope") == (True, "Error executing tool load_structure: 422: Invalid PDB id [nope].")
     failed, text = tool(client, "get_session", session_id="missing")
