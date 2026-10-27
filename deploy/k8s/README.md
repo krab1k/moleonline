@@ -46,8 +46,8 @@ kubectl -n moleonline-ns exec -i moleonline-db-1 -- pg_restore --clean --if-exis
 
 ## Another environment
 
-Copy `dev/` and change the namespace, the domain and, if needed, the number of workers (`replicas` of
-`moleonline-worker`).
+Copy `dev/` and change the namespace, the domain (in the Gateway, the HTTPRoutes and the API's `PUBLIC_URL`) and, if
+needed, the number of workers (`replicas` of `moleonline-worker`).
 
 ## Operating it
 
