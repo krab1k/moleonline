@@ -1,6 +1,6 @@
 #!/bin/sh
 # The client nginx tells the API and its rate limit (conf.d/clients.conf.template), with the website's image in front of
-# an echo server that answers with the X-Forwarded-For it gets, as the API would see it.
+# an echo server that answers with the X-Forwarded-For it gets, as the API would see it, and the path in X-Path.
 # Usage: test-clients.sh <the website's image>; DOCKER=podman for podman
 set -eu
 D=${DOCKER:-docker}
@@ -22,6 +22,7 @@ class Echo(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         body = (self.headers.get("X-Forwarded-For") or "").encode()
         self.send_response(200)
+        self.send_header("X-Path", self.path)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -58,6 +59,11 @@ echo "ok: a client's own X-Forwarded-For is ignored ($seen)"
 seen=$(curl -s -H "X-Forwarded-For: 198.51.100.1, 203.0.113.5" "$PROXIED/api/x")
 [ "$seen" = "203.0.113.5" ] || fail "behind a trusted proxy the API got '$seen', not the address the proxy added (203.0.113.5)"
 echo "ok: behind a trusted proxy, the address it added"
+
+answer=$(curl -s -D - -H "X-Forwarded-For: 198.51.100.1, 203.0.113.5" "$PROXIED/mcp")
+echo "$answer" | grep -qi "^x-path: /mcp" || fail "/mcp did not reach the API's /mcp: $answer"
+[ "$(echo "$answer" | tail -n 1)" = "203.0.113.5" ] || fail "/mcp did not tell the API the client: $answer"
+echo "ok: /mcp reaches the API's MCP server, with the client"
 
 codes=$(seq 300 | xargs -P 30 -I{} curl -s -o /dev/null -w "%{http_code}\n" "$PROXIED/api/x" | sort | uniq -c)
 echo "$codes" | grep -q " 429$" || fail "300 requests at once were not limited: $codes"
