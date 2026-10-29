@@ -88,6 +88,7 @@ For the workers:
 | `OPM_CACHE` | `/data/opm-cache` | Where membranes from OPM are cached |
 | `SCRATCH_DIRECTORY` | `/tmp/moleonline` | Where computations run, on a local disk; each worker needs its own, it is emptied when the worker starts |
 | `HEARTBEAT_FILE` | `/tmp/heartbeat` | Touched every few seconds; a liveness probe checks its age |
+| `MAX_RUNNING_PROGRAMMATIC` | `2` | Computations of scripts and assistants running at once on all the workers, about half of them; the website's computations go first |
 
 For the API:
 

@@ -49,7 +49,8 @@ class Worker:
         while True:
             self._alive()
             try:
-                run = await storage.claim(self.db, self.name, self.mole_version, self.settings.worker_timeout_seconds)
+                run = await storage.claim(self.db, self.name, self.mole_version, self.settings.worker_timeout_seconds,
+                                          self.settings.max_running_programmatic)
             except Exception as e:  # noqa: BLE001 (e.g. the database is not available for a moment; nothing is lost)
                 if str(e) != said:  # once, until something else is wrong
                     log.warning("Waiting for the database: %s", str(e).splitlines()[0] if str(e) else type(e).__name__)

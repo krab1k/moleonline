@@ -28,7 +28,7 @@ from typing import Literal
 from alembic import command
 from alembic.config import Config
 from pydantic import BaseModel, ConfigDict, PrivateAttr
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, MetaData, String, Table, Text, func, select, text, update
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, MetaData, String, Table, Text, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import DBAPIError
@@ -240,6 +240,7 @@ requests = Table(
 
 QUEUED, RUNNING, DONE = "queued", "running", "done"
 QUEUE_LOCK = 724_212  # advisory lock of the queue: its length is checked and added to in one step
+CLAIM_LOCK = 724_213  # advisory lock of claiming a run, the programmatic ones counted and one taken in one step
 MIGRATION_LOCK = 724_213  # processes starting at once migrate one after another
 CONNECT_PAUSE = 2.0  # seconds between attempts to connect when starting
 # a connection is opened within LOGIN_SECONDS, each command answered within COMMAND_SECONDS, or they fail
@@ -489,19 +490,31 @@ def _held(run: Run):
             runs.c.heartbeat > func.clock_timestamp() - timedelta(seconds=run.timeout)]
 
 
-async def claim(db: Database, worker: str, mole_version: str, timeout: float) -> Run | None:
+async def claim(db: Database, worker: str, mole_version: str, timeout: float, max_running_programmatic: int | None = None) -> Run | None:
     """A queued run, now running with the worker's lease: its load loading or its job running, with the MOLE that runs
-    it (queued runs wait over a restart, also one with another MOLE); None when none waits. The oldest of the client
-    with the fewest runs running: a client with many queued runs only uses the workers others leave free."""
+    it (queued runs wait over a restart, also one with another MOLE); None when none waits. The website's runs first,
+    programmatic ones (scripts, assistants) only while fewer than max_running_programmatic of them run (None: any), so
+    that their long runs never take all the workers. Of those, the oldest of the client with the fewest runs running: a
+    client with many queued runs only uses the workers others leave free."""
     running = (select(runs.c.client, func.count().label("running")).where(runs.c.phase == RUNNING, runs.c.client.is_not(None))
                .group_by(runs.c.client).subquery())
+    where = [runs.c.phase == QUEUED]
+    if max_running_programmatic is not None:
+        programmatic_running = select(func.count()).select_from(runs).where(runs.c.phase == RUNNING, runs.c.programmatic)
+        where.append(or_(~runs.c.programmatic, programmatic_running.scalar_subquery() < max_running_programmatic))
     while True:
         # each candidate in a transaction of its own: one lost to another worker or a cancel keeps no lock while the
         # next is tried, so that two workers never wait for each other's sessions
         async with db.engine.begin() as c:
+            if max_running_programmatic is not None:
+                # one worker claims at a time: another could otherwise pick another run meanwhile (a newcomer's, with
+                # none running, comes first), and both start, past the cap. Before the session's lock, which nobody
+                # holds while waiting for this one.
+                await c.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": CLAIM_LOCK})
             row = (await c.execute(select(runs.c.id, runs.c.session_id, runs.c.number)
-                                   .outerjoin(running, runs.c.client == running.c.client).where(runs.c.phase == QUEUED)
-                                   .order_by(func.coalesce(running.c.running, 0), runs.c.id).limit(1))).first()
+                                   .outerjoin(running, runs.c.client == running.c.client).where(*where)
+                                   .order_by(runs.c.programmatic, func.coalesce(running.c.running, 0), runs.c.id)
+                                   .limit(1))).first()
             if row is None:
                 return None
             await _lock_session(c, row.session_id)

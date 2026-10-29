@@ -32,6 +32,8 @@ spec:
                 secretKeyRef:
                   name: moleonline-db-app
                   key: uri
+            - name: MAX_RUNNING_PROGRAMMATIC  # about half of the replicas: the website keeps the other workers
+              value: "1"
           # the worker touches it at least every 2 s, also while it waits for the database
           livenessProbe:
             exec:

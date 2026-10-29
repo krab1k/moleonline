@@ -62,6 +62,9 @@ class ApiSettings(CoreSettings):
 class WorkerSettings(CoreSettings):
     """A worker's: python -m moleonline.worker, one run at a time"""
     max_computation_minutes: int = Field(30, ge=1)  # one run (all its processes), the queue not included
+    # programmatic computations (scripts, assistants) running at once, of all the workers, so that their long runs
+    # never take all of them from the website; about half of the workers (each worker sees only its own runs)
+    max_running_programmatic: int = Field(2, ge=1)
     mole: Path = Path("/opt/mole2/mole2")
     memembed: Path = Path("/opt/memembed/memembed")  # the membrane of pore computations without OPM's
     opm_cache: Path = Path("/data/opm-cache")  # membranes downloaded from OPM, reused for 30 days

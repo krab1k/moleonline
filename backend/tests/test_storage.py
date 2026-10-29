@@ -211,6 +211,7 @@ def test_programmatic_runs_are_limited_together(database, folder):
         assert refused.value.headers == {"Retry-After": "60"}
         assert await storage.create(db, folder, client("person"), pdb_id="1tqn", assembly="preferred")
 
+        await storage.claim(db, WORKER, VERSION, TIMEOUT)  # the person's, the website's first
         assert await storage.end(db, await storage.claim(db, WORKER, VERSION, TIMEOUT))  # a bot's done: room for another
         assert await storage.create(db, folder, programmatic("bot-3", limit=2), pdb_id="1tqn", assembly="preferred")
     run(database, check)
@@ -237,6 +238,50 @@ def test_a_free_worker_takes_a_run_of_the_client_with_fewest_running(database, f
         taken = [await storage.claim(db, f"worker-{i}", VERSION, TIMEOUT) for i in range(4)]
         # bot (the oldest, nobody runs), person (bot runs one), other, then bot again
         assert [r.session_id for r in taken] == [bot[0].id, person.id, other.id, bot[1].id]
+    run(database, check)
+
+
+def test_a_free_worker_takes_the_websites_runs_first(database, folder):
+    """Before older programmatic runs, and these only while fewer than the cap of them run, even with workers free"""
+    async def check(db: Database):
+        bots = [await storage.create(db, folder, programmatic(f"bot-{i}"), pdb_id="1tqn", assembly="preferred") for i in range(3)]
+        person = await storage.create(db, folder, client("person"), pdb_id="1tqn", assembly="preferred")
+        taken = [await storage.claim(db, f"worker-{i}", VERSION, TIMEOUT, max_running_programmatic=2) for i in range(4)]
+        assert [r and r.session_id for r in taken] == [person.id, bots[0].id, bots[1].id, None]  # the third bot waits
+
+        assert await storage.end(db, taken[1])
+        assert (await storage.claim(db, "worker-1", VERSION, TIMEOUT, max_running_programmatic=2)).session_id == bots[2].id
+    run(database, check)
+
+
+def test_workers_at_once_never_exceed_the_programmatic_cap(database, folder):
+    async def check(db: Database):
+        for i in range(4):
+            await storage.create(db, folder, programmatic(f"bot-{i}"), pdb_id="1tqn", assembly="preferred")
+        taken = await asyncio.gather(*[storage.claim(db, f"worker-{i}", VERSION, TIMEOUT, max_running_programmatic=1) for i in range(4)])
+        assert sum(r is not None for r in taken) == 1
+    run(database, check)
+
+
+def test_the_programmatic_cap_holds_while_the_queue_changes(database, folder):
+    """A worker picks a run and waits for its session's lock; meanwhile a newcomer's run (none of its runs running)
+    comes first for another worker: both would start, past the cap"""
+    async def check(db: Database):
+        a = [await storage.create(db, folder, programmatic("a"), pdb_id="1tqn", assembly="preferred") for _ in range(2)]
+        assert (await storage.claim(db, WORKER, VERSION, TIMEOUT, max_running_programmatic=2)).session_id == a[0].id
+        async with db.engine.connect() as other:
+            await other.begin()
+            await other.execute(text("SELECT id FROM sessions WHERE id = :id FOR UPDATE"), {"id": a[1].id})
+            x = asyncio.create_task(storage.claim(db, "worker-x", VERSION, TIMEOUT, max_running_programmatic=2))
+            await asyncio.sleep(0.5)  # x picked a's second run, waits for its session
+            await storage.create(db, folder, programmatic("b"), pdb_id="1tqn", assembly="preferred")
+            y = asyncio.create_task(storage.claim(db, "worker-y", VERSION, TIMEOUT, max_running_programmatic=2))
+            await asyncio.sleep(0.5)
+            await other.commit()
+        taken = await asyncio.gather(x, y)
+        assert [r and r.session_id for r in taken] == [a[1].id, None]  # b waits: two run
+        async with db.engine.connect() as c:
+            assert await c.scalar(text("SELECT count(*) FROM runs WHERE phase = 'running' AND programmatic")) == 2
     run(database, check)
 
 
