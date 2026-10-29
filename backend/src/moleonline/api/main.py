@@ -185,6 +185,16 @@ async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
     return s
 
 
+DESCRIPTION = """Loads structures and computes tunnels and pores in them with [MOLE 2](https://github.com/sb-ncbr/webchemistry):
+create a session, poll it until it is ready, submit jobs on it and poll each until it finishes, then download its results.
+
+**Limits.** Computations wait in a queue shared with the website, whose users go first. Scripts and other programs
+(requests without the website's `Origin`) share half of the queue, and each address may have 4 computations waiting or
+running and start 50 in an hour (the defaults; an instance may set others). A refused computation is answered with 429
+(your limits) or 503 (the server's capacity), both with `Retry-After`: wait that many seconds and try again. AI
+assistants can use the MCP server at `/mcp` of the website instead."""
+
+
 def create_app(settings: ApiSettings | None = None) -> FastAPI:
     """settings: from the environment by default"""
 
@@ -204,7 +214,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
 
     # operation ids are the functions' names (get_job), readable in generated clients, not FastAPI's
     # get_job_sessions__session_id__jobs__number__get
-    app = FastAPI(title="MOLEonline API", version=version("moleonline-backend"), lifespan=lifespan,
+    app = FastAPI(title="MOLEonline API", version=version("moleonline-backend"), description=DESCRIPTION, lifespan=lifespan,
                   generate_unique_id_function=lambda route: route.name)
 
     def openapi() -> dict:

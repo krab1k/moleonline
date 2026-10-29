@@ -32,8 +32,8 @@ If a setting is wrong (a path that does not exist, for example), the container s
 ### How computations run
 
 When you load a structure or submit a job, the API adds it to the queue and answers immediately. A free worker picks the
-oldest waiting computation of the client with the fewest running ones, so a script with many queued computations only
-uses the workers nobody else needs. A client is an IP address; IPv6 addresses count by their /64 network. To run more
+website's computations before those of scripts (see below), and of them the oldest waiting computation of the client with
+the fewest running ones, so a client with many queued computations only uses the workers nobody else needs. A client is an IP address; IPv6 addresses count by their /64 network. To run more
 at once, add workers: `docker compose up -d --scale worker=N`. The API keeps nothing in memory, so it can run as several
 replicas, too.
 
@@ -41,6 +41,21 @@ When the queue is full, new computations are refused with 503. A single client i
 has `MAX_OUTSTANDING_PER_CLIENT` computations waiting or running, or started `MAX_COMPUTATIONS_PER_HOUR` in the last
 hour. Both answers say when to try again (`Retry-After`). People behind one shared address (a course in one room)
 count as one client; raise the limits for such a day.
+
+The website's computations and those of scripts are counted apart, so that scripts and AI assistants never take the
+website from its users. A request is from the website when it has the site's own `Origin`, which browsers add to the
+website's requests; scripts, assistants (also through the [MCP server](#mcp-server)) and other sites have none. Their
+computations are *programmatic*:
+
+- All of them together take at most `MAX_PROGRAMMATIC_COMPUTATIONS` places in the queue (half of it) and start at most
+  `MAX_PROGRAMMATIC_PER_HOUR` in an hour; more are refused with 503.
+- Each of their clients has lower limits than a website's user: `PROGRAMMATIC_PER_CLIENT` at once and
+  `PROGRAMMATIC_PER_CLIENT_PER_HOUR` in an hour (429).
+- Workers take the website's computations first, and run at most `MAX_RUNNING_PROGRAMMATIC` programmatic ones at once
+  (about half of the workers), so their long runs never hold all of them.
+
+This sorts the traffic, it does not prove anything: a script sending the site's `Origin` counts as a website's user,
+with the limits of its address. The usage statistics count the programmatic requests.
 
 Restarting the API or the workers is safe. Waiting computations stay in the queue. A computation that was running fails
 with "interrupted by a restart", and the user can submit it again. The same happens when a worker crashes: if it stops
@@ -160,8 +175,9 @@ In Claude's apps, add it as a custom connector with the same URL.
 The answers also link to the result on the website and to the downloads. MOLE's full `data.json` is available as the
 resource `mole://sessions/{id}/jobs/{n}/data`, with all the channels.
 
-The tools call the API's endpoints inside the API process, so the same validation and limits apply as for the REST API,
-and the computations count towards the user's own address. The server keeps no state between requests and answers with
+The tools call the API's endpoints inside the API process, so the same validation applies as for the REST API. Their
+computations are programmatic, with the limits of [scripts](#how-computations-run), and count towards the user's own
+address. The server keeps no state between requests and answers with
 plain JSON, so any API replica can answer it. The tools wait at most 45 seconds for a structure or a computation (a
 download included); if it is still loading or running, the assistant asks again.
 
