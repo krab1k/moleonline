@@ -196,6 +196,38 @@ def test_a_client_is_limited_in_runs_added_in_an_hour(database, folder):
     run(database, check)
 
 
+def programmatic(name: str, limit: int | None = None, per_hour: int | None = None) -> storage.Admission:
+    return storage.Admission(100, name, programmatic=True, programmatic_limit=limit, programmatic_per_hour=per_hour)
+
+
+def test_programmatic_runs_are_limited_together(database, folder):
+    """Scripts and assistants, from any addresses, fill only their part of the queue; the website's users keep the rest"""
+    async def check(db: Database):
+        for name in ["bot-1", "bot-2"]:
+            await storage.create(db, folder, programmatic(name, limit=2), pdb_id="1tqn", assembly="preferred")
+        with pytest.raises(Refused) as refused:
+            await storage.create(db, folder, programmatic("bot-3", limit=2), pdb_id="1tqn", assembly="preferred")
+        assert (refused.value.status, refused.value.detail) == (503, storage.PROGRAMMATIC_FULL)
+        assert refused.value.headers == {"Retry-After": "60"}
+        assert await storage.create(db, folder, client("person"), pdb_id="1tqn", assembly="preferred")
+
+        assert await storage.end(db, await storage.claim(db, WORKER, VERSION, TIMEOUT))  # a bot's done: room for another
+        assert await storage.create(db, folder, programmatic("bot-3", limit=2), pdb_id="1tqn", assembly="preferred")
+    run(database, check)
+
+
+def test_programmatic_runs_are_limited_together_in_an_hour(database, folder):
+    async def check(db: Database):
+        for name in ["bot-1", "bot-2"]:
+            await storage.create(db, folder, programmatic(name, per_hour=2), pdb_id="1tqn", assembly="preferred")
+            assert await storage.end(db, await storage.claim(db, WORKER, VERSION, TIMEOUT))  # done ones count too
+        with pytest.raises(Refused) as refused:
+            await storage.create(db, folder, programmatic("bot-3", per_hour=2), pdb_id="1tqn", assembly="preferred")
+        assert refused.value.status == 503 and 3500 < int(refused.value.headers["Retry-After"]) <= 3601
+        assert await storage.create(db, folder, client("person"), pdb_id="1tqn", assembly="preferred")
+    run(database, check)
+
+
 def test_a_free_worker_takes_a_run_of_the_client_with_fewest_running(database, folder):
     """A client with many queued runs only uses the workers others leave free; the oldest first among equals"""
     async def check(db: Database):

@@ -150,9 +150,13 @@ def interactive(request: Request) -> bool:
 
 def admission(request: Request) -> storage.Admission:
     """The limits a new session or job of the request's client is checked against"""
-    settings: ApiSettings = request.app.state.settings
-    return storage.Admission(settings.max_outstanding_computations, storage.client_of(request.client and request.client.host),
-                             settings.per_client(), settings.max_computations_per_hour, programmatic=not interactive(request))
+    s: ApiSettings = request.app.state.settings
+    client = storage.client_of(request.client and request.client.host)
+    if interactive(request):
+        return storage.Admission(s.max_outstanding_computations, client, s.per_client(), s.max_computations_per_hour)
+    return storage.Admission(s.max_outstanding_computations, client, s.programmatic_per_client, s.programmatic_per_client_per_hour,
+                             programmatic=True, programmatic_limit=s.programmatic_limit(),
+                             programmatic_per_hour=s.max_programmatic_per_hour)
 
 
 async def create_from_upload(request: Request) -> StoredSession | JSONResponse:

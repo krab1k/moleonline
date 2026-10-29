@@ -96,6 +96,10 @@ For the API:
 | `MAX_OUTSTANDING_COMPUTATIONS` | `24` | Computations waiting or running at most; more are refused with 503 |
 | `MAX_OUTSTANDING_PER_CLIENT` | half of the above | Of them, from one client; more are refused with 429 |
 | `MAX_COMPUTATIONS_PER_HOUR` | `200` | Computations one client may start in an hour; more are refused with 429 |
+| `MAX_PROGRAMMATIC_COMPUTATIONS` | half of `MAX_OUTSTANDING_COMPUTATIONS` | Computations of scripts and assistants (not from the website) waiting or running, all together; more are refused with 503 |
+| `MAX_PROGRAMMATIC_PER_HOUR` | `200` | Computations of scripts and assistants started in an hour, all together; more are refused with 503 |
+| `PROGRAMMATIC_PER_CLIENT` | `4` | Computations of one script's or assistant's client waiting or running; more are refused with 429 |
+| `PROGRAMMATIC_PER_CLIENT_PER_HOUR` | `50` | Computations one script's or assistant's client may start in an hour; more are refused with 429 |
 | `FORWARDED_ALLOW_IPS` | private networks | Proxies trusted to report the client's address (uvicorn's setting) |
 | `UVICORN_ROOT_PATH` | (none) | Path the API is served under, `/api` behind the website's nginx |
 | `PUBLIC_URL` | (from the request) | The site's address as users see it, e.g. `https://moleonline.biodata.ceitec.cz`, for links in the MCP server's answers |

@@ -41,12 +41,22 @@ class ApiSettings(CoreSettings):
     # that no client (a script) takes the whole queue
     max_outstanding_per_client: int | None = Field(None, ge=1)
     max_computations_per_hour: int = Field(200, ge=1)  # loads and jobs one client may start in an hour, more: 429
+    # programmatic computations (scripts, assistants: not from the website, see main.interactive), of all their clients
+    # together, so that the website's users keep the rest: queued or running (by default half of the queue), started in
+    # an hour; more are refused (503). Each client of them has its own, lower limits (429).
+    max_programmatic_computations: int | None = Field(None, ge=1)
+    max_programmatic_per_hour: int = Field(200, ge=1)
+    programmatic_per_client: int = Field(4, ge=1)
+    programmatic_per_client_per_hour: int = Field(50, ge=1)
     # the web as its users reach it (https://moleonline.cz), for the links in the MCP server's answers: the proxies in
     # front of the API do not pass the scheme or the port users see; None: from the request, without a proxy
     public_url: str | None = None
 
     def per_client(self) -> int:
         return self.max_outstanding_per_client or max(1, self.max_outstanding_computations // 2)
+
+    def programmatic_limit(self) -> int:
+        return self.max_programmatic_computations or max(1, self.max_outstanding_computations // 2)
 
 
 class WorkerSettings(CoreSettings):

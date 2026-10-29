@@ -133,6 +133,17 @@ def test_a_client_with_too_many_computations_is_refused(api):
     assert upload(client, "1tqn.cif", STRUCTURE).status_code == 429  # refused before its file is read
 
 
+def test_scripts_have_lower_limits_than_the_website(api):
+    """Without the website's Origin a client has the programmatic limits, the website's users their own"""
+    client = api(load=UNTIL_GO, workers=1, queued=4)
+    client.app.state.settings.programmatic_per_client = 1
+    started_load(client)  # a script's, no Origin
+    refused = client.post("/sessions", json={"pdb_id": "1tqn"})
+    assert refused.status_code == 429 and refused.json()["detail"].startswith("You have 1 unfinished computations, at most 1")
+    website = client.post("/sessions", json={"pdb_id": "1tqn"}, headers={"Origin": "http://testserver"})
+    assert website.status_code == 202
+
+
 def test_overlapping_uploads_do_not_overfill_the_queue(api, monkeypatch):
     """Both pass the check before their files are read; the one stored second is refused when it would start"""
     client = api(load=UNTIL_GO, workers=1, queued=0)

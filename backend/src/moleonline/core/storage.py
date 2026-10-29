@@ -142,6 +142,8 @@ class Refused(Exception):
 
 RETRY_AFTER = 60  # seconds, when the queue is full or the client has too many runs in it
 QUEUE_FULL = Refused(503, "The server is busy, its queue is full. Please, try again later.", {"Retry-After": str(RETRY_AFTER)})
+PROGRAMMATIC_FULL = ("MOLEonline's capacity for scripts and assistants is used up, the website's users go first. Please, try "
+                     "again later, or use the website.")
 
 
 @dataclass(frozen=True)
@@ -152,6 +154,8 @@ class Admission:
     per_client: int | None = None  # of them, from one client
     per_hour: int | None = None  # runs one client may add in an hour
     programmatic: bool = False  # not from the website's page: scripts, assistants (the MCP server); see main.interactive
+    programmatic_limit: int | None = None  # of a programmatic one: all programmatic runs queued or running together
+    programmatic_per_hour: int | None = None  # all programmatic runs added in an hour
 
 
 def client_of(address: str | None) -> str | None:
@@ -311,6 +315,8 @@ async def _refusal_of(c: AsyncConnection, a: Admission) -> Refused | None:
     added too many in the last hour (429)"""
     if await _outstanding(c) >= a.limit:
         return QUEUE_FULL
+    if a.programmatic and (refused := await _programmatic_refusal(c, a)):
+        return refused
     if a.client is None:
         return None
     if a.per_client is not None:
@@ -326,6 +332,22 @@ async def _refusal_of(c: AsyncConnection, a: Admission) -> Refused | None:
             wait = max(1, int((oldest - hour_ago).total_seconds()) + 1)  # until the oldest leaves the hour
             return Refused(429, f"You have started {added} computations in the last hour, at most {a.per_hour} are possible. "
                                 "Please, try again later.", {"Retry-After": str(wait)})
+    return None
+
+
+async def _programmatic_refusal(c: AsyncConnection, a: Admission) -> Refused | None:
+    """503 when the programmatic runs, of all their clients together, fill their part of the queue or of the hour: the
+    website's users keep the rest"""
+    if a.programmatic_limit is not None:
+        theirs = await c.scalar(select(func.count()).select_from(runs).where(runs.c.programmatic, runs.c.phase != DONE))
+        if theirs >= a.programmatic_limit:
+            return Refused(503, PROGRAMMATIC_FULL, {"Retry-After": str(RETRY_AFTER)})
+    if a.programmatic_per_hour is not None:
+        hour_ago = now() - timedelta(hours=1)
+        added, oldest = (await c.execute(select(func.count(), func.min(runs.c.queued))
+                                          .where(runs.c.programmatic, runs.c.queued > hour_ago))).one()
+        if added >= a.programmatic_per_hour:
+            return Refused(503, PROGRAMMATIC_FULL, {"Retry-After": str(max(1, int((oldest - hour_ago).total_seconds()) + 1))})
     return None
 
 

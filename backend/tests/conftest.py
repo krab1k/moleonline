@@ -75,6 +75,9 @@ def make_settings(directory: Path, database: str, load: str = "exit 0", run: str
         database_url=database,
         max_outstanding_computations=workers + queued,
         max_outstanding_per_client=per_client or workers + queued,  # the tests' client may fill the queue unless said
+        # the tests' client sends no Origin, it is programmatic: the same limits, unless a test sets its own
+        max_programmatic_computations=workers + queued,
+        programmatic_per_client=per_client or workers + queued,
         mole=mole or script(directory, "mole", fake),
         memembed=script(directory, "memembed", "exit 1"),  # the fake pores tool does not run it
         opm_cache=directory / "opm-cache",
