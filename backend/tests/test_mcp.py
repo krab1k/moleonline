@@ -84,10 +84,12 @@ def test_tunnels_and_their_summary(api, tmp_path, monkeypatch):
     assert tool(client, "compute_tunnels", session_id=id) == (
         True, "Error executing tool compute_tunnels: No active site is known for this structure (M-CSA). Use start=residues or start=auto.")
     assert tool(client, "compute_tunnels", session_id=id, start="residues", residues=["A 308", "A 309"]) == (
-        False, {"session_id": id, "number": 1, "state": "queued", "starting_point": {"residues": ["A 308", "A 309"]}})
+        False, {"session_id": id, "number": 1, "state": "queued",
+                "starting_point": [{"start": "residues", "residues": ["A 308", "A 309"]}]})
     failed, job = tool(client, "get_job", session_id=id, number=1, wait_seconds=10)
     assert not failed and (job["source"], job["state"]) == ("moleonline", "finished")
     computed_with = job["computed_with"]  # what the answer is of: the structure, MOLE, the parameters without empty parts
+    assert computed_with["starting_point"] == [{"start": "residues", "residues": ["A 308", "A 309"]}]
     assert (computed_with["structure"], computed_with["mole_version"]) == ("an uploaded structure", MOLE_VERSION)
     parameters = computed_with["parameters"]
     assert parameters["Origin"] == {"Residues": [[{"Chain": "A", "SequenceNumber": 308}, {"Chain": "A", "SequenceNumber": 309}]]}
@@ -152,27 +154,52 @@ def test_residue_parts(residue, parts):
 
 
 def test_starting_points(client):
-    """A ligand, a known cofactor from its atom, or a point: the job's origin as the website would submit it"""
+    """Ligands, known cofactors from their atoms, or a point: the job's origin as the website would submit it, and its
+    starting point as ChannelsDB gives it, the same of the stored origin (get_job's)"""
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait_session(client, id)
-    origins = []
-    used = []
-    for number, start in enumerate([{"ligand": "hem"}, {"ligand": "LIG"}, {"point": [-19.28, -23.62, -14.17]}], 1):
-        kind = next(iter(start))
+    starts = [{"ligands": ["hem"]}, {"ligands": ["LIG", "AB1", "LIG"]}, {"ligands": ["HEM", "LIG"]}, {"point": [-19.28, -23.62, -14.17]},
+              {}]
+    origins, used = [], []
+    for number, start in enumerate(starts, 1):
+        kind = next(iter(start), "auto").removesuffix("s")
         failed, job = tool(client, "compute_tunnels", session_id=id, start=kind, **start)
         assert not failed and job["number"] == number
         used.append(job["starting_point"])
         wait(client, id, number)
         origins.append(client.get(f"/sessions/{id}/jobs/{number}").json()["parameters"]["Origin"])
-    assert [o["QueryExpression"] for o in origins[:2]] == ["Atoms('Fe').Inside(Residues('HEM'))", "Residues('LIG')"]
-    assert origins[2]["Points"] == [{"X": -19.28, "Y": -23.62, "Z": -14.17}]
-    assert used == [{"ligand": "HEM", "query": "Atoms('Fe').Inside(Residues('HEM'))"}, {"ligand": "LIG", "query": "Residues('LIG')"},
-                    {"point": [-19.28, -23.62, -14.17]}]
+        assert mcp_server.starting_point(origins[-1]) == used[-1]  # get_job's, of the stored origin
+    hem = "Atoms('Fe').Inside(Residues('HEM'))"
+    assert [o["QueryExpression"] for o in origins[:3]] == [hem, "Or(Residues('LIG'),Residues('AB1'))", f"Or({hem},Residues('LIG'))"]
+    assert origins[3]["Points"] == [{"X": -19.28, "Y": -23.62, "Z": -14.17}]
+    assert used == [[{"start": "ligand", "ligands": ["HEM"], "queries": [hem]}],  # selects HEM's iron, not all of it
+                    [{"start": "ligand", "ligands": ["LIG", "AB1"]}],
+                    [{"start": "ligand", "ligands": ["HEM", "LIG"], "queries": [f"Or({hem},Residues('LIG'))"]}],
+                    [{"start": "point", "point": [-19.28, -23.62, -14.17]}],
+                    [{"start": "auto"}]]
+
+
+@pytest.mark.parametrize(("origin", "start"), [
+    ({"Residues": [[{"Chain": "A", "SequenceNumber": 308}], [{"Chain": "B", "SequenceNumber": -2}]], "Points": None},
+     [{"start": "residues", "residues": ["A 308"]}, {"start": "residues", "residues": ["B -2"]}]),
+    ({"QueryExpression": "Residues('HEM', 'HEC')"},
+     [{"start": "ligand", "ligands": ["HEM", "HEC"], "queries": ["Residues('HEM', 'HEC')"]}]),
+    ({"QueryExpression": "Atoms('Zn')"}, [{"start": "query", "queries": ["Atoms('Zn')"]}]),  # the website's, naming no residues
+    ({"Residues": [[{"Chain": "A", "SequenceNumber": 1}]], "Points": [{"X": 1.23456, "Y": 0, "Z": -1}]},
+     [{"start": "residues", "residues": ["A 1"]}, {"start": "point", "point": [1.235, 0, -1]}]),
+    ({"Residues": None, "Points": None, "QueryExpression": None}, [{"start": "auto"}]),
+])
+def test_starting_point_of_any_origin(origin, start):
+    """Also of the website's jobs, whose origins compute_tunnels does not make"""
+    assert mcp_server.starting_point(origin) == start
 
 
 @pytest.mark.parametrize(("start", "message"), [
-    ({"start": "ligand"}, "Give the ligand's residue name"),
-    ({"start": "ligand", "ligand": "HEM') or Residues('ALA"}, "Give the ligand's residue name"),  # nothing else into the query
+    ({"start": "ligand"}, "Give the ligands' residue names"),
+    ({"start": "ligand", "ligands": ["HEM') or Residues('ALA"]}, "Give the ligands' residue names"),  # nothing else into the query
+    ({"start": "ligand", "ligands": ["HEM", ""]}, "Give the ligands' residue names"),
+    ({"start": "residues", "residues": ["A 59A"]}, '"A 59A" has an insertion code, which MOLEonline cannot start from yet.'),
+    ({"start": "residues", "residues": ["A 308", "308"]}, 'Residues must be "chain number", e.g. "A 308", not "308".'),
     ({"start": "point"}, "Give the point as its coordinates [x, y, z]"),
     ({"start": "point", "point": [1.0, 2.0]}, "Give the point as its coordinates [x, y, z]"),
 ])

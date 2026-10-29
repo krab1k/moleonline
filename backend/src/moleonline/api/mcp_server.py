@@ -31,6 +31,8 @@ DOWNLOAD_SECONDS = 30  # of a structure at a URL, within the call's MAX_WAIT_SEC
 MAX_CHANNELS = 20  # in an answer of get_job, the next ones from next_offset
 MAX_REDIRECTS = 5
 LIGAND = re.compile(r"[A-Z0-9]{1,5}")  # a PDB chemical component id; nothing else gets into MOLE's query
+GIVEN_RESIDUE = re.compile(r"(\S+)\s+(-?\d+)([A-Za-z]?)")  # "A 308", chain and number; "A 59A" with an insertion code
+QUERY_RESIDUES = re.compile(r"Residues\(([^()]*)\)")  # the residue names in a query: Residues('HEM'), Residues('HEM', 'HEC')
 PROPERTIES = ("Charge", "Hydropathy", "Hydrophobicity", "Polarity", "Mutability")  # of a channel's, as ChannelsDB's
 GROUPS = ("Paths", "Tunnels", "Pores", "MergedPores")  # of data.json, in ChannelsDB's order: a channel's ref is its position
 # A residue as MOLE writes it (PdbResidue.ToString): name, author number, chain (none when the file has none), its
@@ -133,6 +135,41 @@ def residues(layers: list[dict]) -> list[dict]:
             name = residue.removesuffix(" Backbone")
             found[name] = found.get(name, True) and residue != name
     return [{"residue": name} | residue_parts(name) | {"backbone_only": backbone} for name, backbone in found.items()]
+
+
+def any_of(queries: list[str]) -> str:
+    """One query of several, as MOLE's origin takes one"""
+    return queries[0] if len(queries) == 1 else f"Or({','.join(queries)})"
+
+
+def starting_point(origin: dict) -> list[dict]:
+    """Where a job's tunnels start, from its Origin (also of the website's jobs), as ChannelsDB gives it, in the terms of
+    compute_tunnels' start: residues as "chain number", a ligand by its names (its queries too, when they select more
+    than the residues: a known cofactor's reactive atom), a point; a query naming no residues as it is; auto without any"""
+    found = [{"start": "residues", "residues": [f"{r['Chain']} {r['SequenceNumber']}" for r in group]}
+             for group in origin.get("Residues") or []]
+    if query := origin.get("QueryExpression"):
+        names = list(dict.fromkeys(name for listed in QUERY_RESIDUES.findall(query)
+                                   for name in (n.strip(" '\"") for n in listed.split(",")) if name))
+        if not names:
+            found.append({"start": "query", "queries": [query]})
+        else:
+            plain = query == any_of([f"Residues('{name}')" for name in names])  # as compute_tunnels makes it of the names
+            found.append({"start": "ligand", "ligands": names} | ({} if plain else {"queries": [query]}))
+    found.extend({"start": "point", "point": [round(p["X"], 3), round(p["Y"], 3), round(p["Z"], 3)]} for p in origin.get("Points") or [])
+    return found or [{"start": "auto"}]
+
+
+def given_residue(residue: str) -> dict:
+    """A residue of compute_tunnels as the API's origin takes it"""
+    if (match := GIVEN_RESIDUE.fullmatch(residue.strip())) is None:
+        raise MoleError(f'Residues must be "chain number", e.g. "A 308", not "{residue}".')
+    chain, number, insertion_code = match.groups()
+    if insertion_code:
+        # the API's residues have no insertion code: the job would start from residue 59, not 59A
+        raise MoleError(f'"{residue}" has an insertion code, which MOLEonline cannot start from yet. Use start=point with '
+                        "the residue's coordinates, or the residues next to it.")
+    return {"Chain": chain, "SequenceNumber": int(number)}
 
 
 async def check_public(url: str) -> None:
@@ -262,51 +299,45 @@ def create_server(app: FastAPI) -> MCPServer:
     @server.tool(annotations=CREATES)
     async def compute_tunnels(ctx: Context, session_id: str,
                               start: Literal["active_site", "residues", "ligand", "point", "auto"] = "active_site",
-                              residues: list[str] | None = None, ligand: str | None = None, point: list[float] | None = None,
-                              probe_radius: float = 5.0, bottleneck_radius: float = 1.25) -> dict:
+                              residues: list[str] | None = None, ligands: list[str] | None = None,
+                              point: list[float] | None = None, probe_radius: float = 5.0, bottleneck_radius: float = 1.25) -> dict:
         """Computes tunnels from a starting point to the surface. start: active_site (the active site from M-CSA, PDB
         entries only), residues (around the residues given as "A 308", chain and number, as the structure file numbers
-        them), ligand (from each copy of the ligand or cofactor with this residue name, e.g. HEM; a known cofactor from
-        its reactive atom), point (from the coordinates [x, y, z] in Å of the structure's frame, e.g. a pocket's centre
-        from a predictor or a docked ligand) or auto (from the cavities MOLE finds). probe_radius (1.4-45 Å): larger
-        finds wider mouths; bottleneck_radius (0-5 Å): the narrowest a tunnel may be, except over at most 3 Å of its
-        length (MOLE's bottleneck tolerance). Returns the job, read it with get_job, and the starting point used (of
-        active_site, the first of the sites M-CSA knows). A ligand the structure does not have, or a point outside its
-        cavities, gives a finished job without tunnels, not an error."""
+        them; not with insertion codes yet), ligand (from each copy of the ligands or cofactors with these residue names,
+        e.g. ["HEM"]; a known cofactor from its reactive atom), point (from the coordinates [x, y, z] in Å of the
+        structure's frame, e.g. a pocket's centre from a predictor or a docked ligand) or auto (from the cavities MOLE
+        finds). probe_radius (1.4-45 Å): larger finds wider mouths; bottleneck_radius (0-5 Å): the narrowest a tunnel
+        may be, except over at most 3 Å of its length (MOLE's bottleneck tolerance). Returns the job, read it with
+        get_job, and its starting_point as ChannelsDB gives it (of active_site, the residues of the first of the sites
+        M-CSA knows, with active_sites_known). A ligand the structure does not have, or a point outside its cavities,
+        gives a finished job without tunnels, not an error."""
+        known = {}
         match start:
             case "active_site":
                 sites = await call(ctx, "GET", f"/sessions/{session_id}/active-sites")
                 if not sites:
                     raise MoleError("No active site is known for this structure (M-CSA). Use start=residues or start=auto.")
                 origin = {"Residues": [[{"Chain": r["Chain"], "SequenceNumber": r["SequenceNumber"]} for r in sites[0]]]}
-                used = {"active_site": [f"{r['Name']} {r['SequenceNumber']} {r['Chain']}" for r in sites[0]],
-                        "active_sites_known": len(sites)}
+                known = {"active_sites_known": len(sites)}
             case "residues":
                 if not residues:
                     raise MoleError('Give the residues as "chain number", e.g. ["A 308", "A 309"].')
-                try:
-                    origin = {"Residues": [[{"Chain": chain, "SequenceNumber": int(number)} for chain, number in map(str.split, residues)]]}
-                    used = {"residues": residues}
-                except ValueError:
-                    raise MoleError(f'Residues must be "chain number", e.g. "A 308", not {residues}.') from None
+                origin = {"Residues": [[given_residue(r) for r in residues]]}
             case "ligand":
-                name = (ligand or "").strip().upper()
-                if not LIGAND.fullmatch(name):
-                    raise MoleError('Give the ligand\'s residue name (its PDB chemical component id), e.g. ligand="HEM".')
+                names = list(dict.fromkeys(name.strip().upper() for name in ligands or []))
+                if not names or not all(LIGAND.fullmatch(name) for name in names):
+                    raise MoleError('Give the ligands\' residue names (their PDB chemical component ids), e.g. ligands=["HEM"].')
                 cofactors = await call(ctx, "GET", "/cofactors")
-                origin = {"QueryExpression": cofactors.get(name, f"Residues('{name}')")}
-                used = {"ligand": name, "query": origin["QueryExpression"]}
+                origin = {"QueryExpression": any_of([cofactors.get(name, f"Residues('{name}')") for name in names])}
             case "point":
                 if point is None or len(point) != 3:
                     raise MoleError("Give the point as its coordinates [x, y, z] in Å, e.g. point=[-19.3, -23.6, -14.2].")
                 origin = {"Points": [dict(zip("XYZ", point, strict=True))]}
-                used = {"point": point}
             case "auto":
                 origin = {}
-                used = {"auto": "the cavities MOLE finds"}
         parameters = {"Cavity": {"ProbeRadius": probe_radius}, "Tunnel": {"BottleneckRadius": bottleneck_radius}, "Origin": origin}
         job = await call(ctx, "POST", f"/sessions/{session_id}/jobs", json={"type": "tunnels", "parameters": parameters})
-        return {"session_id": session_id, "number": job["number"], "state": job["state"], "starting_point": used}
+        return {"session_id": session_id, "number": job["number"], "state": job["state"], "starting_point": starting_point(origin)} | known
 
     @server.tool(annotations=CREATES)
     async def compute_pore(ctx: Context, session_id: str, in_membrane: bool = False, beta_barrel: bool = False,
@@ -320,23 +351,25 @@ def create_server(app: FastAPI) -> MCPServer:
 
     @server.tool(annotations=READS)
     async def get_job(ctx: Context, session_id: str, number: int, wait_seconds: int = 30, offset: int = 0) -> dict:
-        """The job's state (queued, running, finished, failed or cancelled) and what it computes with (the structure,
-        the parameters, MOLE's version); when finished, its channels, as MOLE lists them (not ranked), 20 at a time: a
-        job with more has next_offset, to list the next ones with offset. Each channel: ref
-        (for get_channel, with their lining residues); length (Å); bottleneck_radius, the narrowest radius of the layer
-        MOLE flags as the bottleneck (not counting the start, in the binding site), with bottleneck_at, its distances
-        from the start; min_radius, the narrowest point anywhere, with min_radius_at; properties (charge, hydropathy,
-        hydrophobicity, polarity, mutability). wait_seconds (at most 45) waits for the end. Also of a job the user
-        computed on the website: its address is .../online/<session_id>/<number>."""
+        """The job's state (queued, running, finished, failed or cancelled) and what it computes with (the structure, a
+        tunnel job's starting_point as compute_tunnels gives it, the parameters, MOLE's version); when finished, its
+        channels, as MOLE lists them (not ranked), 20 at a time: a job with more has next_offset, to list the next ones
+        with offset. Each channel: ref (for get_channel, with their lining residues); length (Å); bottleneck_radius, the
+        narrowest radius of the layer MOLE flags as the bottleneck (not counting the start, in the binding site), with
+        bottleneck_at, its distances from the start; min_radius, the narrowest point anywhere, with min_radius_at;
+        properties (charge, hydropathy, hydrophobicity, polarity, mutability). wait_seconds (at most 45) waits for the
+        end. Also of a job the user computed on the website: its address is .../online/<session_id>/<number>."""
         if offset < 0:
             raise MoleError("offset is the position to list the channels from (from next_offset).")
         job = await waited(ctx, f"/sessions/{session_id}/jobs/{number}", wait_seconds, {"finished", "failed", "cancelled"})
         s = await call(ctx, "GET", f"/sessions/{session_id}")
         web, api = links(ctx)
+        starts = {"starting_point": starting_point(job["parameters"].get("Origin") or {})} if job["type"] == "tunnels" else {}
         structure = f"PDB entry {s['pdb_id']}, assembly {s['assembly_id'] or 'asymmetric unit'}" if s["pdb_id"] else "an uploaded structure"
         answer = {"source": "moleonline", "session_id": session_id, "number": number, "type": job["type"], "state": job["state"],
                   "error": job["error"] or None,
-                  "computed_with": {"structure": structure, "mole_version": job["mole_version"], "parameters": stated(job["parameters"])},
+                  "computed_with": {"structure": structure} | starts | {"mole_version": job["mole_version"],
+                                                                        "parameters": stated(job["parameters"])},
                   "web": f"{web}/online/{session_id}/{number}"}
         if job["state"] == "finished":
             data = await call(ctx, "GET", f"/sessions/{session_id}/jobs/{number}/results/data")
@@ -351,9 +384,11 @@ def create_server(app: FastAPI) -> MCPServer:
     @server.tool(annotations=READS)
     async def get_channel(ctx: Context, session_id: str, number: int, channel: int) -> dict:
         """One channel of a finished job by its ref from get_job: its summary as there, its lining residues and its
-        bottleneck residues (those of the flagged layer), in order along the channel. Each residue as MOLE writes it
-        ("THR 309 A", "ALA 5 C_2" in the second copy of chain C in an assembly, "i:A" an insertion code) and its parts:
-        name, number, insertion_code, chain (as deposited), copy; backbone_only: only its backbone atoms line it."""
+        bottleneck residues (those of the flagged layer), in order along the channel. Each residue as MOLE writes it,
+        for display ("THR 309 A", "ALA 5 C_2" in the second copy of chain C in an assembly, "i:A" an insertion code;
+        ChannelsDB writes copies B-2), and its parts, to match residues by: name, number, insertion_code, chain (as
+        deposited), copy. backbone_only: only its backbone atoms line the channel, in bottleneck_residues within the
+        bottleneck layer."""
         job = await call(ctx, "GET", f"/sessions/{session_id}/jobs/{number}")
         if job["state"] != "finished":
             raise MoleError(f"The job is {job['state']}, it has no channels. Read it with get_job.")

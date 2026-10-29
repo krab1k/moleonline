@@ -168,13 +168,14 @@ In Claude's apps, add it as a custom connector with the same URL.
 | `load_structure` | Load a PDB entry |
 | `load_structure_url` | Load a structure file from a public https URL, e.g. an AlphaFold or AlphaFill model (up to 30 MB, downloaded within 30 s; PDB or mmCIF by the extension, or by the content when the URL has none) |
 | `get_session` | State of a session and its jobs |
-| `compute_tunnels` | Compute tunnels from the M-CSA active site, given residues, a ligand or cofactor (e.g. `HEM`), a point [x, y, z] or automatically found starting points |
+| `compute_tunnels` | Compute tunnels from the M-CSA active site, given residues, ligands or cofactors (e.g. `["HEM"]`), a point [x, y, z] or automatically found starting points |
 | `compute_pore` | Compute a pore through the membrane |
-| `get_job` | State of a job and what it computes with (structure, parameters, MOLE's version); when finished, summaries of its channels in MOLE's order, 20 at a time (`offset`, `next_offset`): length, bottleneck (the layer MOLE flags) and narrowest point, properties |
+| `get_job` | State of a job and what it computes with (structure, starting point, parameters, MOLE's version); when finished, summaries of its channels in MOLE's order, 20 at a time (`offset`, `next_offset`): length, bottleneck (the layer MOLE flags) and narrowest point, properties |
 | `get_channel` | One channel of a finished job: its summary, lining and bottleneck residues, each with its parts (name, number, chain, symmetry copy, insertion code) and whether only its backbone lines the channel |
 
-`compute_tunnels` also says which starting point it used (for `active_site`, the residues of the first site M-CSA
-knows). Reading tools are marked read-only, so clients may run them without asking each time. The answers also link
+`compute_tunnels` and `get_job` say where the tunnels start (`starting_point`), in the same form as ChannelsDB's MCP
+server, e.g. `[{"start": "residues", "residues": ["A 309", "A 482"]}]`; for `active_site`, the residues of the first site
+M-CSA knows. Reading tools are marked read-only, so clients may run them without asking each time. The answers also link
 to the result on the website and to the downloads. MOLE's full `data.json` is available as the
 resource `mole://sessions/{id}/jobs/{n}/data`, with all the channels.
 
