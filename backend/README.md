@@ -170,7 +170,8 @@ In Claude's apps, add it as a custom connector with the same URL.
 | `get_session` | State of a session and its jobs |
 | `compute_tunnels` | Compute tunnels from the M-CSA active site, given residues, a ligand or cofactor (e.g. `HEM`), a point [x, y, z] or automatically found starting points |
 | `compute_pore` | Compute a pore through the membrane |
-| `get_job` | State of a job and what it computes with (structure, parameters, MOLE's version); when finished, summaries of up to 20 channels in MOLE's order: length, bottleneck (the layer MOLE flags) and narrowest point, properties, lining residues |
+| `get_job` | State of a job and what it computes with (structure, parameters, MOLE's version); when finished, summaries of up to 20 channels in MOLE's order: length, bottleneck (the layer MOLE flags) and narrowest point, properties |
+| `get_channel` | One channel of a finished job: its summary, lining and bottleneck residues, each with its parts (name, number, chain, symmetry copy, insertion code) and whether only its backbone lines the channel |
 
 `compute_tunnels` also says which starting point it used (for `active_site`, the residues of the first site M-CSA
 knows). Reading tools are marked read-only, so clients may run them without asking each time. The answers also link

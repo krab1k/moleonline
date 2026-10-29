@@ -13,22 +13,22 @@ from .conftest import MOLE_VERSION, STRUCTURE, query, upload, wait, wait_session
 PROPERTIES = {"Charge": 1, "Hydropathy": -0.5, "Hydrophobicity": 0.2, "Polarity": 10.0, "Mutability": 80, "LogP": 1.0}
 
 
-def layer(start: float, end: float, radius: float, bottleneck: bool = False) -> dict:
+def layer(start: float, end: float, radius: float, residues: list[str], bottleneck: bool = False) -> dict:
     """MOLE leaves the flag out of the other layers"""
     geometry = {"StartDistance": start, "EndDistance": end, "MinRadius": radius}
-    return {"LayerGeometry": geometry | ({"Bottleneck": True} if bottleneck else {})}
+    return {"LayerGeometry": geometry | ({"Bottleneck": True} if bottleneck else {}), "Residues": residues}
 
 
-# narrowest at the start, in the binding site; its bottleneck further on
+# narrowest at the start, in the binding site; its bottleneck further on, lined by a backbone only and a residue in a copy
 TUNNEL = {"Type": "Tunnel", "Id": "1", "Properties": PROPERTIES,
           "Profile": [{"Radius": 0.9, "Distance": 0.0}, {"Radius": 1.1, "Distance": 4.0}, {"Radius": 2.0, "Distance": 12.34}],
-          "Layers": {"ResidueFlow": ["THR 309 A", "GLY 310 A Backbone", "THR 309 A", "GLY 310 A", "ALA 5 B-2"],
-                     "LayersInfo": [layer(0.0, 2.0, 0.9), layer(2.0, 6.04, 1.1, bottleneck=True), layer(6.04, 12.34, 2.0)]}}
+          "Layers": {"LayersInfo": [layer(0.0, 2.0, 0.9, ["THR 309 A", "GLY 310 A Backbone"]),
+                                    layer(2.0, 6.04, 1.1, ["GLY 310 A Backbone", "ALA 5 B-2", "SER 12 A i:B Backbone"], bottleneck=True),
+                                    layer(6.04, 12.34, 2.0, ["THR 309 A Backbone", "HOH?"])]}}
 # a pore job's pore; MOLE flagging two layers, no bottleneck can be told
 PATH = {"Type": "Path", "Id": "2", "Properties": PROPERTIES,
         "Profile": [{"Radius": 1.5, "Distance": 0.0}, {"Radius": 1.2, "Distance": 30.0}],
-        "Layers": {"ResidueFlow": ["LEU 12 A"],
-                   "LayersInfo": [layer(0.0, 10.0, 1.5, bottleneck=True), layer(10.0, 30.0, 1.2, bottleneck=True)]}}
+        "Layers": {"LayersInfo": [layer(0.0, 10.0, 1.5, ["LEU 12 A"], bottleneck=True), layer(10.0, 30.0, 1.2, [], bottleneck=True)]}}
 
 
 @pytest.fixture(autouse=True)
@@ -53,8 +53,9 @@ def tool(client, name: str, **arguments) -> tuple[bool, dict | str]:
 def test_tools(client):
     """With hints for clients: reading ones read only, the others create, the URL one reaches outside"""
     hints = {t["name"]: t["annotations"] for t in rpc(client, "tools/list")["tools"]}
-    assert set(hints) == {"load_structure", "load_structure_url", "get_session", "compute_tunnels", "compute_pore", "get_job"}
-    assert {name for name, h in hints.items() if h["readOnlyHint"]} == {"get_session", "get_job"}
+    assert set(hints) == {"load_structure", "load_structure_url", "get_session", "compute_tunnels", "compute_pore", "get_job",
+                          "get_channel"}
+    assert {name for name, h in hints.items() if h["readOnlyHint"]} == {"get_session", "get_job", "get_channel"}
     assert not any(h.get("destructiveHint") for h in hints.values())
     assert {name for name, h in hints.items() if h["openWorldHint"]} == {"load_structure_url"}
 
@@ -91,13 +92,29 @@ def test_tunnels_and_their_summary(api, tmp_path):
     assert (parameters["Cavity"]["ProbeRadius"], parameters["Tunnel"]["BottleneckTolerance"]) == (5.0, 3.0)
     assert "CustomExits" not in parameters and "QueryFilter" not in parameters
     properties = {"charge": 1, "hydropathy": -0.5, "hydrophobicity": 0.2, "polarity": 10.0, "mutability": 80}
-    assert job["channels"] == [
-        {"type": "Tunnel", "id": "1", "length": 12.3, "bottleneck_radius": 1.1, "bottleneck_at": [2.0, 6.0], "min_radius": 0.9,
-         "min_radius_at": 0.0, "properties": properties, "lining_residues": ["THR 309 A", "GLY 310 A", "ALA 5 B-2"]},
-        {"type": "Path", "id": "2", "length": 30.0, "bottleneck_radius": None, "bottleneck_at": None, "min_radius": 1.2,
-         "min_radius_at": 30.0, "unavailable": {"bottleneck_radius": "several_bottleneck_flags"}, "properties": properties,
-         "lining_residues": ["LEU 12 A"]}]
+    tunnel = {"ref": 2, "type": "Tunnel", "id": "1", "length": 12.3, "bottleneck_radius": 1.1, "bottleneck_at": [2.0, 6.0],
+              "min_radius": 0.9, "min_radius_at": 0.0, "properties": properties}
+    path = {"ref": 1, "type": "Path", "id": "2", "length": 30.0, "bottleneck_radius": None, "bottleneck_at": None, "min_radius": 1.2,
+            "min_radius_at": 30.0, "unavailable": {"bottleneck_radius": "several_bottleneck_flags"}, "properties": properties}
+    assert job["channels"] == [path, tunnel]  # their refs counted in ChannelsDB's order of the groups, paths first
     assert job["total_channels"] == 2
+
+    failed, answer = tool(client, "get_channel", session_id=id, number=1, channel=2)
+    assert not failed and (answer["source"], answer["web"]) == ("moleonline", f"http://testserver/online/{id}/1")
+
+    def residue(residue, name, number, chain, backbone_only, insertion_code=None, copy=None):
+        return {"residue": residue, "name": name, "number": number, "insertion_code": insertion_code, "chain": chain,
+                "copy": copy, "backbone_only": backbone_only}
+
+    thr, gly = residue("THR 309 A", "THR", 309, "A", False), residue("GLY 310 A", "GLY", 310, "A", True)
+    ala, ser = residue("ALA 5 B-2", "ALA", 5, "B", False, copy=2), residue("SER 12 A i:B", "SER", 12, "A", True, insertion_code="B")
+    unparsed = {"residue": "HOH?"} | dict.fromkeys(("name", "number", "insertion_code", "chain", "copy")) | {"backbone_only": False}
+    assert answer["channel"] == tunnel | {"lining_residues": [thr, gly, ala, ser, unparsed], "bottleneck_residues": [gly, ala, ser]}
+    failed, answer = tool(client, "get_channel", session_id=id, number=1, channel=1)
+    assert answer["channel"]["bottleneck_residues"] is None  # unknown, as the bottleneck
+    assert answer["channel"]["unavailable"] == dict.fromkeys(("bottleneck_radius", "bottleneck_residues"), "several_bottleneck_flags")
+    assert tool(client, "get_channel", session_id=id, number=1, channel=3) == (
+        True, "Error executing tool get_channel: The job has no channel 3, its channels are 1 to 2 (ref in get_job).")
     assert job["web"] == f"http://testserver/online/{id}/1"  # from the request without PUBLIC_URL
     assert job["downloads"]["pymol"] == f"http://testserver/sessions/{id}/jobs/1/results/pymol"
     client.app.state.settings.public_url = "https://moleonline.example.org/"  # what users see, not the proxy's request
@@ -108,6 +125,20 @@ def test_tunnels_and_their_summary(api, tmp_path):
     assert submitted["parameters"]["Origin"]["Residues"] == [[{"Chain": "A", "SequenceNumber": 308}, {"Chain": "A", "SequenceNumber": 309}]]
     resource = rpc(client, "resources/read", {"uri": f"mole://sessions/{id}/jobs/1/data"})
     assert json.loads(resource["contents"][0]["text"]) == {"Channels": {"Tunnels": [TUNNEL], "Paths": [PATH]}}
+
+
+@pytest.mark.parametrize("residue, parts", [
+    ("THR 309 A", ("THR", 309, None, "A", None)),
+    ("ASN 221 C_2", ("ASN", 221, None, "C", 2)),  # a copy in PDBe's assembly
+    ("ALA 5 B-2", ("ALA", 5, None, "B", 2)),  # in ChannelsDB's
+    ("SER 12 A1 i:B", ("SER", 12, "B", "A1", None)),
+    ("GLY -3 C_10 i:A", ("GLY", -3, "A", "C", 10)),
+    ("ALA 5", ("ALA", 5, None, None, None)),  # a file without chains
+    ("SER 12 i:B", ("SER", 12, "B", None, None)),
+    ("HOH?", (None, None, None, None, None)),
+])
+def test_residue_parts(residue, parts):
+    assert mcp_server.residue_parts(residue) == dict(zip(("name", "number", "insertion_code", "chain", "copy"), parts, strict=True))
 
 
 def test_starting_points(client):

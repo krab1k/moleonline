@@ -31,6 +31,11 @@ MAX_CHANNELS = 20  # in a summary, the rest only in the full results
 MAX_REDIRECTS = 5
 LIGAND = re.compile(r"[A-Z0-9]{1,5}")  # a PDB chemical component id; nothing else gets into MOLE's query
 PROPERTIES = ("Charge", "Hydropathy", "Hydrophobicity", "Polarity", "Mutability")  # of a channel's, as ChannelsDB's
+GROUPS = ("Paths", "Tunnels", "Pores", "MergedPores")  # of data.json, in ChannelsDB's order: a channel's ref is its position
+# A residue as MOLE writes it (PdbResidue.ToString): name, author number, chain (none when the file has none), its
+# insertion code (i:A), and Backbone when only the backbone lines the layer. The chain of a copy in an assembly has the
+# copy's number after an underscore (PDBe's C_2, which MOLEonline computes on) or a dash (ChannelsDB's B-2).
+RESIDUE = re.compile(r"(?P<name>\S+) (?P<number>-?\d+)(?: (?!i:)(?P<chain>\S+?)(?:[_-](?P<copy>\d+))?)?(?: i:(?P<insertion_code>\S))?")
 
 # hints for clients, e.g. to run the reading tools without asking each time (also each poll); they trust them for nothing
 READS = ToolAnnotations(read_only_hint=True, idempotent_hint=True, open_world_hint=False)
@@ -74,6 +79,11 @@ def stated(value):
     return value
 
 
+def is_bottleneck(layer: dict) -> bool:
+    # the flag is left out of the other layers
+    return layer["LayerGeometry"].get("Bottleneck", False)
+
+
 def geometry(channel: dict) -> dict:
     """Length, bottleneck and narrowest point of a channel. The bottleneck is the layer MOLE flags: MOLE does not count
     the first layer, which lies in the binding site the channel starts from, so the narrowest point may be narrower.
@@ -83,8 +93,7 @@ def geometry(channel: dict) -> dict:
     narrowest = min(profile, key=lambda point: point["Radius"])
     summary = {"length": round(profile[-1]["Distance"], 1), "bottleneck_radius": None, "bottleneck_at": None,
                "min_radius": round(narrowest["Radius"], 2), "min_radius_at": round(narrowest["Distance"], 1)}
-    # the flag is left out of the other layers
-    flagged = [layer["LayerGeometry"] for layer in channel["Layers"]["LayersInfo"] if layer["LayerGeometry"].get("Bottleneck")]
+    flagged = [layer["LayerGeometry"] for layer in channel["Layers"]["LayersInfo"] if is_bottleneck(layer)]
     if len(flagged) == 1:
         summary |= {"bottleneck_radius": round(flagged[0]["MinRadius"], 2),
                     "bottleneck_at": [round(flagged[0]["StartDistance"], 1), round(flagged[0]["EndDistance"], 1)]}
@@ -93,12 +102,36 @@ def geometry(channel: dict) -> dict:
     return summary
 
 
-def channel_summary(channel: dict) -> dict:
-    """A channel of MOLE's data.json: its type (Tunnel, Pore, Path: a pore job's pore is a Path), geometry, properties
-    (averages over the lining residues) and lining residues"""
-    residues = list(dict.fromkeys(r.removesuffix(" Backbone") for r in channel["Layers"]["ResidueFlow"]))
+def channels_of(data: dict) -> list[dict]:
+    """The channels of MOLE's data.json, their refs counting from 1 in this order"""
+    return [channel for group in GROUPS for channel in data["Channels"].get(group, [])]
+
+
+def channel_summary(ref: int, channel: dict) -> dict:
+    """A channel of MOLE's data.json: its type (Tunnel, Pore, Path: a pore job's pore is a Path), geometry and properties
+    (averages over the lining residues)"""
     properties = {key.lower(): channel["Properties"].get(key) for key in PROPERTIES}
-    return {"type": channel["Type"], "id": channel["Id"]} | geometry(channel) | {"properties": properties, "lining_residues": residues}
+    return {"ref": ref, "type": channel["Type"], "id": channel["Id"]} | geometry(channel) | {"properties": properties}
+
+
+def residue_parts(residue: str) -> dict:
+    """The parts of a residue, so that a reader need not parse it: its chain is the deposited chain (author chain ID),
+    also for a symmetry copy, whose number is in copy"""
+    if (match := RESIDUE.fullmatch(residue)) is None:
+        return dict.fromkeys(("name", "number", "insertion_code", "chain", "copy"))
+    return {"name": match["name"], "number": int(match["number"]), "insertion_code": match["insertion_code"],
+            "chain": match["chain"], "copy": int(match["copy"]) if match["copy"] else None}
+
+
+def residues(layers: list[dict]) -> list[dict]:
+    """The residues of layers in the order of their first appearance, each backbone_only when only its backbone lines
+    them, with their parts"""
+    found: dict[str, bool] = {}
+    for layer in layers:
+        for residue in layer["Residues"]:
+            name = residue.removesuffix(" Backbone")
+            found[name] = found.get(name, True) and residue != name
+    return [{"residue": name} | residue_parts(name) | {"backbone_only": backbone} for name, backbone in found.items()]
 
 
 async def check_public(url: str) -> None:
@@ -262,12 +295,12 @@ def create_server(app: FastAPI) -> MCPServer:
     @server.tool(annotations=READS)
     async def get_job(ctx: Context, session_id: str, number: int, wait_seconds: int = 30) -> dict:
         """The job's state (queued, running, finished, failed or cancelled) and what it computes with (the structure,
-        the parameters, MOLE's version); when finished, its channels, as MOLE lists them (not ranked), at most 20: length
-        (Å); bottleneck_radius, the narrowest radius of the layer MOLE flags as the bottleneck (not counting the start, in
-        the binding site), with bottleneck_at, its distances from the start; min_radius, the narrowest point anywhere,
-        with min_radius_at; properties (charge, hydropathy, hydrophobicity, polarity, mutability) and lining residues.
-        wait_seconds (at most 45) waits for the end. Also of a job the user computed on the website: its address is
-        .../online/<session_id>/<number>."""
+        the parameters, MOLE's version); when finished, its channels, as MOLE lists them (not ranked), at most 20: ref
+        (for get_channel, with their lining residues); length (Å); bottleneck_radius, the narrowest radius of the layer
+        MOLE flags as the bottleneck (not counting the start, in the binding site), with bottleneck_at, its distances
+        from the start; min_radius, the narrowest point anywhere, with min_radius_at; properties (charge, hydropathy,
+        hydrophobicity, polarity, mutability). wait_seconds (at most 45) waits for the end. Also of a job the user
+        computed on the website: its address is .../online/<session_id>/<number>."""
         job = await waited(ctx, f"/sessions/{session_id}/jobs/{number}", wait_seconds, {"finished", "failed", "cancelled"})
         s = await call(ctx, "GET", f"/sessions/{session_id}")
         web, api = links(ctx)
@@ -278,11 +311,37 @@ def create_server(app: FastAPI) -> MCPServer:
                   "web": f"{web}/online/{session_id}/{number}"}
         if job["state"] == "finished":
             data = await call(ctx, "GET", f"/sessions/{session_id}/jobs/{number}/results/data")
-            channels = [channel_summary(c) for found in data["Channels"].values() for c in found]
+            channels = [channel_summary(ref, c) for ref, c in enumerate(channels_of(data), 1)]
             answer |= {"channels": channels[:MAX_CHANNELS], "total_channels": len(channels),
                        "full_results": f"mole://sessions/{session_id}/jobs/{number}/data",
                        "downloads": {f: f"{api}/sessions/{session_id}/jobs/{number}/results/{f}" for f in ("report", "pymol", "pdb")}}
         return answer
+
+    @server.tool(annotations=READS)
+    async def get_channel(ctx: Context, session_id: str, number: int, channel: int) -> dict:
+        """One channel of a finished job by its ref from get_job: its summary as there, its lining residues and its
+        bottleneck residues (those of the flagged layer), in order along the channel. Each residue as MOLE writes it
+        ("THR 309 A", "ALA 5 C_2" in the second copy of chain C in an assembly, "i:A" an insertion code) and its parts:
+        name, number, insertion_code, chain (as deposited), copy; backbone_only: only its backbone atoms line it."""
+        job = await call(ctx, "GET", f"/sessions/{session_id}/jobs/{number}")
+        if job["state"] != "finished":
+            raise MoleError(f"The job is {job['state']}, it has no channels. Read it with get_job.")
+        channels = channels_of(await call(ctx, "GET", f"/sessions/{session_id}/jobs/{number}/results/data"))
+        if not 1 <= channel <= len(channels):
+            raise MoleError(f"The job has no channel {channel}, its channels are 1 to {len(channels)} (ref in get_job)."
+                            if channels else "The job found no channels.")
+        found = channels[channel - 1]
+        web, _ = links(ctx)
+        summary = channel_summary(channel, found)
+        layers = found["Layers"]["LayersInfo"]
+        summary |= {"lining_residues": residues(layers), "bottleneck_residues": None}
+        if summary["bottleneck_radius"] is None:
+            # unknown, not none: for the same reason as the bottleneck itself
+            summary["unavailable"]["bottleneck_residues"] = summary["unavailable"]["bottleneck_radius"]
+        else:
+            summary["bottleneck_residues"] = residues([layer for layer in layers if is_bottleneck(layer)])
+        return {"source": "moleonline", "session_id": session_id, "number": number, "web": f"{web}/online/{session_id}/{number}",
+                "channel": summary}
 
     @server.resource("mole://sessions/{session_id}/jobs/{number}/data", mime_type="application/json")
     async def job_data(ctx: Context, session_id: str, number: str) -> str:
