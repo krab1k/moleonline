@@ -1,9 +1,11 @@
 """/mcp: the MCP server, its tools calling the API in the process"""
 
 import asyncio
+import gzip
 import json
 import time
 
+import httpx2
 import pytest
 
 from moleonline.api import mcp_server
@@ -187,6 +189,51 @@ def test_starting_points_refused(client, start, message):
 def test_only_public_https_urls(url, message):
     with pytest.raises(mcp_server.MoleError, match=message):
         asyncio.run(mcp_server.check_public(url))
+
+
+@pytest.mark.parametrize(("url", "content", "name"), [
+    ("https://example.org/files/1tqn.cif", b"anything", "1tqn.cif"),  # by its extension, the upload checks the content
+    ("https://example.org/model.pdb.gz?download=1", b"anything", "model.pdb.gz"),
+    ("https://alphafill.eu/v1/aff/P10635", b"data_AF-P10635-F1\n#\n", "P10635.cif"),
+    ("https://example.org/model", b"HEADER    OXIDOREDUCTASE\n", "model.pdb"),
+    ("https://example.org/model", b"<html>Not found</html>", "model.pdb"),  # fails to load, with the reason
+    ("https://example.org/aff/P10635", gzip.compress(b"data_AF-P10635-F1\n"), "P10635.cif.gz"),
+    ("https://example.org/model", b"#\\#CIF_2.0\n# Generated structure\n" + STRUCTURE, "model.cif"),  # comments first, as CIF allows
+    ("https://example.org/model", gzip.compress(b"# a long header\n" * 2000 + STRUCTURE), "model.cif.gz"),  # beyond 1 KB
+    ("https://example.org/model", b"# Generated structure\n  data_1TQN\n", "model.cif"),  # indented
+    ("https://example.org/model", gzip.compress(b"# Generated structure\n\tdata_1TQN\n"), "model.cif.gz"),
+    ("https://example.org/", b"data_x\n", "structure.cif"),
+])
+def test_the_structures_name(url, content, name):
+    """The upload takes structures by their names; AlphaFill's URLs have no extension"""
+    assert mcp_server.structure_name(url, content) == name
+
+
+@pytest.mark.parametrize(("error", "message"), [
+    (httpx2.ConnectError("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"),
+     "The download from [example.org] failed: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed. Check the URL"),
+    (httpx2.ReadTimeout("timed out"), "The host [example.org] did not answer in time."),
+    (httpx2.RemoteProtocolError(""), "The download from [example.org] failed: RemoteProtocolError."),
+])
+def test_failed_downloads_reach_the_model(client, monkeypatch, error, message):
+    """Not only "Error executing tool": an API image without CA certificates failed every download so"""
+    async def public(url: str) -> None:
+        pass
+    def failing(request):
+        raise error
+    real = httpx2.AsyncClient
+    monkeypatch.setattr(mcp_server, "check_public", public)
+    monkeypatch.setattr(mcp_server.httpx2, "AsyncClient", lambda **kwargs: real(transport=httpx2.MockTransport(failing), **kwargs))
+    failed, text = tool(client, "load_structure_url", url="https://example.org/aff/P10635")
+    assert failed and text.startswith(f"Error executing tool load_structure_url: {message}")
+
+
+def test_a_model_without_extension(client, monkeypatch):
+    async def model(url: str) -> bytes:
+        return STRUCTURE
+    monkeypatch.setattr(mcp_server, "downloaded", model)
+    failed, session = tool(client, "load_structure_url", url="https://alphafill.eu/v1/aff/P10635", wait_seconds=10)
+    assert not failed and session["state"] == "ready"
 
 
 def test_the_download_and_the_wait_within_one_call(api, monkeypatch):

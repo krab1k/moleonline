@@ -32,6 +32,8 @@ FROM python AS python-worker
 RUN uv sync --frozen --no-default-groups --group worker --no-editable
 
 FROM docker.io/library/ubuntu:26.04 AS api
+# the CA certificates of https downloads (the MCP server's load_structure_url); the workers' image has them
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN useradd --uid 1654 --user-group --no-create-home app && mkdir /data && chown app:app /data
 COPY --from=python /opt/python /opt/python
 COPY --from=python /app/.venv /app/.venv

@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import urllib.parse
+import zlib
 from typing import Literal
 
 import httpx2
@@ -22,7 +23,7 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ..core.limits import MAX_STRUCTURE_MB, MB
-from .upload import TOO_LARGE
+from .upload import TOO_LARGE, stored_name
 
 POLL_SECONDS = 2.0
 MAX_WAIT_SECONDS = 45  # a tool call returns by then, the model asks again; below the proxies' timeouts (nginx: 60 s)
@@ -153,19 +154,44 @@ async def downloaded(url: str) -> bytes:
     async with httpx2.AsyncClient(timeout=60) as client:
         for _ in range(MAX_REDIRECTS + 1):
             await check_public(url)
-            async with client.stream("GET", url) as response:
-                if response.is_redirect:
-                    url = urllib.parse.urljoin(url, response.headers["Location"])
-                    continue
-                if not response.is_success:
-                    raise MoleError(f"The URL answered {response.status_code} {response.reason_phrase}.")
-                content = bytearray()
-                async for chunk in response.aiter_bytes():
-                    content += chunk
-                    if len(content) > MAX_STRUCTURE_MB * MB:
-                        raise MoleError(TOO_LARGE)
-                return bytes(content)
+            host = urllib.parse.urlsplit(url).hostname
+            try:
+                async with client.stream("GET", url) as response:
+                    if response.is_redirect:
+                        url = urllib.parse.urljoin(url, response.headers.get("Location", ""))
+                        continue
+                    if not response.is_success:
+                        raise MoleError(f"The URL answered {response.status_code} {response.reason_phrase}.")
+                    content = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        content += chunk
+                        if len(content) > MAX_STRUCTURE_MB * MB:
+                            raise MoleError(TOO_LARGE)
+                    return bytes(content)
+            # else only "Error executing tool": the host unreachable, its certificate not trusted, the connection broken
+            except httpx2.TimeoutException:
+                raise MoleError(f"The host [{host}] did not answer in time. Try again later or another source of the file.") from None
+            except httpx2.HTTPError as e:
+                raise MoleError(f"The download from [{host}] failed: {str(e) or type(e).__name__}. Check the URL, or use another "
+                                "source of the file.") from None
     raise MoleError(f"The URL redirects more than {MAX_REDIRECTS} times.")
+
+
+def structure_name(url: str, content: bytes) -> str:
+    """The file's name for the upload, which takes PDB and mmCIF files by their extensions: the URL's, or of a URL without
+    one (AlphaFill's https://alphafill.eu/v1/aff/P10635) mmCIF when a line of its start begins with data_ (after
+    comments and blanks, which CIF allows before it; no PDB line does), else PDB; a file that is neither then fails to load, with
+    the reason"""
+    name = urllib.parse.unquote(urllib.parse.urlsplit(url).path.rsplit("/", 1)[-1])
+    if stored_name(name):
+        return name
+    gzipped = content.startswith(b"\x1f\x8b")
+    try:
+        start = zlib.decompressobj(zlib.MAX_WBITS | 16).decompress(content[:MB], 64 * 1024) if gzipped else content[:64 * 1024]
+    except zlib.error:
+        start = b""  # not gzip after all: the upload says so
+    cif = re.search(rb"^[ \t]*data_", start, re.MULTILINE)
+    return (name or "structure") + (".cif" if cif else ".pdb") + (".gz" if gzipped else "")
 
 
 def create_server(app: FastAPI) -> MCPServer:
@@ -214,17 +240,17 @@ def create_server(app: FastAPI) -> MCPServer:
 
     @server.tool(annotations=CREATES_FROM_URL)
     async def load_structure_url(ctx: Context, url: str, wait_seconds: int = 30) -> dict:
-        """Loads a structure file at an https URL (e.g. an AlphaFold model) into a new session: PDB (*.pdb) or mmCIF
-        (*.cif), also gzipped, at most 30 MB. The session is ready when loaded; wait_seconds (at most 45) waits for
-        that. M-CSA knows no active sites of such a structure: compute tunnels from residues or automatic starting points."""
+        """Loads a structure file at an https URL (e.g. an AlphaFold or AlphaFill model) into a new session: PDB or
+        mmCIF, also gzipped, at most 30 MB; by the URL's extension, or the content when it has none. The session is
+        ready when loaded; wait_seconds (at most 45) waits for that. M-CSA knows no active sites of such a structure:
+        compute tunnels from residues or automatic starting points."""
         started = asyncio.get_running_loop().time()
         try:
             async with asyncio.timeout(DOWNLOAD_SECONDS):  # all of it, httpx's timeout is of each read
                 content = await downloaded(url)
         except TimeoutError:
             raise MoleError(f"The download took longer than {DOWNLOAD_SECONDS} s.") from None
-        name = urllib.parse.urlsplit(url).path.rsplit("/", 1)[-1]
-        s = await call(ctx, "POST", "/sessions/upload", files={"file": (name, content)})
+        s = await call(ctx, "POST", "/sessions/upload", files={"file": (structure_name(url, content), content)})
         return session_view(ctx, await waited(ctx, f"/sessions/{s['id']}", wait_seconds, {"ready", "failed"}, started))
 
     @server.tool(annotations=READS)
