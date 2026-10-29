@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: worker
-          image: ghcr.io/krab1k/moleonline-worker:latest
+          image: ghcr.io/sb-ncbr/moleonline-worker:latest
           imagePullPolicy: Always
           env:
             - name: DATABASE_URL

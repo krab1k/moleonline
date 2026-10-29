@@ -8,11 +8,11 @@ resources:
   - upol-redirect.yaml
 # a release: the images of one commit on main, not latest
 images:
-  - name: ghcr.io/krab1k/moleonline-api
+  - name: ghcr.io/sb-ncbr/moleonline-api
     newTag: 39f043de32de26e8603344d962db2ee989456285
-  - name: ghcr.io/krab1k/moleonline-worker
+  - name: ghcr.io/sb-ncbr/moleonline-worker
     newTag: 39f043de32de26e8603344d962db2ee989456285
-  - name: ghcr.io/krab1k/moleonline-web
+  - name: ghcr.io/sb-ncbr/moleonline-web
     newTag: 39f043de32de26e8603344d962db2ee989456285
 replicas:
   - name: moleonline-worker  # MAX_RUNNING_PROGRAMMATIC (the patch below) is about half of them

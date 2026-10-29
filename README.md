@@ -3,7 +3,7 @@
 [![MOLEonline paper](https://img.shields.io/badge/Bioinformatics-2025-blue)](https://doi.org/10.1093/bioinformatics/btaf486)
 [![MOLE 2.0 paper](https://img.shields.io/badge/J%20Cheminform-2013-blue)](https://doi.org/10.1186/1758-2946-5-39)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
-[![Tests](https://github.com/krab1k/moleonline/actions/workflows/test-build.yml/badge.svg?branch=main)](https://github.com/krab1k/moleonline/actions/workflows/test-build.yml)
+[![Tests](https://github.com/sb-ncbr/moleonline/actions/workflows/test-build.yml/badge.svg?branch=main)](https://github.com/sb-ncbr/moleonline/actions/workflows/test-build.yml)
 
 MOLEonline finds and describes channels, tunnels and pores in proteins and other macromolecular structures. It is a
 web interface to [MOLE 2](https://github.com/sb-ncbr/webchemistry): load a PDB entry or upload your own structure,
@@ -24,7 +24,7 @@ Each directory has its own README with more detail.
 You need Docker or Podman with Compose. Then:
 
 ```bash
-git clone https://github.com/krab1k/moleonline
+git clone https://github.com/sb-ncbr/moleonline
 cd moleonline
 docker compose up -d --build
 ```

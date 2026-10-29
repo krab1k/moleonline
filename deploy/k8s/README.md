@@ -9,7 +9,7 @@ The manifests for the [CERIT-SC](https://docs.cerit.io/) cluster `kuba-cluster`,
 - [`prod/`](prod): the production instance, in the namespace `moleonline-ns` at `moleonline.biodata.ceitec.cz` and
   `moleonline.cz`, with a nightly dump of the database
 
-The images come from `ghcr.io/krab1k/moleonline-*`, published by CI from every commit on `main`. The dev instance
+The images come from `ghcr.io/sb-ncbr/moleonline-*`, published by CI from every commit on `main`. The dev instance
 follows `latest`, production runs the images of the commit in `prod/kustomization.yaml`.
 
 ## Deploying
