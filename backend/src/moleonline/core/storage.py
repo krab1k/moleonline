@@ -151,6 +151,7 @@ class Admission:
     client: str | None = None  # who asks, see client_of
     per_client: int | None = None  # of them, from one client
     per_hour: int | None = None  # runs one client may add in an hour
+    programmatic: bool = False  # not from the website's page: scripts, assistants (the MCP server); see main.interactive
 
 
 def client_of(address: str | None) -> str | None:
@@ -216,6 +217,7 @@ runs = Table(
     Column("started", DateTime(timezone=True)),
     Column("ended", DateTime(timezone=True)),
     Column("client", String(64)),  # who added it, see client_of; None: unknown
+    Column("programmatic", Boolean, nullable=False),  # added by a script or an assistant, not from the website (Admission)
     Index("runs_by_phase", "phase", "id"),
     Index("runs_by_client", "client", "queued"),
 )
@@ -228,6 +230,7 @@ requests = Table(
     Column("address", String(64)),  # the client's
     Column("kind", String(8), nullable=False),  # PDB, Upload, Mole (tunnels), Pores
     Column("session_id", String(40)),  # None: none was created; of a job request, as requested
+    Column("programmatic", Boolean, nullable=False),  # of a script or an assistant, not from the website
     Index("requests_by_time", "time"),
 )
 
@@ -348,7 +351,7 @@ async def create(db: Database, working_directory: Path, admission: Admission, pd
         await c.execute(sessions.insert().values(id=session.id, state=session.state, error="", pdb_id=pdb_id, assembly=assembly,
                                                  created=session.created, structure_file=structure_file, opm=False, deleted=False))
         await c.execute(runs.insert().values(session_id=session.id, number=None, phase=QUEUED, queued=session.created,
-                                             client=admission.client))
+                                             client=admission.client, programmatic=admission.programmatic))
     return session
 
 
@@ -391,7 +394,7 @@ async def add_job(db: Database, s: StoredSession, type: Literal["tunnels", "pore
         job = Job(number=(last["number"] if last else 0) + 1, type=type, parameters=parameters, submitted=now())
         await c.execute(jobs.insert().values(session_id=s.id, **job.model_dump()))
         await c.execute(runs.insert().values(session_id=s.id, number=job.number, phase=QUEUED, queued=job.submitted,
-                                             client=admission.client))
+                                             client=admission.client, programmatic=admission.programmatic))
     return job
 
 
@@ -566,12 +569,14 @@ async def mole_version(db: Database) -> str | None:
 
 # ----------------------------------------------------------------------------------------------------- requests
 
-async def log_request(db: Database, request: Literal["Init", "Submit"], address: str | None, kind: str, session_id: str | None) -> None:
+async def log_request(db: Database, request: Literal["Init", "Submit"], address: str | None, kind: str, session_id: str | None,
+                      programmatic: bool = False) -> None:
     """A request creating a session or a job, also a refused one (session_id None when none was created). Usage
     statistics only: when it cannot be stored, that is logged, and the request is answered as without it."""
     try:
         async with db.engine.begin() as c:
             await c.execute(requests.insert().values(time=now(), request=request, address=address and address[:64], kind=kind,
-                                                     session_id=session_id and re.sub("[^A-Za-z0-9]", "?", session_id[:40])))
+                                                     session_id=session_id and re.sub("[^A-Za-z0-9]", "?", session_id[:40]),
+                                                     programmatic=programmatic))
     except Exception as e:  # noqa: BLE001
         log.warning("The request could not be logged: %s", e)

@@ -9,6 +9,8 @@ All times are UTC, so the sessions, the jobs and the request log are grouped by 
   (queued or running)
 - users: distinct client addresses that loaded or submitted (the requests, refused ones included); submitters: those
   that submitted. One address is not one person (shared or changing addresses).
+- requests: those creating sessions and jobs, refused ones included; programmatic: of them, those of scripts and
+  assistants (the MCP server), not from the website
 """
 
 import asyncio
@@ -21,7 +23,7 @@ from sqlalchemy import select
 from ..core import storage
 
 COLUMNS = ["sessions", "PDB entries", "uploads", "deleted", "jobs", "tunnels", "pores",
-           "finished", "failed", "cancelled", "in progress", "users", "submitters"]
+           "finished", "failed", "cancelled", "in progress", "users", "submitters", "requests", "programmatic"]
 
 
 async def usage(db: storage.Database, length: int) -> dict[str, collections.Counter]:
@@ -41,8 +43,11 @@ async def usage(db: storage.Database, length: int) -> dict[str, collections.Coun
             row["in progress" if state in storage.JOB_IN_PROGRESS else state] += 1
         users, submitters = collections.defaultdict(set), collections.defaultdict(set)
         requests = storage.requests.c
-        for time, request, address in await c.execute(select(requests.time, requests.request, requests.address)):
+        for time, request, address, programmatic in await c.execute(select(requests.time, requests.request, requests.address,
+                                                                          requests.programmatic)):
             period = time.isoformat()[:length]
+            counts[period]["requests"] += 1
+            counts[period]["programmatic"] += programmatic
             users[period].add(address)
             if request == "Submit":
                 submitters[period].add(address)

@@ -22,6 +22,21 @@ def test_loads_are_logged(client, settings):
     assert logged(settings) == [("Init", "testclient", "Upload", id), ("Init", "testclient", "Upload", "-")]
 
 
+def test_programmatic_unless_from_the_website(client):
+    """The website's page sends its Origin, of the API's host; scripts and assistants none, or another site's"""
+    for origin in ["http://testserver", None, "https://elsewhere.example.org", "null", "https://["]:  # the last malformed
+        response = client.post("/sessions/upload", files={"file": ("1tqn.cif", STRUCTURE)}, headers={"Origin": origin} if origin else {})
+        assert response.status_code == 202
+    expected = [False, True, True, True, True]
+    assert [p for (p,) in query("SELECT programmatic FROM runs ORDER BY id")] == expected
+    assert [p for (p,) in query("SELECT programmatic FROM requests ORDER BY id")] == expected
+
+
+def test_a_malformed_origin_keeps_the_answer(client):
+    response = client.post("/sessions", json={"pdb_id": "nope"}, headers={"Origin": "https://["})
+    assert response.status_code == 422 and response.json()["detail"] == "Invalid PDB id [nope]."
+
+
 def test_requests_are_answered_without_the_log(client, caplog):
     query("DROP TABLE requests")  # cannot be written
     assert upload(client, "1tqn.cif", STRUCTURE).status_code == 202
@@ -46,3 +61,4 @@ def test_stats(client, settings):
     header, row = [line.split("\t") for line in output.splitlines()]
     values = dict(zip(header, row, strict=True))
     assert values["sessions"] == "1" and values["uploads"] == "1" and values["users"] == "1"
+    assert values["requests"] == "1" and values["programmatic"] == "1"  # the test client is no website

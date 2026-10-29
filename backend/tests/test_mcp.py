@@ -8,7 +8,7 @@ import pytest
 
 from moleonline.api import mcp_server
 
-from .conftest import STRUCTURE, upload, wait, wait_session
+from .conftest import STRUCTURE, query, upload, wait, wait_session
 
 TUNNEL = {"Id": "1", "Properties": {"Charge": 1, "Hydropathy": -0.5, "Polarity": 10.0},
           "Profile": [{"Radius": 1.5, "Distance": 0.0}, {"Radius": 1.1, "Distance": 4.0}, {"Radius": 2.0, "Distance": 12.34}],
@@ -71,6 +71,7 @@ def test_tunnels_and_their_summary(api, tmp_path):
     client.app.state.settings.public_url = "https://moleonline.example.org/"  # what users see, not the proxy's request
     assert tool(client, "get_job", session_id=id, number=1)[1]["web"] == f"https://moleonline.example.org/online/{id}/1"
 
+    assert query(f"SELECT programmatic FROM runs WHERE session_id = '{id}' AND number = 1") == [(True,)]  # an assistant's
     [submitted] = client.get(f"/sessions/{id}").json()["jobs"]  # a job like any other
     assert submitted["parameters"]["Origin"]["Residues"] == [[{"Chain": "A", "SequenceNumber": 308}, {"Chain": "A", "SequenceNumber": 309}]]
     resource = rpc(client, "resources/read", {"uri": f"mole://sessions/{id}/jobs/1/data"})

@@ -4,6 +4,7 @@ import asyncio
 import functools
 import json
 import logging
+import urllib.parse
 import uuid
 from contextlib import asynccontextmanager
 from http import HTTPStatus
@@ -135,11 +136,23 @@ class Version(BaseModel):
     mole: str | None  # of the MOLE that took the latest run; None before the first one
 
 
+def interactive(request: Request) -> bool:
+    """From the website's page: a browser adds the page's Origin to a POST, its host is the API's (any of the site's
+    domains); scripts, assistants and the MCP server's own requests have none. It sorts the traffic for the limits, it
+    proves nothing: a client faking it is treated as a web user, with a web user's limits of its address. A malformed
+    Origin is no website's."""
+    try:
+        origin = urllib.parse.urlsplit(request.headers.get("origin", ""))
+    except ValueError:
+        return False
+    return bool(origin.hostname) and origin.hostname == request.url.hostname
+
+
 def admission(request: Request) -> storage.Admission:
     """The limits a new session or job of the request's client is checked against"""
     settings: ApiSettings = request.app.state.settings
     return storage.Admission(settings.max_outstanding_computations, storage.client_of(request.client and request.client.host),
-                             settings.per_client(), settings.max_computations_per_hour)
+                             settings.per_client(), settings.max_computations_per_hour, programmatic=not interactive(request))
 
 
 async def create_from_upload(request: Request) -> StoredSession | JSONResponse:
@@ -268,7 +281,8 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
             created_id = s.id
             return created(request, response, s)
         finally:
-            await storage.log_request(request.app.state.db, "Init", request.client and request.client.host, "PDB", created_id)
+            await storage.log_request(request.app.state.db, "Init", request.client and request.client.host, "PDB", created_id,
+                                      not interactive(request))
 
     @sessions.post("/upload", status_code=202, responses=errors(413, 429, 503), openapi_extra=UPLOAD_FORM)
     async def upload_session(request: Request, response: Response) -> Session:
@@ -282,7 +296,8 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
             created_id = found.id
             return created(request, response, found)
         finally:
-            await storage.log_request(request.app.state.db, "Init", request.client and request.client.host, "Upload", created_id)
+            await storage.log_request(request.app.state.db, "Init", request.client and request.client.host, "Upload", created_id,
+                                      not interactive(request))
 
     @sessions.get("/{session_id}", responses=errors(404, 410))
     async def get_session(request: Request, session_id: str) -> Session:
@@ -353,7 +368,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         running); it waits for a worker, queued, and 503 (Retry-After) when the queue is full, 429 when the client
         has too many computations in it or started too many in the last hour."""
         await storage.log_request(request.app.state.db, "Submit", request.client and request.client.host, LOGGED_TYPES[new.type],
-                                  session_id)
+                                  session_id, not interactive(request))
         found = await find(request, session_id)
         if isinstance(found, JSONResponse):
             return found

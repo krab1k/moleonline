@@ -19,6 +19,7 @@ def upgrade() -> None:
     sa.Column('address', sa.String(length=64), nullable=True),
     sa.Column('kind', sa.String(length=8), nullable=False),
     sa.Column('session_id', sa.String(length=40), nullable=True),
+    sa.Column('programmatic', sa.Boolean(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('requests_by_time', 'requests', ['time'], unique=False)
@@ -63,6 +64,7 @@ def upgrade() -> None:
     sa.Column('started', sa.DateTime(timezone=True), nullable=True),
     sa.Column('ended', sa.DateTime(timezone=True), nullable=True),
     sa.Column('client', sa.String(length=64), nullable=True),
+    sa.Column('programmatic', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['session_id'], ['sessions.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
