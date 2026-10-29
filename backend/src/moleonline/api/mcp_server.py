@@ -27,7 +27,7 @@ from .upload import TOO_LARGE
 POLL_SECONDS = 2.0
 MAX_WAIT_SECONDS = 45  # a tool call returns by then, the model asks again; below the proxies' timeouts (nginx: 60 s)
 DOWNLOAD_SECONDS = 30  # of a structure at a URL, within the call's MAX_WAIT_SECONDS
-MAX_CHANNELS = 20  # in a summary, the rest only in the full results
+MAX_CHANNELS = 20  # in an answer of get_job, the next ones from next_offset
 MAX_REDIRECTS = 5
 LIGAND = re.compile(r"[A-Z0-9]{1,5}")  # a PDB chemical component id; nothing else gets into MOLE's query
 PROPERTIES = ("Charge", "Hydropathy", "Hydrophobicity", "Polarity", "Mutability")  # of a channel's, as ChannelsDB's
@@ -293,14 +293,17 @@ def create_server(app: FastAPI) -> MCPServer:
         return {"session_id": session_id, "number": job["number"], "state": job["state"]}
 
     @server.tool(annotations=READS)
-    async def get_job(ctx: Context, session_id: str, number: int, wait_seconds: int = 30) -> dict:
+    async def get_job(ctx: Context, session_id: str, number: int, wait_seconds: int = 30, offset: int = 0) -> dict:
         """The job's state (queued, running, finished, failed or cancelled) and what it computes with (the structure,
-        the parameters, MOLE's version); when finished, its channels, as MOLE lists them (not ranked), at most 20: ref
+        the parameters, MOLE's version); when finished, its channels, as MOLE lists them (not ranked), 20 at a time: a
+        job with more has next_offset, to list the next ones with offset. Each channel: ref
         (for get_channel, with their lining residues); length (Å); bottleneck_radius, the narrowest radius of the layer
         MOLE flags as the bottleneck (not counting the start, in the binding site), with bottleneck_at, its distances
         from the start; min_radius, the narrowest point anywhere, with min_radius_at; properties (charge, hydropathy,
         hydrophobicity, polarity, mutability). wait_seconds (at most 45) waits for the end. Also of a job the user
         computed on the website: its address is .../online/<session_id>/<number>."""
+        if offset < 0:
+            raise MoleError("offset is the position to list the channels from (from next_offset).")
         job = await waited(ctx, f"/sessions/{session_id}/jobs/{number}", wait_seconds, {"finished", "failed", "cancelled"})
         s = await call(ctx, "GET", f"/sessions/{session_id}")
         web, api = links(ctx)
@@ -312,8 +315,10 @@ def create_server(app: FastAPI) -> MCPServer:
         if job["state"] == "finished":
             data = await call(ctx, "GET", f"/sessions/{session_id}/jobs/{number}/results/data")
             channels = [channel_summary(ref, c) for ref, c in enumerate(channels_of(data), 1)]
-            answer |= {"channels": channels[:MAX_CHANNELS], "total_channels": len(channels),
-                       "full_results": f"mole://sessions/{session_id}/jobs/{number}/data",
+            answer |= {"channels": channels[offset:offset + MAX_CHANNELS], "total_channels": len(channels)}
+            if offset + MAX_CHANNELS < len(channels):
+                answer["next_offset"] = offset + MAX_CHANNELS
+            answer |= {"full_results": f"mole://sessions/{session_id}/jobs/{number}/data",
                        "downloads": {f: f"{api}/sessions/{session_id}/jobs/{number}/results/{f}" for f in ("report", "pymol", "pdb")}}
         return answer
 

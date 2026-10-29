@@ -73,7 +73,7 @@ def test_the_apis_problems_reach_the_model(client):
     assert failed and "404: Session [missing] does not exist." in text
 
 
-def test_tunnels_and_their_summary(api, tmp_path):
+def test_tunnels_and_their_summary(api, tmp_path, monkeypatch):
     (tmp_path / "data.json").write_text(json.dumps({"Channels": {"Tunnels": [TUNNEL], "Paths": [PATH]}}))
     client = api(run=f'mkdir -p "$(dirname "$1")/json" && cp {tmp_path / "data.json"} "$(dirname "$1")/json/data.json"')
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
@@ -113,6 +113,14 @@ def test_tunnels_and_their_summary(api, tmp_path):
     failed, answer = tool(client, "get_channel", session_id=id, number=1, channel=1)
     assert answer["channel"]["bottleneck_residues"] is None  # unknown, as the bottleneck
     assert answer["channel"]["unavailable"] == dict.fromkeys(("bottleneck_radius", "bottleneck_residues"), "several_bottleneck_flags")
+
+    monkeypatch.setattr(mcp_server, "MAX_CHANNELS", 1)  # one at a time, the next from next_offset
+    first = tool(client, "get_job", session_id=id, number=1)[1]
+    assert (first["channels"], first["total_channels"], first["next_offset"]) == ([path], 2, 1)
+    last = tool(client, "get_job", session_id=id, number=1, offset=1)[1]
+    assert (last["channels"], last["total_channels"], "next_offset" in last) == ([tunnel], 2, False)
+    assert tool(client, "get_job", session_id=id, number=1, offset=-1) == (
+        True, "Error executing tool get_job: offset is the position to list the channels from (from next_offset).")
     assert tool(client, "get_channel", session_id=id, number=1, channel=3) == (
         True, "Error executing tool get_channel: The job has no channel 3, its channels are 1 to 2 (ref in get_job).")
     assert job["web"] == f"http://testserver/online/{id}/1"  # from the request without PUBLIC_URL
