@@ -16,6 +16,7 @@ from fastapi import FastAPI, Request
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 from starlette.exceptions import HTTPException
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -29,6 +30,11 @@ DOWNLOAD_SECONDS = 30  # of a structure at a URL, within the call's MAX_WAIT_SEC
 MAX_CHANNELS = 20  # in a summary, the rest only in the full results
 MAX_REDIRECTS = 5
 LIGAND = re.compile(r"[A-Z0-9]{1,5}")  # a PDB chemical component id; nothing else gets into MOLE's query
+
+# hints for clients, e.g. to run the reading tools without asking each time (also each poll); they trust them for nothing
+READS = ToolAnnotations(read_only_hint=True, idempotent_hint=True, open_world_hint=False)
+CREATES = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False)
+CREATES_FROM_URL = CREATES.model_copy(update={"open_world_hint": True})  # downloads from anywhere
 
 # not in the API's log: each tool's requests to the API (httpx2), each stateless request's end of its MCP session
 logging.getLogger("httpx2").setLevel(logging.WARNING)
@@ -56,6 +62,15 @@ def session_view(ctx: Context, s: dict) -> dict:
     return {"session_id": s["id"], "state": s["state"], "error": s["error"] or None, "pdb_id": s["pdb_id"],
             "assembly": s["assembly_id"], "jobs": [{"number": j["number"], "type": j["type"], "state": j["state"]} for j in s["jobs"]],
             "web": f"{web}/online/{s['id']}"}
+
+
+def stated(value):
+    """The parameters without their empty parts (no origin points, no query, ...), as the model reads them"""
+    if isinstance(value, dict):
+        return {k: v for k, v in ((k, stated(v)) for k, v in value.items()) if v not in (None, "", [], {})}
+    if isinstance(value, list):
+        return [stated(v) for v in value]
+    return value
 
 
 def channel_summary(kind: str, channel: dict) -> dict:
@@ -139,7 +154,7 @@ def create_server(app: FastAPI) -> MCPServer:
                 return found
             await asyncio.sleep(POLL_SECONDS)
 
-    @server.tool()
+    @server.tool(annotations=CREATES)
     async def load_structure(ctx: Context, pdb_id: str, assembly: str = "preferred", wait_seconds: int = 30) -> dict:
         """Loads a PDB entry into a new session, on which tunnels and pores are computed. assembly: preferred (PDBe's
         preferred assembly), asymmetric (the asymmetric unit) or an assembly id. The session is ready when loaded;
@@ -147,7 +162,7 @@ def create_server(app: FastAPI) -> MCPServer:
         s = await call(ctx, "POST", "/sessions", json={"pdb_id": pdb_id, "assembly": assembly})
         return session_view(ctx, await waited(ctx, f"/sessions/{s['id']}", wait_seconds, {"ready", "failed"}))
 
-    @server.tool()
+    @server.tool(annotations=CREATES_FROM_URL)
     async def load_structure_url(ctx: Context, url: str, wait_seconds: int = 30) -> dict:
         """Loads a structure file at an https URL (e.g. an AlphaFold model) into a new session: PDB (*.pdb) or mmCIF
         (*.cif), also gzipped, at most 30 MB. The session is ready when loaded; wait_seconds (at most 45) waits for
@@ -162,13 +177,13 @@ def create_server(app: FastAPI) -> MCPServer:
         s = await call(ctx, "POST", "/sessions/upload", files={"file": (name, content)})
         return session_view(ctx, await waited(ctx, f"/sessions/{s['id']}", wait_seconds, {"ready", "failed"}, started))
 
-    @server.tool()
+    @server.tool(annotations=READS)
     async def get_session(ctx: Context, session_id: str, wait_seconds: int = 0) -> dict:
         """The session's state (queued, loading, ready or failed), its structure and its jobs. Also of a session the user
         computed on the website: its address is .../online/<session_id>, or .../online/<session_id>/<job number>."""
         return session_view(ctx, await waited(ctx, f"/sessions/{session_id}", wait_seconds, {"ready", "failed"}))
 
-    @server.tool()
+    @server.tool(annotations=CREATES)
     async def compute_tunnels(ctx: Context, session_id: str,
                               start: Literal["active_site", "residues", "ligand", "point", "auto"] = "active_site",
                               residues: list[str] | None = None, ligand: str | None = None, point: list[float] | None = None,
@@ -179,19 +194,23 @@ def create_server(app: FastAPI) -> MCPServer:
         its reactive atom), point (from the coordinates [x, y, z] in Å of the structure's frame, e.g. a pocket's centre
         from a predictor or a docked ligand) or auto (from the cavities MOLE finds). probe_radius (1.4-45 Å): larger
         finds wider mouths; bottleneck_radius (0-5 Å): the narrowest a tunnel may be, except over at most 3 Å of its
-        length (MOLE's bottleneck tolerance). Returns the job, read it with get_job. A ligand the structure does not
-        have, or a point outside its cavities, gives a finished job without tunnels, not an error."""
+        length (MOLE's bottleneck tolerance). Returns the job, read it with get_job, and the starting point used (of
+        active_site, the first of the sites M-CSA knows). A ligand the structure does not have, or a point outside its
+        cavities, gives a finished job without tunnels, not an error."""
         match start:
             case "active_site":
                 sites = await call(ctx, "GET", f"/sessions/{session_id}/active-sites")
                 if not sites:
                     raise MoleError("No active site is known for this structure (M-CSA). Use start=residues or start=auto.")
                 origin = {"Residues": [[{"Chain": r["Chain"], "SequenceNumber": r["SequenceNumber"]} for r in sites[0]]]}
+                used = {"active_site": [f"{r['Name']} {r['SequenceNumber']} {r['Chain']}" for r in sites[0]],
+                        "active_sites_known": len(sites)}
             case "residues":
                 if not residues:
                     raise MoleError('Give the residues as "chain number", e.g. ["A 308", "A 309"].')
                 try:
                     origin = {"Residues": [[{"Chain": chain, "SequenceNumber": int(number)} for chain, number in map(str.split, residues)]]}
+                    used = {"residues": residues}
                 except ValueError:
                     raise MoleError(f'Residues must be "chain number", e.g. "A 308", not {residues}.') from None
             case "ligand":
@@ -200,17 +219,20 @@ def create_server(app: FastAPI) -> MCPServer:
                     raise MoleError('Give the ligand\'s residue name (its PDB chemical component id), e.g. ligand="HEM".')
                 cofactors = await call(ctx, "GET", "/cofactors")
                 origin = {"QueryExpression": cofactors.get(name, f"Residues('{name}')")}
+                used = {"ligand": name, "query": origin["QueryExpression"]}
             case "point":
                 if point is None or len(point) != 3:
                     raise MoleError("Give the point as its coordinates [x, y, z] in Å, e.g. point=[-19.3, -23.6, -14.2].")
                 origin = {"Points": [dict(zip("XYZ", point, strict=True))]}
+                used = {"point": point}
             case "auto":
                 origin = {}
+                used = {"auto": "the cavities MOLE finds"}
         parameters = {"Cavity": {"ProbeRadius": probe_radius}, "Tunnel": {"BottleneckRadius": bottleneck_radius}, "Origin": origin}
         job = await call(ctx, "POST", f"/sessions/{session_id}/jobs", json={"type": "tunnels", "parameters": parameters})
-        return {"session_id": session_id, "number": job["number"], "state": job["state"]}
+        return {"session_id": session_id, "number": job["number"], "state": job["state"], "starting_point": used}
 
-    @server.tool()
+    @server.tool(annotations=CREATES)
     async def compute_pore(ctx: Context, session_id: str, in_membrane: bool = False, beta_barrel: bool = False,
                            chains: list[str] | None = None) -> dict:
         """Computes a pore across the membrane of a membrane protein: the membrane from OPM (the preferred assembly of a
@@ -220,14 +242,18 @@ def create_server(app: FastAPI) -> MCPServer:
         job = await call(ctx, "POST", f"/sessions/{session_id}/jobs", json={"type": "pores", "parameters": parameters})
         return {"session_id": session_id, "number": job["number"], "state": job["state"]}
 
-    @server.tool()
+    @server.tool(annotations=READS)
     async def get_job(ctx: Context, session_id: str, number: int, wait_seconds: int = 30) -> dict:
-        """The job's state (queued, running, finished, failed or cancelled); when finished, its channels: length and
-        bottleneck radius (Å), charge, hydropathy, polarity and lining residues. wait_seconds (at most 45) waits for the end.
-        Also of a job the user computed on the website: its address is .../online/<session_id>/<number>."""
+        """The job's state (queued, running, finished, failed or cancelled) and what it computes with (the structure,
+        the parameters, MOLE's version); when finished, its channels, as MOLE lists them (not ranked), at most 20: length
+        and bottleneck radius (Å), charge, hydropathy, polarity and lining residues. wait_seconds (at most 45) waits for
+        the end. Also of a job the user computed on the website: its address is .../online/<session_id>/<number>."""
         job = await waited(ctx, f"/sessions/{session_id}/jobs/{number}", wait_seconds, {"finished", "failed", "cancelled"})
+        s = await call(ctx, "GET", f"/sessions/{session_id}")
         web, api = links(ctx)
+        structure = f"PDB entry {s['pdb_id']}, assembly {s['assembly_id'] or 'asymmetric unit'}" if s["pdb_id"] else "an uploaded structure"
         answer = {"session_id": session_id, "number": number, "type": job["type"], "state": job["state"], "error": job["error"] or None,
+                  "computed_with": {"structure": structure, "mole_version": job["mole_version"], "parameters": stated(job["parameters"])},
                   "web": f"{web}/online/{session_id}/{number}"}
         if job["state"] == "finished":
             data = await call(ctx, "GET", f"/sessions/{session_id}/jobs/{number}/results/data")

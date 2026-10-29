@@ -170,9 +170,11 @@ In Claude's apps, add it as a custom connector with the same URL.
 | `get_session` | State of a session and its jobs |
 | `compute_tunnels` | Compute tunnels from the M-CSA active site, given residues, a ligand or cofactor (e.g. `HEM`), a point [x, y, z] or automatically found starting points |
 | `compute_pore` | Compute a pore through the membrane |
-| `get_job` | State of a job; when finished, summaries of up to 20 channels: length, bottleneck, charge, hydropathy, polarity, lining residues |
+| `get_job` | State of a job and what it computes with (structure, parameters, MOLE's version); when finished, summaries of up to 20 channels in MOLE's order: length, bottleneck, charge, hydropathy, polarity, lining residues |
 
-The answers also link to the result on the website and to the downloads. MOLE's full `data.json` is available as the
+`compute_tunnels` also says which starting point it used (for `active_site`, the residues of the first site M-CSA
+knows). Reading tools are marked read-only, so clients may run them without asking each time. The answers also link
+to the result on the website and to the downloads. MOLE's full `data.json` is available as the
 resource `mole://sessions/{id}/jobs/{n}/data`, with all the channels.
 
 The tools call the API's endpoints inside the API process, so the same validation applies as for the REST API. Their
