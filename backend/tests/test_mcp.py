@@ -10,9 +10,25 @@ from moleonline.api import mcp_server
 
 from .conftest import MOLE_VERSION, STRUCTURE, query, upload, wait, wait_session
 
-TUNNEL = {"Id": "1", "Properties": {"Charge": 1, "Hydropathy": -0.5, "Polarity": 10.0},
-          "Profile": [{"Radius": 1.5, "Distance": 0.0}, {"Radius": 1.1, "Distance": 4.0}, {"Radius": 2.0, "Distance": 12.34}],
-          "Layers": {"ResidueFlow": ["THR 309 A", "GLY 310 A Backbone", "THR 309 A", "GLY 310 A"]}}
+PROPERTIES = {"Charge": 1, "Hydropathy": -0.5, "Hydrophobicity": 0.2, "Polarity": 10.0, "Mutability": 80, "LogP": 1.0}
+
+
+def layer(start: float, end: float, radius: float, bottleneck: bool = False) -> dict:
+    """MOLE leaves the flag out of the other layers"""
+    geometry = {"StartDistance": start, "EndDistance": end, "MinRadius": radius}
+    return {"LayerGeometry": geometry | ({"Bottleneck": True} if bottleneck else {})}
+
+
+# narrowest at the start, in the binding site; its bottleneck further on
+TUNNEL = {"Type": "Tunnel", "Id": "1", "Properties": PROPERTIES,
+          "Profile": [{"Radius": 0.9, "Distance": 0.0}, {"Radius": 1.1, "Distance": 4.0}, {"Radius": 2.0, "Distance": 12.34}],
+          "Layers": {"ResidueFlow": ["THR 309 A", "GLY 310 A Backbone", "THR 309 A", "GLY 310 A", "ALA 5 B-2"],
+                     "LayersInfo": [layer(0.0, 2.0, 0.9), layer(2.0, 6.04, 1.1, bottleneck=True), layer(6.04, 12.34, 2.0)]}}
+# a pore job's pore; MOLE flagging two layers, no bottleneck can be told
+PATH = {"Type": "Path", "Id": "2", "Properties": PROPERTIES,
+        "Profile": [{"Radius": 1.5, "Distance": 0.0}, {"Radius": 1.2, "Distance": 30.0}],
+        "Layers": {"ResidueFlow": ["LEU 12 A"],
+                   "LayersInfo": [layer(0.0, 10.0, 1.5, bottleneck=True), layer(10.0, 30.0, 1.2, bottleneck=True)]}}
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +73,7 @@ def test_the_apis_problems_reach_the_model(client):
 
 
 def test_tunnels_and_their_summary(api, tmp_path):
-    (tmp_path / "data.json").write_text(json.dumps({"Channels": {"Tunnels": [TUNNEL]}}))
+    (tmp_path / "data.json").write_text(json.dumps({"Channels": {"Tunnels": [TUNNEL], "Paths": [PATH]}}))
     client = api(run=f'mkdir -p "$(dirname "$1")/json" && cp {tmp_path / "data.json"} "$(dirname "$1")/json/data.json"')
     id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
     wait_session(client, id)
@@ -67,15 +83,21 @@ def test_tunnels_and_their_summary(api, tmp_path):
     assert tool(client, "compute_tunnels", session_id=id, start="residues", residues=["A 308", "A 309"]) == (
         False, {"session_id": id, "number": 1, "state": "queued", "starting_point": {"residues": ["A 308", "A 309"]}})
     failed, job = tool(client, "get_job", session_id=id, number=1, wait_seconds=10)
-    assert not failed and job["state"] == "finished"
+    assert not failed and (job["source"], job["state"]) == ("moleonline", "finished")
     computed_with = job["computed_with"]  # what the answer is of: the structure, MOLE, the parameters without empty parts
     assert (computed_with["structure"], computed_with["mole_version"]) == ("an uploaded structure", MOLE_VERSION)
     parameters = computed_with["parameters"]
     assert parameters["Origin"] == {"Residues": [[{"Chain": "A", "SequenceNumber": 308}, {"Chain": "A", "SequenceNumber": 309}]]}
     assert (parameters["Cavity"]["ProbeRadius"], parameters["Tunnel"]["BottleneckTolerance"]) == (5.0, 3.0)
     assert "CustomExits" not in parameters and "QueryFilter" not in parameters
-    assert job["channels"] == [{"type": "Tunnels", "id": "1", "length": 12.3, "bottleneck_radius": 1.1, "charge": 1, "hydropathy": -0.5,
-                                "polarity": 10.0, "lining_residues": ["THR 309 A", "GLY 310 A"]}]
+    properties = {"charge": 1, "hydropathy": -0.5, "hydrophobicity": 0.2, "polarity": 10.0, "mutability": 80}
+    assert job["channels"] == [
+        {"type": "Tunnel", "id": "1", "length": 12.3, "bottleneck_radius": 1.1, "bottleneck_at": [2.0, 6.0], "min_radius": 0.9,
+         "min_radius_at": 0.0, "properties": properties, "lining_residues": ["THR 309 A", "GLY 310 A", "ALA 5 B-2"]},
+        {"type": "Path", "id": "2", "length": 30.0, "bottleneck_radius": None, "bottleneck_at": None, "min_radius": 1.2,
+         "min_radius_at": 30.0, "unavailable": {"bottleneck_radius": "several_bottleneck_flags"}, "properties": properties,
+         "lining_residues": ["LEU 12 A"]}]
+    assert job["total_channels"] == 2
     assert job["web"] == f"http://testserver/online/{id}/1"  # from the request without PUBLIC_URL
     assert job["downloads"]["pymol"] == f"http://testserver/sessions/{id}/jobs/1/results/pymol"
     client.app.state.settings.public_url = "https://moleonline.example.org/"  # what users see, not the proxy's request
@@ -85,7 +107,7 @@ def test_tunnels_and_their_summary(api, tmp_path):
     [submitted] = client.get(f"/sessions/{id}").json()["jobs"]  # a job like any other
     assert submitted["parameters"]["Origin"]["Residues"] == [[{"Chain": "A", "SequenceNumber": 308}, {"Chain": "A", "SequenceNumber": 309}]]
     resource = rpc(client, "resources/read", {"uri": f"mole://sessions/{id}/jobs/1/data"})
-    assert json.loads(resource["contents"][0]["text"]) == {"Channels": {"Tunnels": [TUNNEL]}}
+    assert json.loads(resource["contents"][0]["text"]) == {"Channels": {"Tunnels": [TUNNEL], "Paths": [PATH]}}
 
 
 def test_starting_points(client):
