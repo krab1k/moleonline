@@ -7,6 +7,7 @@ import asyncio
 import ipaddress
 import json
 import logging
+import re
 import urllib.parse
 from typing import Literal
 
@@ -27,6 +28,7 @@ MAX_WAIT_SECONDS = 45  # a tool call returns by then, the model asks again; belo
 DOWNLOAD_SECONDS = 30  # of a structure at a URL, within the call's MAX_WAIT_SECONDS
 MAX_CHANNELS = 20  # in a summary, the rest only in the full results
 MAX_REDIRECTS = 5
+LIGAND = re.compile(r"[A-Z0-9]{1,5}")  # a PDB chemical component id; nothing else gets into MOLE's query
 
 # not in the API's log: each tool's requests to the API (httpx2), each stateless request's end of its MCP session
 logging.getLogger("httpx2").setLevel(logging.WARNING)
@@ -167,12 +169,18 @@ def create_server(app: FastAPI) -> MCPServer:
         return session_view(ctx, await waited(ctx, f"/sessions/{session_id}", wait_seconds, {"ready", "failed"}))
 
     @server.tool()
-    async def compute_tunnels(ctx: Context, session_id: str, start: Literal["active_site", "residues", "auto"] = "active_site",
-                              residues: list[str] | None = None, probe_radius: float = 5.0, bottleneck_radius: float = 1.25) -> dict:
+    async def compute_tunnels(ctx: Context, session_id: str,
+                              start: Literal["active_site", "residues", "ligand", "point", "auto"] = "active_site",
+                              residues: list[str] | None = None, ligand: str | None = None, point: list[float] | None = None,
+                              probe_radius: float = 5.0, bottleneck_radius: float = 1.25) -> dict:
         """Computes tunnels from a starting point to the surface. start: active_site (the active site from M-CSA, PDB
-        entries only), residues (around the residues given as "A 308", chain and number) or auto (from the cavities MOLE
-        finds). probe_radius (1.4-45 Å): larger finds wider mouths; bottleneck_radius (0-5 Å): the narrowest a tunnel may
-        be, except over at most 3 Å of its length (MOLE's bottleneck tolerance). Returns the job, read it with get_job."""
+        entries only), residues (around the residues given as "A 308", chain and number, as the structure file numbers
+        them), ligand (from each copy of the ligand or cofactor with this residue name, e.g. HEM; a known cofactor from
+        its reactive atom), point (from the coordinates [x, y, z] in Å of the structure's frame, e.g. a pocket's centre
+        from a predictor or a docked ligand) or auto (from the cavities MOLE finds). probe_radius (1.4-45 Å): larger
+        finds wider mouths; bottleneck_radius (0-5 Å): the narrowest a tunnel may be, except over at most 3 Å of its
+        length (MOLE's bottleneck tolerance). Returns the job, read it with get_job. A ligand the structure does not
+        have, or a point outside its cavities, gives a finished job without tunnels, not an error."""
         match start:
             case "active_site":
                 sites = await call(ctx, "GET", f"/sessions/{session_id}/active-sites")
@@ -186,6 +194,16 @@ def create_server(app: FastAPI) -> MCPServer:
                     origin = {"Residues": [[{"Chain": chain, "SequenceNumber": int(number)} for chain, number in map(str.split, residues)]]}
                 except ValueError:
                     raise MoleError(f'Residues must be "chain number", e.g. "A 308", not {residues}.') from None
+            case "ligand":
+                name = (ligand or "").strip().upper()
+                if not LIGAND.fullmatch(name):
+                    raise MoleError('Give the ligand\'s residue name (its PDB chemical component id), e.g. ligand="HEM".')
+                cofactors = await call(ctx, "GET", "/cofactors")
+                origin = {"QueryExpression": cofactors.get(name, f"Residues('{name}')")}
+            case "point":
+                if point is None or len(point) != 3:
+                    raise MoleError("Give the point as its coordinates [x, y, z] in Å, e.g. point=[-19.3, -23.6, -14.2].")
+                origin = {"Points": [dict(zip("XYZ", point, strict=True))]}
             case "auto":
                 origin = {}
         parameters = {"Cavity": {"ProbeRadius": probe_radius}, "Tunnel": {"BottleneckRadius": bottleneck_radius}, "Origin": origin}

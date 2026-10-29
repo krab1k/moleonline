@@ -148,7 +148,7 @@ In Claude's apps, add it as a custom connector with the same URL.
 | `load_structure` | Load a PDB entry |
 | `load_structure_url` | Load a structure file from a public https URL, e.g. an AlphaFold model (up to 30 MB, downloaded within 30 s) |
 | `get_session` | State of a session and its jobs |
-| `compute_tunnels` | Compute tunnels from the M-CSA active site, from given residues or from automatically found starting points |
+| `compute_tunnels` | Compute tunnels from the M-CSA active site, given residues, a ligand or cofactor (e.g. `HEM`), a point [x, y, z] or automatically found starting points |
 | `compute_pore` | Compute a pore through the membrane |
 | `get_job` | State of a job; when finished, summaries of up to 20 channels: length, bottleneck, charge, hydropathy, polarity, lining residues |
 

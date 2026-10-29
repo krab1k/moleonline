@@ -8,7 +8,7 @@ import pytest
 
 from moleonline.api import mcp_server
 
-from .conftest import STRUCTURE, upload, wait_session
+from .conftest import STRUCTURE, upload, wait, wait_session
 
 TUNNEL = {"Id": "1", "Properties": {"Charge": 1, "Hydropathy": -0.5, "Polarity": 10.0},
           "Profile": [{"Radius": 1.5, "Distance": 0.0}, {"Radius": 1.1, "Distance": 4.0}, {"Radius": 2.0, "Distance": 12.34}],
@@ -75,6 +75,31 @@ def test_tunnels_and_their_summary(api, tmp_path):
     assert submitted["parameters"]["Origin"]["Residues"] == [[{"Chain": "A", "SequenceNumber": 308}, {"Chain": "A", "SequenceNumber": 309}]]
     resource = rpc(client, "resources/read", {"uri": f"mole://sessions/{id}/jobs/1/data"})
     assert json.loads(resource["contents"][0]["text"]) == {"Channels": {"Tunnels": [TUNNEL]}}
+
+
+def test_starting_points(client):
+    """A ligand, a known cofactor from its atom, or a point: the job's origin as the website would submit it"""
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
+    wait_session(client, id)
+    origins = []
+    for number, start in enumerate([{"ligand": "hem"}, {"ligand": "LIG"}, {"point": [-19.28, -23.62, -14.17]}], 1):
+        kind = next(iter(start))
+        assert tool(client, "compute_tunnels", session_id=id, start=kind, **start)[1]["number"] == number
+        wait(client, id, number)
+        origins.append(client.get(f"/sessions/{id}/jobs/{number}").json()["parameters"]["Origin"])
+    assert [o["QueryExpression"] for o in origins[:2]] == ["Atoms('Fe').Inside(Residues('HEM'))", "Residues('LIG')"]
+    assert origins[2]["Points"] == [{"X": -19.28, "Y": -23.62, "Z": -14.17}]
+
+
+@pytest.mark.parametrize(("start", "message"), [
+    ({"start": "ligand"}, "Give the ligand's residue name"),
+    ({"start": "ligand", "ligand": "HEM') or Residues('ALA"}, "Give the ligand's residue name"),  # nothing else into the query
+    ({"start": "point"}, "Give the point as its coordinates [x, y, z]"),
+    ({"start": "point", "point": [1.0, 2.0]}, "Give the point as its coordinates [x, y, z]"),
+])
+def test_starting_points_refused(client, start, message):
+    failed, text = tool(client, "compute_tunnels", session_id="any", **start)
+    assert failed and message in text
 
 
 @pytest.mark.parametrize(("url", "message"), [
