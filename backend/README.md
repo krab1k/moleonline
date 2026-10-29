@@ -168,7 +168,7 @@ In Claude's apps, add it as a custom connector with the same URL.
 | `load_structure` | Load a PDB entry |
 | `load_structure_url` | Load a structure file from a public https URL, e.g. an AlphaFold or AlphaFill model (up to 30 MB, downloaded within 30 s; PDB or mmCIF by the extension, or by the content when the URL has none) |
 | `get_session` | State of a session and its jobs |
-| `compute_tunnels` | Compute tunnels from the M-CSA active site, given residues, ligands or cofactors (e.g. `["HEM"]`), a point [x, y, z] or automatically found starting points |
+| `compute_tunnels` | Compute tunnels from the M-CSA active site, given residues, ligands or cofactors (e.g. `["HEM"]`), a point [x, y, z] or automatically found starting points; optionally with all parameters in the API's shape (`MoleParameters`), e.g. those ChannelsDB's MCP server gives |
 | `compute_pore` | Compute a pore through the membrane |
 | `get_job` | State of a job and what it computes with (structure, starting point, parameters, MOLE's version); when finished, summaries of its channels in MOLE's order, 20 at a time (`offset`, `next_offset`): length, bottleneck (the layer MOLE flags) and narrowest point, properties |
 | `get_channel` | One channel of a finished job: its summary, lining and bottleneck residues, each with its parts (name, number, chain, symmetry copy, insertion code) and whether only its backbone lines the channel |

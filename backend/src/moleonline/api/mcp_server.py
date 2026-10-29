@@ -8,9 +8,10 @@ import ipaddress
 import json
 import logging
 import re
+import types
 import urllib.parse
 import zlib
-from typing import Literal
+from typing import Literal, Union, get_args, get_origin
 
 import httpx2
 from fastapi import FastAPI, Request
@@ -18,11 +19,13 @@ from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
+from pydantic import BaseModel
 from starlette.exceptions import HTTPException
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ..core.limits import MAX_STRUCTURE_MB, MB
+from ..core.parameters import MoleParameters
 from .upload import TOO_LARGE, stored_name
 
 POLL_SECONDS = 2.0
@@ -172,6 +175,27 @@ def given_residue(residue: str) -> dict:
     return {"Chain": chain, "SequenceNumber": int(number)}
 
 
+def check_names(value, annotation, path: str = "parameters") -> None:
+    """The names in compute_tunnels' parameters, at every depth (residues and points in lists too): the API ignores
+    unknown ones (the website sends some), so a misspelt one would be ignored, e.g. a residue's SequenceNumer making it
+    residue 0; their values the API checks"""
+    if get_origin(annotation) in (Union, types.UnionType):  # X | None
+        for option in get_args(annotation):
+            if option is not type(None):
+                check_names(value, option, path)
+    elif get_origin(annotation) is list and isinstance(value, list):
+        for i, item in enumerate(value):
+            check_names(item, get_args(annotation)[0], f"{path}[{i}]")
+    elif isinstance(annotation, type) and issubclass(annotation, BaseModel) and value is not None:
+        fields = annotation.model_fields
+        if not isinstance(value, dict):
+            raise MoleError(f"{path} must be an object of {sorted(fields)}.")
+        if unknown := set(value) - set(fields):
+            raise MoleError(f"Unknown names in {path}: {sorted(unknown)}, known are {sorted(fields)} (MOLEonline's MoleParameters).")
+        for name, item in value.items():
+            check_names(item, fields[name].annotation, f"{path}.{name}")
+
+
 async def check_public(url: str) -> None:
     """The server must not be made to reach addresses only it can (the cluster, the cloud's metadata); httpx resolves
     the name again, a resolver that changes its answer in between gets past this"""
@@ -298,20 +322,31 @@ def create_server(app: FastAPI) -> MCPServer:
 
     @server.tool(annotations=CREATES)
     async def compute_tunnels(ctx: Context, session_id: str,
-                              start: Literal["active_site", "residues", "ligand", "point", "auto"] = "active_site",
+                              start: Literal["active_site", "residues", "ligand", "point", "auto"] | None = None,
                               residues: list[str] | None = None, ligands: list[str] | None = None,
-                              point: list[float] | None = None, probe_radius: float = 5.0, bottleneck_radius: float = 1.25) -> dict:
+                              point: list[float] | None = None, probe_radius: float | None = None,
+                              bottleneck_radius: float | None = None, parameters: dict | None = None) -> dict:
         """Computes tunnels from a starting point to the surface. start: active_site (the active site from M-CSA, PDB
-        entries only), residues (around the residues given as "A 308", chain and number, as the structure file numbers
-        them; not with insertion codes yet), ligand (from each copy of the ligands or cofactors with these residue names,
-        e.g. ["HEM"]; a known cofactor from its reactive atom), point (from the coordinates [x, y, z] in Å of the
-        structure's frame, e.g. a pocket's centre from a predictor or a docked ligand) or auto (from the cavities MOLE
-        finds). probe_radius (1.4-45 Å): larger finds wider mouths; bottleneck_radius (0-5 Å): the narrowest a tunnel
-        may be, except over at most 3 Å of its length (MOLE's bottleneck tolerance). Returns the job, read it with
-        get_job, and its starting_point as ChannelsDB gives it (of active_site, the residues of the first of the sites
-        M-CSA knows, with active_sites_known). A ligand the structure does not have, or a point outside its cavities,
-        gives a finished job without tunnels, not an error."""
+        entries only; the default without parameters), residues (around the residues given as "A 308", chain and number,
+        as the structure file numbers them; not with insertion codes yet), ligand (from each copy of the ligands or
+        cofactors with these residue names, e.g. ["HEM"]; a known cofactor from its reactive atom), point (from the
+        coordinates [x, y, z] in Å of the structure's frame, e.g. a pocket's centre from a predictor or a docked
+        ligand) or auto (from the cavities MOLE finds). probe_radius (1.4-45 Å, 5 by default): larger finds wider
+        mouths; bottleneck_radius (0-5 Å, 1.25 by default): the narrowest a tunnel may be, except over at most 3 Å of
+        its length (MOLE's bottleneck tolerance). parameters: all of MOLE's parameters in the shape of MOLEonline's API
+        (MoleParameters: Input, Cavity, Tunnel, Origin, NonActiveResidues, QueryFilter, CustomExits), e.g. ChannelsDB's
+        computed_with.parameters as they are, to compute the like; the arguments above override them, its Origin is the
+        starting point unless start is given (none: auto). Returns the job, read it with get_job, and its
+        starting_point as ChannelsDB gives it (of active_site, the residues of the first of the sites M-CSA knows, with
+        active_sites_known). A ligand the structure does not have, or a point outside its cavities, gives a finished job
+        without tunnels, not an error."""
+        if parameters is not None:
+            check_names(parameters, MoleParameters)
+            parameters = dict(parameters)  # the caller's unchanged: only its parts are replaced below
+        if start is None and parameters is None:
+            start = "active_site"
         known = {}
+        origin = (parameters or {}).get("Origin") or {}
         match start:
             case "active_site":
                 sites = await call(ctx, "GET", f"/sessions/{session_id}/active-sites")
@@ -335,9 +370,15 @@ def create_server(app: FastAPI) -> MCPServer:
                 origin = {"Points": [dict(zip("XYZ", point, strict=True))]}
             case "auto":
                 origin = {}
-        parameters = {"Cavity": {"ProbeRadius": probe_radius}, "Tunnel": {"BottleneckRadius": bottleneck_radius}, "Origin": origin}
+        parameters = (parameters or {}) | {"Origin": origin}
+        if probe_radius is not None:
+            parameters["Cavity"] = parameters.get("Cavity", {}) | {"ProbeRadius": probe_radius}
+        if bottleneck_radius is not None:
+            parameters["Tunnel"] = parameters.get("Tunnel", {}) | {"BottleneckRadius": bottleneck_radius}
         job = await call(ctx, "POST", f"/sessions/{session_id}/jobs", json={"type": "tunnels", "parameters": parameters})
-        return {"session_id": session_id, "number": job["number"], "state": job["state"], "starting_point": starting_point(origin)} | known
+        # of the origin as the API completed it (a point's missing Y is 0)
+        return {"session_id": session_id, "number": job["number"], "state": job["state"],
+                "starting_point": starting_point(job["parameters"]["Origin"])} | known
 
     @server.tool(annotations=CREATES)
     async def compute_pore(ctx: Context, session_id: str, in_membrane: bool = False, beta_barrel: bool = False,

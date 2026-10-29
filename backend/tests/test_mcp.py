@@ -179,6 +179,54 @@ def test_starting_points(client):
                     [{"start": "auto"}]]
 
 
+def test_parameters_as_given(client):
+    """ChannelsDB's computed_with.parameters as they are, to compute the like; the arguments override them"""
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
+    wait_session(client, id)
+    given = {"Input": {"SpecificChains": "A"}, "Cavity": {"ProbeRadius": 3.0, "InteriorThreshold": 1.2},
+             "Tunnel": {"WeightFunction": "LengthAndRadius", "BottleneckRadius": 1.0}, "Origin": {"QueryExpression": "Residues('HEM')"},
+             "NonActiveResidues": [{"Chain": "A", "SequenceNumber": 1}]}
+    calls = [({"parameters": given}, [{"start": "ligand", "ligands": ["HEM"]}]),
+             ({"parameters": given, "probe_radius": 6.0, "start": "point", "point": [1, 2, 3]}, [{"start": "point", "point": [1, 2, 3]}]),
+             ({"parameters": {"Cavity": {"ProbeRadius": 4.0}}}, [{"start": "auto"}]),  # without Origin: auto, as in the API
+             # as the API completes and converts it
+             ({"parameters": {"Origin": {"Points": [{"X": 1}], "Residues": [[{"Chain": "A", "SequenceNumber": "308"}]]}}},
+              [{"start": "residues", "residues": ["A 308"]}, {"start": "point", "point": [1.0, 0.0, 0.0]}])]
+    stored = []
+    for number, (arguments, start) in enumerate(calls, 1):
+        failed, job = tool(client, "compute_tunnels", session_id=id, **arguments)
+        assert not failed and job["starting_point"] == start
+        wait(client, id, number)
+        stored.append(client.get(f"/sessions/{id}/jobs/{number}").json()["parameters"])
+    assert stored[0]["Input"]["SpecificChains"] == "A" and stored[0]["NonActiveResidues"] == [{"Chain": "A", "SequenceNumber": 1}]
+    assert (stored[0]["Cavity"]["InteriorThreshold"], stored[0]["Tunnel"]["WeightFunction"]) == (1.2, "LengthAndRadius")
+    assert (stored[0]["Cavity"]["ProbeRadius"], stored[0]["Origin"]["QueryExpression"]) == (3.0, "Residues('HEM')")
+    assert (stored[1]["Cavity"]["ProbeRadius"], stored[1]["Cavity"]["InteriorThreshold"]) == (6.0, 1.2)  # overridden, the rest kept
+    assert (stored[1]["Origin"]["Points"], stored[1]["Origin"]["QueryExpression"]) == ([{"X": 1, "Y": 2, "Z": 3}], None)
+    assert stored[2]["Origin"] == {"Points": None, "QueryExpression": None, "Residues": None}
+    assert given["Cavity"] == {"ProbeRadius": 3.0, "InteriorThreshold": 1.2}  # the caller's not changed
+
+
+@pytest.mark.parametrize(("parameters", "message"), [
+    ({"cavity": {"ProbeRadius": 3}}, "Unknown names in parameters: ['cavity'], known are ['Cavity', 'CustomExits', 'Input',"),
+    ({"Cavity": {"Proberadius": 3}}, "Unknown names in parameters.Cavity: ['Proberadius'], known are"),
+    ({"Tunnel": 1.0}, "parameters.Tunnel must be an object of ['BottleneckRadius',"),
+    # in lists too, else the residue would be A 0
+    ({"NonActiveResidues": [{"Chain": "A", "SequenceNumer": 308}]},
+     "Unknown names in parameters.NonActiveResidues[0]: ['SequenceNumer'], known are ['Chain', 'SequenceNumber']"),
+    ({"Origin": {"Residues": [[{"Chain": "A", "SequenceNumber": 1}, {"chain": "A"}]]}},
+     "Unknown names in parameters.Origin.Residues[0][1]: ['chain']"),
+    ({"Origin": {"Points": [{"X": 1, "y": 2}]}}, "Unknown names in parameters.Origin.Points[0]: ['y']"),
+    ({"CustomExits": {"Points": [{"x": 1}]}}, "Unknown names in parameters.CustomExits.Points[0]: ['x']"),
+    ({"Cavity": {"ProbeRadius": 100}}, "422: Invalid parameters. Probe radius must be between 1.4 and 45."),  # the API's
+])
+def test_parameters_refused(client, parameters, message):
+    id = upload(client, "1tqn.cif", STRUCTURE).json()["id"]
+    wait_session(client, id)
+    failed, text = tool(client, "compute_tunnels", session_id=id, parameters=parameters)
+    assert failed and message in text, text
+
+
 @pytest.mark.parametrize(("origin", "start"), [
     ({"Residues": [[{"Chain": "A", "SequenceNumber": 308}], [{"Chain": "B", "SequenceNumber": -2}]], "Points": None},
      [{"start": "residues", "residues": ["A 308"]}, {"start": "residues", "residues": ["B -2"]}]),
